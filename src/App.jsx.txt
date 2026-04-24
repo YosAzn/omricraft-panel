@@ -1,0 +1,95 @@
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { 
+  Server, Play, Square, Package, Plus, Search, 
+  Terminal, HardDrive, Cpu, ArrowLeft, Check, Download, AlertCircle,
+  Globe, User, Trash2, X, Library, UploadCloud, Link as LinkIcon,
+  Shield, Users, RefreshCw, Map as MapIcon, RefreshCcw, Settings,
+  Star, Layers, Camera, ImageIcon, Edit3, Palette,
+  Folder, FileText, FileCode, Save
+} from 'lucide-react';
+
+// --- Firebase Setup ---
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, updateDoc } from 'firebase/firestore';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBc72tYqQAlJarsqt5CUJQ93rFCfHIZe3M",
+  authDomain: "omricraft-74735.firebaseapp.com",
+  projectId: "omricraft-74735",
+  storageBucket: "omricraft-74735.firebasestorage.app",
+  messagingSenderId: "308782209773",
+  appId: "1:308782209773:web:4a5808ece4a1d7f06e4ae4"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// --- מילון שפות ---
+const DICT = {
+  he: {
+    appTitle: "OmriCraft",
+    dashboard: "לוח בקרה",
+    repo: "מאגר תוספים",
+    ourServers: "השרתים שלנו",
+    manageDesc: "נהל את העולמות, המודים והפלאגינים שלך.",
+    newServer: "שרת חדש",
+    noServers: "אין שרתים עדיין",
+    noServersDesc: "לחץ על הכפתור כדי ליצור את שרת המיינקראפט הראשון שלכם.",
+    create: "יצירת שרת",
+    online: "מחובר",
+    offline: "מנותק",
+    starting: "מתחיל...",
+    start: "הפעל",
+    stop: "כיבוי",
+    restart: "הפעלה מחדש",
+    manage: "ניהול שרת",
+    back: "חזרה",
+    serverName: "שם השרת",
+    serverIcon: "לוגו השרת",
+    uploadIcon: "העלה לוגו",
+    removeIcon: "הסר לוגו",
+    software: "סוג שרת (Software)",
+    version: "גרסת מיינקראפט",
+    gamemode: "מצב משחק",
+    survival: "הישרדות (Survival)",
+    creative: "יצירתי (Creative)",
+    adventure: "הרפתקה (Adventure)",
+    spectator: "צופה (Spectator)",
+    worldType: "סוג עולם",
+    worldDefault: "רגיל (Default)",
+    worldFlat: "שטוח (Flat)",
+    opPlayers: "שחקני OP (מנהלים)",
+    opPlayersDesc: "הכנס שמות משתמש מופרדים בפסיק (לדוגמה: Omri,Notch)",
+    seed: "Seed לעולם (מושאר ריק? ניצור אחד רנדומלי)",
+    cancel: "ביטול",
+    selectAddons: "בחר תוספים מראש (אופציונלי)",
+    overview: "מבט כללי",
+    console: "קונסולה",
+    addonsTab: "תוספים וטקסטורות",
+    filesTab: "קבצים והגדרות",
+    advanced: "הגדרות מתקדמות",
+    mapTab: "מפה חיה",
+    players: "שחקנים",
+    ram: "RAM",
+    cpu: "מעבד",
+    copyIp: "העתק IP",
+    install: "התקן",
+    uninstall: "הסר",
+    search: "חיפוש תוסף לפי שם או תיאור...",
+    noResults: "לא נמצאו תוצאות.",
+    basicSettings: "הגדרות בסיסיות",
+    maxPlayers: "מקסימום שחקנים",
+    discordWebhook: "Discord Webhook (התראות לשרת)",
+    dangerZone: "פעולות מסוכנות",
+    deleteServer: "מחיקת שרת",
+    deleteServerDesc: "פעולה זו תמחק לחלוטין את השרת, את העולם ואת כל המודים שהתקנתם. לא ניתן לבטל.",
+    deleteBtn: "מחק לצמיתות",
+    addCustomAddon: "הוסף תוסף אישי",
+    createModpack: "יצירת Modpack מותאם אישית",
+    addonName: "שם התוסף / מודפאק",
+    addonDesc: "תיאור קצר (מה הוא עושה?)",
+    save: "שמור למאגר",
+    language: "שנה שפה",
+    globalRepoDesc: "כאן תוכלו לחפש תוספים, טקסטורות,
