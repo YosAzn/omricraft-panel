@@ -314,33 +314,49 @@ export default function App() {
   // --- FIREBASE INTEGRATION (AUTH & SYNC) ---
   useEffect(() => {
     if (!auth) return;
+    
+    const initAuth = async () => {
+      try {
+        await signInAnonymously(auth);
+      } catch (e) {
+        console.error("Auth Error:", e);
+      }
+    };
+    
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setAuthUser(user);
       } else {
-        signInAnonymously(auth).catch(e => console.error("Auth Error:", e));
+        initAuth();
       }
     });
+
     return () => unsubscribe();
   }, []);
 
   const getServersPath = () => {
-    if (!authUser) return 'temp_servers';
+    if (!authUser) return null;
     return `users/${authUser.uid}/servers`;
   };
 
   const getAddonsPath = () => {
-    return `customAddons`;
+    if (!authUser) return null;
+    return `users/${authUser.uid}/customAddons`;
   };
 
   useEffect(() => {
     if (!db || !authUser) return;
 
-    const unsubServers = onSnapshot(collection(db, getServersPath()), (snap) => {
+    const serversPath = getServersPath();
+    const addonsPath = getAddonsPath();
+
+    if (!serversPath || !addonsPath) return;
+
+    const unsubServers = onSnapshot(collection(db, serversPath), (snap) => {
       setServers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (err) => console.error("Firestore Listen Error (Servers):", err));
 
-    const unsubAddons = onSnapshot(collection(db, getAddonsPath()), (snap) => {
+    const unsubAddons = onSnapshot(collection(db, addonsPath), (snap) => {
       setCustomAddons(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (err) => console.error("Firestore Listen Error (Addons):", err));
 
@@ -384,13 +400,6 @@ export default function App() {
       setTimeout(async () => {
         await updateDoc(doc(db, getServersPath(), newServer.id), { status: 'online' });
       }, 4000);
-    } else {
-      setServers(prev => [...prev, newServer]);
-      setActiveServerId(newServer.id);
-      setCurrentView('server');
-      setTimeout(() => {
-        setServers(prev => prev.map(s => s.id === newServer.id ? { ...s, status: 'online' } : s));
-      }, 4000);
     }
   };
 
@@ -399,8 +408,6 @@ export default function App() {
     
     if (db && authUser) {
       await deleteDoc(doc(db, getServersPath(), id));
-    } else {
-      setServers(prev => prev.filter(s => s.id !== id));
     }
     setCurrentView('dashboard');
   };
@@ -419,16 +426,6 @@ export default function App() {
           await updateDoc(doc(db, getServersPath(), id), { status: 'online' });
         }, 3000);
       }
-    } else {
-      setServers(prev => prev.map(s => {
-        if (s.id === id) return { ...s, status: newStatus, players: 0, needsRestart: false };
-        return s;
-      }));
-      if (newStatus === 'starting') {
-        setTimeout(() => {
-          setServers(prev => prev.map(s => s.id === id ? { ...s, status: 'online' } : s));
-        }, 3000);
-      }
     }
   };
 
@@ -439,11 +436,6 @@ export default function App() {
       await updateDoc(doc(db, getServersPath(), id), { status: 'starting', players: 0, needsRestart: false });
       setTimeout(async () => {
         await updateDoc(doc(db, getServersPath(), id), { status: 'online' });
-      }, 4000);
-    } else {
-      setServers(prev => prev.map(s => s.id === id ? { ...s, status: 'starting', players: 0, needsRestart: false } : s));
-      setTimeout(() => {
-        setServers(prev => prev.map(s => s.id === id ? { ...s, status: 'online' } : s));
       }, 4000);
     }
   }
@@ -472,11 +464,6 @@ export default function App() {
         installedAddons: newAddons, 
         needsRestart: requiresRestart || currentServer.needsRestart 
       });
-    } else {
-      setServers(prev => prev.map(s => {
-        if (s.id === serverId) return { ...s, installedAddons: newAddons, needsRestart: requiresRestart || s.needsRestart };
-        return s;
-      }));
     }
   };
 
@@ -492,11 +479,6 @@ export default function App() {
         ...newData, 
         needsRestart: requiresRestart || currentServer.needsRestart 
       });
-    } else {
-      setServers(prev => prev.map(s => {
-        if (s.id === serverId) return { ...s, ...newData, needsRestart: requiresRestart || s.needsRestart };
-        return s;
-      }));
     }
   };
 
@@ -504,16 +486,12 @@ export default function App() {
     const newAddon = { ...addonData, id: `c_${Math.random().toString(36).substring(7)}`, rating: 5.0, reviews: 0 };
     if (db && authUser) {
       await setDoc(doc(db, getAddonsPath(), newAddon.id), newAddon);
-    } else {
-      setCustomAddons(prev => [...prev, newAddon]);
     }
   };
 
   const handleDeleteCustomAddon = async (id) => {
     if (db && authUser) {
       await deleteDoc(doc(db, getAddonsPath(), id));
-    } else {
-      setCustomAddons(prev => prev.filter(a => a.id !== id));
     }
   };
 
