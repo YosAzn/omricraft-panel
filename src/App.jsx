@@ -13,6 +13,9 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 
+import { getFunctions, httpsCallable } from "firebase/functions";
+
+
 const firebaseConfig = {
   apiKey: "AIzaSyBc72tYqQAlJarsqt5CUJQ93rFCfHIZe3M",
   authDomain: "omricraft-74735.firebaseapp.com",
@@ -25,6 +28,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const functionsInstance = getFunctions(app);
+const sendMcCommand = httpsCallable(functionsInstance, 'sendMcCommand');
+
 
 // --- מילון שפות ---
 const DICT = {
@@ -305,7 +311,7 @@ export default function App() {
   const [activeServerId, setActiveServerId] = useState(null);
   
   const [mcVersions, setMcVersions] = useState([
-    '1.26.1', '1.26.0', '1.25.2', '1.24.4', '1.23.1', '1.22.4', '1.21.4', '1.20.4', '1.19.4', '1.18.2', '1.16.5'
+    '26.1.1', '26.1.0', '25.2.0', '24.4.0', '23.1.0', '22.4.0', '21.4.0', '20.4.0', '19.4.0', '18.2.0', '16.5.0'
   ]);
 
   const [servers, setServers] = useState([]);
@@ -367,7 +373,8 @@ export default function App() {
   const allAddons = useMemo(() => [...DEFAULT_ADDONS, ...customAddons], [customAddons]);
   const activeServer = servers.find(s => s.id === activeServerId);
 
-  const handleCreateServer = async (data) => {
+ 
+const handleCreateServer = async (data) => {
     const finalSeed = data.seed || Math.floor(Math.random() * 9000000000) + 1000000000;
     
     let resolvedAddons = [...data.installedAddons];
@@ -382,11 +389,14 @@ export default function App() {
       }
     });
 
+    // חשוב: עולמות במיינקראפט (Multiverse) לא יכולים להכיל רווחים, אז נחליף רווחים בקו תחתון
+    const safeWorldName = data.name.replace(/[^a-zA-Z0-9_]/g, '_');
+
     const newServer = {
       ...data,
       seed: finalSeed.toString(),
       installedAddons: resolvedAddons,
-      id: Math.random().toString(36).substring(7),
+      id: safeWorldName, 
       status: 'starting', 
       players: 0,
       needsRestart: false,
@@ -394,14 +404,33 @@ export default function App() {
     };
     
     if (db && authUser) {
-      await setDoc(doc(db, getServersPath(), newServer.id), newServer);
-      setActiveServerId(newServer.id);
-      setCurrentView('server');
-      setTimeout(async () => {
-        await updateDoc(doc(db, getServersPath(), newServer.id), { status: 'online' });
-      }, 4000);
+      try {
+        console.log(`שולח בקשה לאורקל ליצירת עולם: ${safeWorldName}...`);
+        
+        // 1. קריאה לפונקציה בענן שרצה מול אורקל (Multiverse Create)
+        let commandStr = `mv create ${safeWorldName} normal`;
+        if (data.seed) commandStr += ` -s ${data.seed}`;
+        
+        const result = await sendMcCommand({ command: commandStr });
+        console.log("תשובה מהשרת באורקל:", result.data.output);
+
+        // 2. רק אם אורקל הצליח, שומרים בפיירבייס
+        await setDoc(doc(db, getServersPath(), newServer.id), newServer);
+        
+        setActiveServerId(newServer.id);
+        setCurrentView('server');
+        
+        setTimeout(async () => {
+          await updateDoc(doc(db, getServersPath(), newServer.id), { status: 'online' });
+        }, 4000);
+
+      } catch (error) {
+        console.error("שגיאה ביצירת העולם מול אורקל:", error);
+        alert(`התרחשה שגיאה בתקשורת מול השרת: ${error.message}`);
+      }
     }
   };
+
 
   const deleteServer = async (id) => {
     if (userRole !== 'admin') return;
@@ -482,8 +511,9 @@ export default function App() {
     }
   };
 
-  const handleAddCustomAddon = async (addonData) => {
-    const newAddon = { ...addonData, id: `c_${Math.random().toString(36).substring(7)}`, rating: 5.0, reviews: 0 };
+ const handleAddCustomAddon = async (addonData) => {
+    // אם העברנו ID מראש נשתמש בו, אחרת נייצר חדש
+    const newAddon = { ...addonData, id: addonData.id || `c_${Math.random().toString(36).substring(7)}`, rating: 5.0, reviews: 0 };
     if (db && authUser) {
       await setDoc(doc(db, getAddonsPath(), newAddon.id), newAddon);
     }
@@ -910,6 +940,13 @@ function GlobalRepository({ allAddons, customAddons, onAdd, onDelete, t, userRol
   const [mpDesc, setMpDesc] = useState('');
   const [mpSelectedMods, setMpSelectedMods] = useState([]);
 
+  // --- Quick Add State ---
+  const [quickAdd, setQuickAdd] = useState(false);
+  const [qaName, setQaName] = useState('');
+  const [qaDesc, setQaDesc] = useState('');
+  const [qaType, setQaType] = useState('mods');
+  const [qaUrl, setQaUrl] = useState('');
+
   const filtered = allAddons.filter(a => 
     (filter === 'all' || a.type === filter) &&
     (a.name.toLowerCase().includes(search.toLowerCase()) || a.desc.toLowerCase().includes(search.toLowerCase()))
@@ -926,6 +963,22 @@ function GlobalRepository({ allAddons, customAddons, onAdd, onDelete, t, userRol
       downloads: 'Custom'
     });
     setNewName(''); setNewDesc(''); setFileUrl(''); setSelectedFile(null); setShowAddForm(false);
+  };
+
+  const handleQuickAddSubmit = () => {
+    if (!qaName) return;
+    const newId = `c_${Math.random().toString(36).substring(7)}`;
+    onAdd({
+        id: newId,
+        name: qaName,
+        desc: qaDesc || 'נוסף דרך יצירת מודפאק',
+        type: qaType,
+        fileUrl: qaUrl,
+        downloads: 'Custom'
+    });
+    setMpSelectedMods(prev => [...prev, newId]); // מסמן אוטומטית את התוסף במודפאק
+    setQuickAdd(false);
+    setQaName(''); setQaDesc(''); setQaUrl('');
   };
 
   const handleAddModpack = (e) => {
@@ -1030,7 +1083,31 @@ function GlobalRepository({ allAddons, customAddons, onAdd, onDelete, t, userRol
            </div>
 
            <div>
-              <label className="block text-xs text-zinc-400 mb-2">{t('selectModsForPack')} ({mpSelectedMods.length} נבחרו)</label>
+              <div className="flex justify-between items-center mb-2">
+                 <label className="block text-xs text-zinc-400">{t('selectModsForPack')} ({mpSelectedMods.length} נבחרו)</label>
+                 <button type="button" onClick={() => setQuickAdd(!quickAdd)} className="text-xs font-bold text-pink-400 hover:text-pink-300 flex items-center gap-1 transition-colors">
+                    <Plus size={14}/> תוסף חסר במאגר? הוסף עכשיו
+                 </button>
+              </div>
+
+              {quickAdd && (
+                 <div className="bg-zinc-950 p-4 rounded-xl border border-pink-500/30 mb-3 animate-in fade-in">
+                    <h4 className="text-xs font-bold text-pink-400 mb-3">הוספה מהירה למאגר</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                       <input placeholder="שם התוסף" value={qaName} onChange={e=>setQaName(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-pink-500" />
+                       <select value={qaType} onChange={e=>setQaType(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-pink-500">
+                          <option value="mods">{t('mods')}</option>
+                          <option value="plugins">{t('plugins')}</option>
+                          <option value="datapacks">{t('datapacks')}</option>
+                          <option value="textures">{t('textures')}</option>
+                       </select>
+                       <input placeholder="תיאור קצר (אופציונלי)" value={qaDesc} onChange={e=>setQaDesc(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-pink-500 sm:col-span-2" />
+                       <input placeholder="קישור להורדה" value={qaUrl} onChange={e=>setQaUrl(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-pink-500 sm:col-span-2" />
+                    </div>
+                    <button type="button" onClick={handleQuickAddSubmit} className="bg-pink-600 hover:bg-pink-500 text-white text-xs px-4 py-2 rounded-lg font-bold w-full transition-colors">שמור במאגר וסמן במודפאק</button>
+                 </div>
+              )}
+
               <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-2 max-h-48 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-1">
                  {allAddons.filter(a => a.type !== 'modpacks').map(a => (
                     <div key={a.id} onClick={() => toggleMpMod(a.id)} className="flex items-center gap-3 p-2 hover:bg-zinc-900 rounded-md cursor-pointer border border-transparent hover:border-zinc-800 transition-colors">
