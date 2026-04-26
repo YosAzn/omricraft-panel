@@ -5,7 +5,7 @@ exports.sendMcCommand = onCall({ region: "us-central1" }, async (request) => {
     // פרטי השרת באורקל
     const host = "151.145.94.177";
     const port = 25575;
-    const password = "הסיסמה_שלך_מנאנו"; // שים פה את הסיסמה שהגדרת ב-server.properties
+    const password = "Yosi&TheWeb";
 
     try {
         const rcon = await Rcon.connect({ host, port, password });
