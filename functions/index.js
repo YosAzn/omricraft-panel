@@ -1,5 +1,5 @@
 const { onCall } = require("firebase-functions/v2/https");
-const { Rcon } = require("rcon-client");
+const { Rcon } = require("rcon-client");        
 
 exports.sendMcCommand = onCall({ region: "us-central1" }, async (request) => {
     // פרטי השרת באורקל
