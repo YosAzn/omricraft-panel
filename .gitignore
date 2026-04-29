@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+firebase-key.json
+.env
+.env.local
+debug-search-results.txt
+test_rcon_connection.js
+functions/test_rcon.mjs
+
+# Local secrets and debug files

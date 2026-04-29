@@ -80,7 +80,7 @@ const DICT = {
     players: "שחקנים",
     ram: "RAM",
     cpu: "מעבד",
-    copyIp: "העתק IP",
+    copyIp: "העתק דומיין שרת",
     install: "התקן",
     uninstall: "הסר",
     search: "חיפוש תוסף לפי שם או תיאור...",
@@ -166,7 +166,7 @@ const DICT = {
     players: "Players",
     ram: "RAM",
     cpu: "CPU",
-    copyIp: "Copy IP",
+    copyIp: "Copy Domain",
     install: "Install",
     uninstall: "Uninstall",
     search: "Search add-on by name or description...",
@@ -322,6 +322,9 @@ export default function App() {
   const [servers, setServers] = useState([]);
   const [customAddons, setCustomAddons] = useState([]);
 
+  const creatingServerRef = useRef(false);
+  const [isCreatingServer, setIsCreatingServer] = useState(false);
+
   // --- FIREBASE INTEGRATION (AUTH & SYNC) ---
   useEffect(() => {
     if (!auth) return;
@@ -378,72 +381,315 @@ export default function App() {
   const allAddons = useMemo(() => [...DEFAULT_ADDONS, ...customAddons], [customAddons]);
   const activeServer = servers.find(s => s.id === activeServerId);
 
- 
-const handleCreateServer = async (data) => {
-    const finalSeed = data.seed || Math.floor(Math.random() * 9000000000) + 1000000000;
-    
-    let resolvedAddons = [...data.installedAddons];
-    const modpacksIncluded = data.installedAddons.filter(id => {
-      const a = allAddons.find(addon => addon.id === id);
-      return a && a.type === 'modpacks' && a.includedAddons;
-    });
-    modpacksIncluded.forEach(mpId => {
-      const mp = allAddons.find(addon => addon.id === mpId);
-      if (mp && mp.includedAddons) {
-        resolvedAddons = [...new Set([...resolvedAddons, ...mp.includedAddons])];
+  const HEBREW_TO_LATIN = {
+    'א': 'a', 'ב': 'b', 'ג': 'g', 'ד': 'd', 'ה': 'h', 'ו': 'v',
+    'ז': 'z', 'ח': 'ch', 'ט': 't', 'י': 'y', 'כ': 'k', 'ך': 'kh',
+    'ל': 'l', 'מ': 'm', 'ם': 'm', 'נ': 'n', 'ן': 'n', 'ס': 's',
+    'ע': 'a', 'פ': 'p', 'ף': 'f', 'צ': 'tz', 'ץ': 'tz', 'ק': 'k',
+    'ר': 'r', 'ש': 'sh', 'ת': 't'
+  };
+
+  const transliterateHebrew = (value) => {
+    return String(value || '')
+      .split('')
+      .map(char => HEBREW_TO_LATIN[char] || char)
+      .join('');
+  };
+
+  const makeSafeServerSlug = (name) => {
+    const rawName = String(name || '').trim();
+
+    let slug = transliterateHebrew(rawName)
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 24);
+
+    if (!slug || !/[a-z0-9]/.test(slug)) {
+      slug = 'server';
+    }
+
+    return slug;
+  };
+
+  const commandLooksSuccessful = (payload) => {
+    if (!payload) return false;
+    if (payload.success === true) return true;
+
+    const output = String(
+      payload.output ||
+      payload.message ||
+      payload.result ||
+      ''
+    );
+
+    const hasFailure =
+      /failed|error|exception|unknown command|invalid|could not|not found|already exists/i.test(output);
+
+    const hasSuccess =
+      /world ['"]?.+['"]? created|created!|creating world|preparing spawn area/i.test(output);
+
+    return hasSuccess && !hasFailure;
+  };
+
+  const getRconOutput = (payload) => {
+    return String(
+      payload?.output ||
+      payload?.message ||
+      payload?.result ||
+      ''
+    );
+  };
+
+  const DIRECT_SERVER_ADDRESS = '151.145.94.177:25565';
+  const OMRI_DOMAIN = 'omricraft.net';
+
+  const getServerDomain = (server) => {
+    if (!server) return DIRECT_SERVER_ADDRESS;
+
+    if (server.address) return server.address;
+
+    const slug =
+      server.serverSlug ||
+      server.worldName ||
+      server.minecraftWorldName ||
+      server.id;
+
+    if (slug) return `${slug}.${OMRI_DOMAIN}`;
+
+    return DIRECT_SERVER_ADDRESS;
+  };
+
+  const getServerAddress = (server) => {
+    const slug =
+      server?.serverSlug ||
+      server?.minecraftWorldName ||
+      server?.worldName ||
+      server?.id;
+
+    return server?.address || (slug ? `${slug}.omricraft.net` : '');
+  };
+
+  const copyToClipboard = (text) => {
+    const value = String(text || '').trim();
+
+    if (!value) {
+      alert('אין דומיין להעתקה');
+      return false;
+    }
+
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = value;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.top = '0';
+      textarea.style.left = '0';
+      textarea.style.opacity = '0';
+
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+
+      const copied = document.execCommand('copy');
+      document.body.removeChild(textarea);
+
+      if (copied) {
+        alert(`הועתק: ${value}`);
+        return true;
       }
-    });
 
-    // חשוב: עולמות במיינקראפט (Multiverse) לא יכולים להכיל רווחים, אז נחליף רווחים בקו תחתון
-    const safeWorldName = data.name.replace(/[^a-zA-Z0-9_]/g, '_');
-
-    const newServer = {
-      ...data,
-      seed: finalSeed.toString(),
-      installedAddons: resolvedAddons,
-      id: safeWorldName, 
-      status: 'starting', 
-      players: 0,
-      needsRestart: false,
-      discordWebhook: ''
-    };
-    
-    if (db && authUser) {
-      try {
-        console.log(`שולח בקשה לאורקל ליצירת עולם: ${safeWorldName}...`);
-        
-        // 1. קריאה לפונקציה בענן שרצה מול אורקל (Multiverse Create)
-        let commandStr = `mv create ${safeWorldName} normal`;
-        if (data.seed) commandStr += ` -s ${data.seed}`;
-        
-        const result = await sendMcCommand({ command: commandStr });
-        console.log("תשובה מהשרת באורקל:", result.data.output);
-
-        // 2. רק אם אורקל הצליח, שומרים בפיירבייס
-        await setDoc(doc(db, getServersPath(), newServer.id), newServer);
-        
-        setActiveServerId(newServer.id);
-        setCurrentView('server');
-        
-        setTimeout(async () => {
-          await updateDoc(doc(db, getServersPath(), newServer.id), { status: 'online' });
-        }, 4000);
-
-      } catch (error) {
-        console.error("שגיאה ביצירת העולם מול אורקל:", error);
-        alert(`התרחשה שגיאה בתקשורת מול השרת: ${error.message}`);
-      }
+      window.prompt('העתק את הדומיין ידנית:', value);
+      return false;
+    } catch (error) {
+      console.error('Clipboard copy failed:', error);
+      window.prompt('העתק את הדומיין ידנית:', value);
+      return false;
     }
   };
 
+  const handleCreateServer = async (data) => {
+    if (creatingServerRef.current) {
+      console.warn('World creation is already in progress. Ignoring duplicate click.');
+      return;
+    }
+
+    creatingServerRef.current = true;
+    setIsCreatingServer(true);
+
+    try {
+      if (!db || !authUser) {
+        throw new Error('Database or user is not ready.');
+      }
+
+      const finalSeed = data.seed || Math.floor(Math.random() * 9000000000) + 1000000000;
+
+      let resolvedAddons = [...data.installedAddons];
+
+      const modpacksIncluded = data.installedAddons.filter(id => {
+        const a = allAddons.find(addon => addon.id === id);
+        return a && a.type === 'modpacks' && a.includedAddons;
+      });
+
+      modpacksIncluded.forEach(mpId => {
+        const mp = allAddons.find(addon => addon.id === mpId);
+        if (mp && mp.includedAddons) {
+          resolvedAddons = [...new Set([...resolvedAddons, ...mp.includedAddons])];
+        }
+      });
+
+      const displayName = String(data.name || 'New World').trim();
+      const safeWorldName = makeSafeServerSlug(displayName);
+
+      const newServer = {
+        ...data,
+        name: displayName,
+        displayName,
+        serverSlug: safeWorldName,
+        address: `${safeWorldName}.omricraft.net`,
+        worldName: safeWorldName,
+        minecraftWorldName: safeWorldName,
+        seed: finalSeed.toString(),
+        installedAddons: resolvedAddons,
+        id: safeWorldName,
+        status: 'starting',
+        players: 0,
+        needsRestart: false,
+        discordWebhook: '',
+        createdAt: new Date().toISOString()
+      };
+
+      console.log(`Sending Oracle world creation request: ${safeWorldName}`);
+
+      let commandStr = `mv create ${safeWorldName} normal`;
+      if (finalSeed) commandStr += ` -s ${finalSeed}`;
+
+      const result = await sendMcCommand({ command: commandStr });
+      console.log('Oracle RCON response:', result.data);
+
+      const rconOutput = getRconOutput(result.data);
+
+      if (!commandLooksSuccessful(result.data)) {
+        await setDoc(doc(db, getServersPath(), newServer.id), {
+          ...newServer,
+          status: 'failed',
+          rconCommand: commandStr,
+          rconOutput,
+          rconSuccess: false,
+          errorMessage: result.data?.error || rconOutput || 'Command failed or was not detected as successful.',
+          failedAt: new Date().toISOString()
+        });
+
+        throw new Error(result.data?.error || rconOutput || 'Command failed or was not detected as successful.');
+      }
+
+      await setDoc(doc(db, getServersPath(), newServer.id), {
+        ...newServer,
+        status: 'online',
+        rconCommand: commandStr,
+        rconOutput,
+        rconSuccess: true,
+        createdSuccessfullyAt: new Date().toISOString()
+      });
+
+      setActiveServerId(newServer.id);
+      setCurrentView('server');
+
+    } catch (error) {
+      console.error('World creation error:', error);
+      alert(`World creation failed: ${error.message}`);
+    } finally {
+      creatingServerRef.current = false;
+      setIsCreatingServer(false);
+    }
+  };
 
   const deleteServer = async (id) => {
     if (userRole !== 'admin') return;
-    
-    if (db && authUser) {
-      await deleteDoc(doc(db, getServersPath(), id));
+
+    const currentServer = servers.find(s => s.id === id);
+    if (!currentServer) {
+      alert('לא נמצא שרת למחיקה.');
+      return;
     }
-    setCurrentView('dashboard');
+
+    const worldName =
+      currentServer.minecraftWorldName ||
+      currentServer.worldName ||
+      currentServer.serverSlug ||
+      currentServer.id;
+
+    const protectedWorlds = ['world', 'world_nether', 'world_the_end'];
+
+    if (protectedWorlds.includes(worldName)) {
+      alert('אי אפשר למחוק את עולם ברירת המחדל של השרת.');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_-]+$/.test(worldName)) {
+      alert(`שם העולם הטכני לא בטוח למחיקה: ${worldName}`);
+      return;
+    }
+
+    const displayName = currentServer.displayName || currentServer.name || worldName;
+
+    const approved = window.confirm(
+      `למחוק את "${displayName}"?\n\nהפעולה תסיר את העולם מ-Multiverse ותמחק את הרשומה מהאתר.`
+    );
+
+    if (!approved) return;
+
+    try {
+      if (!db || !authUser) {
+        throw new Error('אין חיבור תקין ל-Firebase או שאין משתמש מחובר.');
+      }
+
+      await updateDoc(doc(db, getServersPath(), id), {
+        status: 'deleting',
+        deletingAt: new Date().toISOString()
+      });
+
+      const unloadResult = await sendMcCommand({
+        command: `mv unload ${worldName}`
+      });
+
+      const removeResult = await sendMcCommand({
+        command: `mv remove ${worldName}`
+      });
+
+      const unloadOutput = getRconOutput(unloadResult.data);
+      const removeOutput = getRconOutput(removeResult.data);
+      const combinedOutput = `${unloadOutput}\n${removeOutput}`;
+
+      console.log('Remove world output:', combinedOutput);
+
+      const failed = /failed|error|exception|unknown command|invalid|could not/i.test(combinedOutput);
+
+      if (failed) {
+        throw new Error(combinedOutput || 'הסרת העולם מ-Multiverse נכשלה.');
+      }
+
+      await deleteDoc(doc(db, getServersPath(), id));
+      setCurrentView('dashboard');
+
+    } catch (error) {
+      console.error('שגיאה במחיקת העולם:', error);
+
+      try {
+        await updateDoc(doc(db, getServersPath(), id), {
+          status: 'delete_failed',
+          deleteError: error.message,
+          deleteFailedAt: new Date().toISOString()
+        });
+      } catch (innerError) {
+        console.error('Failed to update delete_failed status:', innerError);
+      }
+
+      alert(`המחיקה נכשלה: ${error.message}`);
+    }
   };
 
   const toggleServerStatus = async (id) => {
@@ -582,10 +828,14 @@ const handleCreateServer = async (data) => {
         )}
         
         {currentView === 'create' && (
-          <CreateServerForm 
-            t={t} allAddons={allAddons} userRole={userRole} mcVersions={mcVersions}
+          <CreateServerForm
+            t={t}
+            allAddons={allAddons}
+            userRole={userRole}
+            mcVersions={mcVersions}
             onCancel={() => setCurrentView('dashboard')}
             onCreate={handleCreateServer}
+            isCreatingServer={isCreatingServer}
           />
         )}
 
@@ -775,7 +1025,7 @@ function Dashboard({ servers, onOpenServer, onCreateClick, toggleServerStatus, t
   );
 }
 
-function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersions }) {
+function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersions, isCreatingServer = false }) {
   if (userRole !== 'admin') return <div className="text-center p-12 text-zinc-500">{t('noPermission')}</div>;
 
   const [name, setName] = useState('My Awesome Server');
@@ -940,8 +1190,8 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
             <button type="button" onClick={onCancel} className="px-6 py-3 rounded-xl font-bold text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
               {t('cancel')}
             </button>
-            <button type="submit" className="bg-green-600 hover:bg-green-500 text-white px-10 py-3 rounded-xl font-bold transition-all shadow-lg shadow-green-900/20 text-lg flex items-center gap-2">
-              <Play size={20} fill="currentColor"/> {t('create')}
+            <button type="submit" disabled={isCreatingServer} className="bg-green-600 hover:bg-green-500 text-white px-10 py-3 rounded-xl font-bold transition-all shadow-lg shadow-green-900/20 text-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+              <Play size={20} fill="currentColor"/> {isCreatingServer ? 'יוצר עולם...' : t('create')}
             </button>
           </div>
         </form>
@@ -1358,15 +1608,50 @@ function TabBtn({ icon, label, active, onClick, badge }) {
 }
 
 function OverviewTab({ server, t }) {
+  const [copiedDomain, setCopiedDomain] = useState(false);
+
+  const slug =
+    server?.serverSlug ||
+    server?.minecraftWorldName ||
+    server?.worldName ||
+    server?.id;
+
+  const domain = server?.address || (slug ? `${slug}.omricraft.net` : '151.145.94.177:25565');
+
   return (
     <div className="space-y-6 animate-in fade-in">
       <div>
-        <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-xl flex items-center justify-between">
-          <div className="font-mono text-lg text-green-400 tracking-wider" dir="ltr">{server.id}.omricraft.net</div>
-          <button className="text-sm bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-lg transition-colors">{t('copyIp')}</button>
+        <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-xl flex items-center justify-between gap-3">
+          <div className="font-mono text-lg text-green-400 tracking-wider truncate" dir="ltr" title={domain}>
+            {domain}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {copiedDomain && (
+              <span className="text-xs text-emerald-400">
+                הועתק
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(domain);
+                  setCopiedDomain(true);
+                  setTimeout(() => setCopiedDomain(false), 2000);
+                } catch (error) {
+                  window.prompt('העתק ידנית את הדומיין:', domain);
+                }
+              }}
+              className="text-sm bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-lg transition-colors"
+            >
+              {copiedDomain ? 'הועתק!' : t('copyIp')}
+            </button>
+          </div>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-xl">
           <div className="text-zinc-400 text-xs mb-1">{t('gamemode')}</div>
@@ -1388,7 +1673,7 @@ function OverviewTab({ server, t }) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-zinc-950 border border-zinc-800 p-5 rounded-xl">
-          <div className="text-zinc-400 text-sm mb-1 flex items-center gap-2"><Cpu size={16}/> {t('players')}</div>
+          <div className="text-zinc-400 text-sm mb-1 flex items-center gap-2"><Cpu size={16} /> {t('players')}</div>
           <div className="text-3xl font-bold">{server.status === 'online' ? server.players : 0} <span className="text-base text-zinc-500 font-normal">/ {server.maxPlayers}</span></div>
         </div>
         <div className="bg-zinc-950 border border-zinc-800 p-5 rounded-xl">
