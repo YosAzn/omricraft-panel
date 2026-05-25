@@ -1,0 +1,16 @@
+[Unit]
+Description=OmriCraft Manager API
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/omricraft/manager/manager-api
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+Environment=PORT=3001
+EnvironmentFile=/home/ubuntu/omricraft/manager/.env
+
+[Install]
+WantedBy=multi-user.target
