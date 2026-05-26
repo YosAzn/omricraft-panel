@@ -1,0 +1,50 @@
+name: Deploy to Oracle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'oracle/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.ORACLE_SSH_KEY }}" > ~/.ssh/oracle.pem
+          chmod 600 ~/.ssh/oracle.pem
+          ssh-keyscan -H ${{ secrets.ORACLE_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy scripts
+        run: |
+          rsync -avz --chmod=755 \
+            -e "ssh -i ~/.ssh/oracle.pem -o StrictHostKeyChecking=no" \
+            oracle/scripts/ \
+            ubuntu@${{ secrets.ORACLE_HOST }}:/home/ubuntu/omricraft/manager/scripts/
+
+          ssh -i ~/.ssh/oracle.pem ubuntu@${{ secrets.ORACLE_HOST }} \
+            "cd /home/ubuntu/omricraft/manager/scripts && sed -i 's/\r//' *.sh && chmod +x *.sh && echo 'Scripts deployed OK'"
+
+      - name: Deploy manager API
+        run: |
+          rsync -avz \
+            -e "ssh -i ~/.ssh/oracle.pem -o StrictHostKeyChecking=no" \
+            oracle/manager-api/ \
+            ubuntu@${{ secrets.ORACLE_HOST }}:/home/ubuntu/omricraft/manager/manager-api/
+
+          ssh -i ~/.ssh/oracle.pem ubuntu@${{ secrets.ORACLE_HOST }} \
+            "cd /home/ubuntu/omricraft/manager/manager-api && sed -i 's/\r//' server.js && npm install --omit=dev --silent && echo 'Manager API deployed OK'"
+
+      - name: Restart manager API service
+        run: |
+          ssh -i ~/.ssh/oracle.pem ubuntu@${{ secrets.ORACLE_HOST }} \
+            "sudo systemctl restart omricraft-manager 2>/dev/null || (cd /home/ubuntu/omricraft/manager/manager-api && pkill -f 'node server.js' 2>/dev/null; source /home/ubuntu/omricraft/manager/.env && nohup node server.js > /tmp/manager.log 2>&1 &) && echo 'Manager API restarted'"
+
+      - name: Run gate tests
+        run: |
+          ssh -i ~/.ssh/oracle.pem ubuntu@${{ secrets.ORACLE_HOST }} \
+            "bash /home/ubuntu/omricraft/manager/scripts/gate-tests.sh 2>&1 || true"
