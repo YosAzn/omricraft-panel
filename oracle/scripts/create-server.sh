@@ -64,7 +64,8 @@ cp "$TEMPLATE_JAR" "$SERVER_DIR/server.jar"
 echo "eula=true" > "$SERVER_DIR/eula.txt"
 
 # Generate random RCON password
-RCON_PASS=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
+RCON_PASS=$(cat /dev/urandom | tr -dc 'A-Za-z0-9' | head -c 16 || true)
+[ -z "$RCON_PASS" ] && RCON_PASS=$(openssl rand -hex 8)
 
 # server.properties
 cat > "$SERVER_DIR/server.properties" <<EOF
