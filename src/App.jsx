@@ -30,6 +30,8 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const functionsInstance = getFunctions(app);
 const sendMcCommand = httpsCallable(functionsInstance, 'sendMcCommand');
+const createServerFn = httpsCallable(functionsInstance, 'createServer');
+const deleteServerFn = httpsCallable(functionsInstance, 'deleteServer');
 
 
 // --- מילון שפות ---
@@ -80,7 +82,7 @@ const DICT = {
     players: "שחקנים",
     ram: "RAM",
     cpu: "מעבד",
-    copyIp: "העתק דומיין שרת",
+    copyIp: "העתק כתובת שרת",
     install: "התקן",
     uninstall: "הסר",
     search: "חיפוש תוסף לפי שם או תיאור...",
@@ -166,7 +168,7 @@ const DICT = {
     players: "Players",
     ram: "RAM",
     cpu: "CPU",
-    copyIp: "Copy Domain",
+    copyIp: "Copy Server Address",
     install: "Install",
     uninstall: "Uninstall",
     search: "Search add-on by name or description...",
@@ -444,33 +446,17 @@ export default function App() {
     );
   };
 
-  const DIRECT_SERVER_ADDRESS = '151.145.94.177:25565';
-  const OMRI_DOMAIN = 'omricraft.net';
-
   const getServerDomain = (server) => {
-    if (!server) return DIRECT_SERVER_ADDRESS;
-
+    if (!server) return '';
     if (server.address) return server.address;
-
-    const slug =
-      server.serverSlug ||
-      server.worldName ||
-      server.minecraftWorldName ||
-      server.id;
-
-    if (slug) return `${slug}.${OMRI_DOMAIN}`;
-
-    return DIRECT_SERVER_ADDRESS;
+    const slug = server.slug || server.serverSlug || server.worldName || server.id;
+    return slug ? `${slug}.omricraft.com` : '';
   };
 
   const getServerAddress = (server) => {
-    const slug =
-      server?.serverSlug ||
-      server?.minecraftWorldName ||
-      server?.worldName ||
-      server?.id;
-
-    return server?.address || (slug ? `${slug}.omricraft.net` : '');
+    if (server?.address) return server.address;
+    const slug = server?.slug || server?.serverSlug || server?.worldName || server?.id;
+    return slug ? `${slug}.omricraft.com` : '';
   };
 
   const copyToClipboard = (text) => {
@@ -541,20 +527,36 @@ export default function App() {
         }
       });
 
-      const displayName = String(data.name || 'New World').trim();
-      const safeWorldName = makeSafeServerSlug(displayName);
+      const displayName = String(data.name || 'New Server').trim();
 
-      const newServer = {
-        ...data,
-        name: displayName,
+      console.log(`Creating real server: ${displayName}`);
+
+      const result = await createServerFn({
         displayName,
-        serverSlug: safeWorldName,
-        address: `${safeWorldName}.omricraft.net`,
-        worldName: safeWorldName,
-        minecraftWorldName: safeWorldName,
+        version: data.version || '1.21.1',
+        memoryMb: data.memoryMb || 2048,
+        gamemode: data.gamemode || 'survival',
+        ops: data.ops || [],
+        maxPlayers: data.maxPlayers || 20
+      });
+
+      if (!result.data?.success) {
+        throw new Error(result.data?.error || 'Server creation failed');
+      }
+
+      const serverData = {
+        ...data,
+        id: result.data.id,
+        name: result.data.displayName,
+        displayName: result.data.displayName,
+        slug: result.data.slug,
+        address: result.data.address,
+        publicHost: result.data.address,
+        gamePort: result.data.gamePort,
+        rconPort: result.data.rconPort,
+        backendAddress: `127.0.0.1:${result.data.gamePort}`,
         seed: finalSeed.toString(),
         installedAddons: resolvedAddons,
-        id: safeWorldName,
         status: 'starting',
         players: 0,
         needsRestart: false,
@@ -562,40 +564,9 @@ export default function App() {
         createdAt: new Date().toISOString()
       };
 
-      console.log(`Sending Oracle world creation request: ${safeWorldName}`);
+      await setDoc(doc(db, getServersPath(), serverData.id), serverData);
 
-      let commandStr = `mv create ${safeWorldName} normal`;
-      if (finalSeed) commandStr += ` -s ${finalSeed}`;
-
-      const result = await sendMcCommand({ command: commandStr });
-      console.log('Oracle RCON response:', result.data);
-
-      const rconOutput = getRconOutput(result.data);
-
-      if (!commandLooksSuccessful(result.data)) {
-        await setDoc(doc(db, getServersPath(), newServer.id), {
-          ...newServer,
-          status: 'failed',
-          rconCommand: commandStr,
-          rconOutput,
-          rconSuccess: false,
-          errorMessage: result.data?.error || rconOutput || 'Command failed or was not detected as successful.',
-          failedAt: new Date().toISOString()
-        });
-
-        throw new Error(result.data?.error || rconOutput || 'Command failed or was not detected as successful.');
-      }
-
-      await setDoc(doc(db, getServersPath(), newServer.id), {
-        ...newServer,
-        status: 'online',
-        rconCommand: commandStr,
-        rconOutput,
-        rconSuccess: true,
-        createdSuccessfullyAt: new Date().toISOString()
-      });
-
-      setActiveServerId(newServer.id);
+      setActiveServerId(serverData.id);
       setCurrentView('server');
 
     } catch (error) {
@@ -616,28 +587,10 @@ export default function App() {
       return;
     }
 
-    const worldName =
-      currentServer.minecraftWorldName ||
-      currentServer.worldName ||
-      currentServer.serverSlug ||
-      currentServer.id;
-
-    const protectedWorlds = ['world', 'world_nether', 'world_the_end'];
-
-    if (protectedWorlds.includes(worldName)) {
-      alert('אי אפשר למחוק את עולם ברירת המחדל של השרת.');
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9_-]+$/.test(worldName)) {
-      alert(`שם העולם הטכני לא בטוח למחיקה: ${worldName}`);
-      return;
-    }
-
-    const displayName = currentServer.displayName || currentServer.name || worldName;
+    const displayName = currentServer.displayName || currentServer.name || id;
 
     const approved = window.confirm(
-      `למחוק את "${displayName}"?\n\nהפעולה תסיר את העולם מ-Multiverse ותמחק את הרשומה מהאתר.`
+      `למחוק את "${displayName}"?\n\nהפעולה תעצור את השרת, תמחק את תיקיית השרת ותסיר את הניתוב. לא ניתן לבטל.`
     );
 
     if (!approved) return;
@@ -652,24 +605,10 @@ export default function App() {
         deletingAt: new Date().toISOString()
       });
 
-      const unloadResult = await sendMcCommand({
-        command: `mv unload ${worldName}`
-      });
+      const result = await deleteServerFn({ serverId: id });
 
-      const removeResult = await sendMcCommand({
-        command: `mv remove ${worldName}`
-      });
-
-      const unloadOutput = getRconOutput(unloadResult.data);
-      const removeOutput = getRconOutput(removeResult.data);
-      const combinedOutput = `${unloadOutput}\n${removeOutput}`;
-
-      console.log('Remove world output:', combinedOutput);
-
-      const failed = /failed|error|exception|unknown command|invalid|could not/i.test(combinedOutput);
-
-      if (failed) {
-        throw new Error(combinedOutput || 'הסרת העולם מ-Multiverse נכשלה.');
+      if (!result.data?.success) {
+        throw new Error(result.data?.error || 'Delete failed');
       }
 
       await deleteDoc(doc(db, getServersPath(), id));
@@ -1545,7 +1484,7 @@ function ServerPanel({ server, onBack, toggleStatus, restartServer, toggleAddon,
               <div className="flex items-center gap-3 text-zinc-400 text-sm mt-1">
                 <span>{server.software} {server.version}</span>
                 <span className="w-1 h-1 rounded-full bg-zinc-600"></span>
-                <span>{server.id}.omricraft.net</span>
+                <span>{server.address || (server.slug ? `${server.slug}.omricraft.com` : server.id)}</span>
               </div>
             </div>
           </div>
@@ -1616,7 +1555,7 @@ function OverviewTab({ server, t }) {
     server?.worldName ||
     server?.id;
 
-  const domain = server?.address || (slug ? `${slug}.omricraft.net` : '151.145.94.177:25565');
+  const domain = server?.address || (server?.slug ? `${server.slug}.omricraft.com` : (slug ? `${slug}.omricraft.com` : '—'));
 
   return (
     <div className="space-y-6 animate-in fade-in">

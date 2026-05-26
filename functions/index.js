@@ -1,55 +1,237 @@
 const { onCall } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { Rcon } = require("rcon-client");
+const http = require("http");
 
 const rconPassword = defineSecret("RCON_PASSWORD");
+const managerApiUrl = defineSecret("MANAGER_API_URL");
+const managerApiKey = defineSecret("MANAGER_API_KEY");
 
-exports.sendMcCommand = onCall(
-    {
-        region: "us-central1",
-        secrets: [rconPassword],
-        timeoutSeconds: 60,
-    },
-    async (request) => {
-        const host = "151.145.94.177";
-        const port = 25575;
-        const password = rconPassword.value();
+// ---------------------------------------------------------------------------
+// Hebrew transliteration for slug generation
+// ---------------------------------------------------------------------------
+const HE_MAP = {
+  'א':'a','ב':'b','ג':'g','ד':'d','ה':'h','ו':'v','ז':'z','ח':'ch',
+  'ט':'t','י':'y','כ':'k','ך':'k','ל':'l','מ':'m','ם':'m','נ':'n',
+  'ן':'n','ס':'s','ע':'a','פ':'p','ף':'p','צ':'tz','ץ':'tz','ק':'k',
+  'ר':'r','ש':'sh','ת':'t'
+};
 
-        const command = request.data?.command;
+function slugify(str) {
+  return String(str || '')
+    .split('')
+    .map(c => HE_MAP[c] || c)
+    .join('')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 36);
+}
 
-        console.log(`RCON request received: host=${host} port=${port} command=${command}`);
+// ---------------------------------------------------------------------------
+// HTTP helper — calls Oracle Manager API
+// ---------------------------------------------------------------------------
+function callManagerApi(baseUrl, apiKey, method, endpoint, body) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(endpoint, baseUrl);
+    const payload = body ? JSON.stringify(body) : null;
 
-        if (!command || typeof command !== "string") {
-            return {
-                success: false,
-                error: "אין פקודת RCON תקינה",
-            };
-        }
+    const options = {
+      hostname: url.hostname,
+      port: url.port || 80,
+      path: url.pathname,
+      method,
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
+      },
+      timeout: 110000
+    };
 
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
         try {
-            const rcon = await Rcon.connect({
-                host,
-                port,
-                password,
-                timeout: 15000,
-            });
-
-            const response = await rcon.send(command);
-            await rcon.end();
-
-            console.log(`RCON response: ${response}`);
-
-            return {
-                success: true,
-                output: response || "",
-            };
-        } catch (error) {
-            console.error("RCON Error:", error);
-
-            return {
-                success: false,
-                error: error?.message || String(error),
-            };
+          resolve(JSON.parse(data));
+        } catch {
+          resolve({ success: false, error: data });
         }
+      });
+    });
+
+    req.on('error', reject);
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Manager API request timed out'));
+    });
+
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// createServer
+// ---------------------------------------------------------------------------
+exports.createServer = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 120,
+  },
+  async (request) => {
+    const { displayName, version, memoryMb, gamemode, ops, maxPlayers } = request.data || {};
+
+    if (!displayName || typeof displayName !== 'string' || !displayName.trim()) {
+      return { success: false, error: 'displayName is required' };
     }
+    if (displayName.length > 64) {
+      return { success: false, error: 'displayName too long (max 64 chars)' };
+    }
+
+    const BASE_URL = managerApiUrl.value();
+    const API_KEY  = managerApiKey.value();
+
+    // Generate slug
+    let slug = slugify(displayName);
+    if (!slug || slug.length < 2) {
+      slug = `server-${Date.now()}`;
+    }
+
+    const serverId = `server-${Date.now()}`;
+
+    // Fetch existing servers to find next free port
+    let existingServers = [];
+    try {
+      const listRes = await callManagerApi(BASE_URL, API_KEY, 'GET', '/servers', null);
+      existingServers = listRes.servers || [];
+    } catch (e) {
+      console.warn('Could not fetch existing servers for port allocation:', e.message);
+    }
+
+    const usedPorts = new Set(existingServers.map(s => s.gamePort).filter(Boolean));
+    let gamePort = 25566;
+    while (usedPorts.has(gamePort)) gamePort++;
+    const rconPort = gamePort + 10;
+
+    console.log(`createServer: id=${serverId} slug=${slug} port=${gamePort}`);
+
+    // Call Oracle Manager API
+    const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/create-server', {
+      serverId,
+      displayName: displayName.trim(),
+      slug,
+      type: 'paper',
+      version: version || '1.21.1',
+      gamePort,
+      rconPort,
+      memoryMb: memoryMb || 2048
+    });
+
+    if (!result.success) {
+      return { success: false, error: result.error || 'Server creation failed' };
+    }
+
+    return {
+      success: true,
+      id: serverId,
+      displayName: displayName.trim(),
+      slug,
+      address: `${slug}.omricraft.com`,
+      publicHost: `${slug}.omricraft.com`,
+      gamePort,
+      rconPort,
+      status: 'starting'
+    };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// deleteServer
+// ---------------------------------------------------------------------------
+exports.deleteServer = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 120,
+  },
+  async (request) => {
+    const { serverId } = request.data || {};
+
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+
+    const BASE_URL = managerApiUrl.value();
+    const API_KEY  = managerApiKey.value();
+
+    console.log(`deleteServer: id=${serverId}`);
+
+    const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/delete-server', { serverId });
+
+    if (!result.success) {
+      return { success: false, error: result.error || 'Delete failed' };
+    }
+
+    return { success: true, serverId };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// sendMcCommand (unchanged — kept for backward compatibility)
+// ---------------------------------------------------------------------------
+exports.sendMcCommand = onCall(
+  {
+    region: "us-central1",
+    secrets: [rconPassword],
+    timeoutSeconds: 60,
+  },
+  async (request) => {
+    const host = "151.145.94.177";
+    const port = 25575;
+    const password = rconPassword.value();
+
+    const command = request.data?.command;
+
+    console.log(`RCON request received: host=${host} port=${port} command=${command}`);
+
+    if (!command || typeof command !== "string") {
+      return {
+        success: false,
+        error: "אין פקודת RCON תקינה",
+      };
+    }
+
+    try {
+      const rcon = await Rcon.connect({
+        host,
+        port,
+        password,
+        timeout: 15000,
+      });
+
+      const response = await rcon.send(command);
+      await rcon.end();
+
+      console.log(`RCON response: ${response}`);
+
+      return {
+        success: true,
+        output: response || "",
+      };
+    } catch (error) {
+      console.error("RCON Error:", error);
+
+      return {
+        success: false,
+        error: error?.message || String(error),
+      };
+    }
+  }
 );
