@@ -95,8 +95,8 @@ exports.createServer = onCall(
       return { success: false, error: 'displayName too long (max 64 chars)' };
     }
 
-    const BASE_URL = managerApiUrl.value();
-    const API_KEY  = managerApiKey.value();
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
 
     // Generate slug
     let slug = slugify(displayName);
@@ -168,8 +168,8 @@ exports.deleteServer = onCall(
       return { success: false, error: 'Invalid serverId' };
     }
 
-    const BASE_URL = managerApiUrl.value();
-    const API_KEY  = managerApiKey.value();
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
 
     console.log(`deleteServer: id=${serverId}`);
 
