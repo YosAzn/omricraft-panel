@@ -4,7 +4,7 @@ set -euo pipefail
 BASE="/home/ubuntu/omricraft"
 VEL_DIR="$BASE/velocity"
 VELOCITY_VERSION="3.3.0-SNAPSHOT"
-VELOCITY_BUILD="449"
+VELOCITY_BUILD="436"
 VELOCITY_JAR_URL="https://api.papermc.io/v2/projects/velocity/versions/${VELOCITY_VERSION}/builds/${VELOCITY_BUILD}/downloads/velocity-${VELOCITY_VERSION}-${VELOCITY_BUILD}.jar"
 
 echo "[$(date)] Installing Velocity..."

@@ -151,6 +151,6 @@ app.post('/restart-server', async (req, res) => {
   }
 });
 
-app.listen(PORT, '127.0.0.1', () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`[${new Date().toISOString()}] OmriCraft Manager API listening on 127.0.0.1:${PORT}`);
 });
