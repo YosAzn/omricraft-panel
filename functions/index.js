@@ -1,9 +1,7 @@
 const { onCall } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
-const { Rcon } = require("rcon-client");
 const http = require("http");
 
-const rconPassword = defineSecret("RCON_PASSWORD");
 const managerApiUrl = defineSecret("MANAGER_API_URL");
 const managerApiKey = defineSecret("MANAGER_API_KEY");
 
@@ -86,7 +84,7 @@ exports.createServer = onCall(
     timeoutSeconds: 120,
   },
   async (request) => {
-    const { displayName, version, memoryMb, gamemode, ops, maxPlayers } = request.data || {};
+    const { displayName, version, memoryMb, gamemode, ops, maxPlayers, seed, addons, icon } = request.data || {};
 
     if (!displayName || typeof displayName !== 'string' || !displayName.trim()) {
       return { success: false, error: 'displayName is required' };
@@ -131,7 +129,13 @@ exports.createServer = onCall(
       version: version || '1.21.1',
       gamePort,
       rconPort,
-      memoryMb: memoryMb || 2048
+      memoryMb: memoryMb || 2048,
+      gamemode: gamemode || 'survival',
+      maxPlayers: maxPlayers || 20,
+      seed: seed || '',
+      ops: Array.isArray(ops) ? ops : [],
+      addons: Array.isArray(addons) ? addons : [],
+      icon: icon || ''
     });
 
     if (!result.success) {
@@ -184,54 +188,35 @@ exports.deleteServer = onCall(
 );
 
 // ---------------------------------------------------------------------------
-// sendMcCommand (unchanged — kept for backward compatibility)
+// sendMcCommand — proxies through Oracle Manager API /send-command
 // ---------------------------------------------------------------------------
 exports.sendMcCommand = onCall(
   {
     region: "us-central1",
-    secrets: [rconPassword],
-    timeoutSeconds: 60,
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 30,
   },
   async (request) => {
-    const host = "151.145.94.177";
-    const port = 25575;
-    const password = rconPassword.value();
+    const { serverId, command } = request.data || {};
 
-    const command = request.data?.command;
-
-    console.log(`RCON request received: host=${host} port=${port} command=${command}`);
-
-    if (!command || typeof command !== "string") {
-      return {
-        success: false,
-        error: "אין פקודת RCON תקינה",
-      };
+    if (!command || typeof command !== 'string') {
+      return { success: false, error: 'אין פקודת RCON תקינה' };
+    }
+    if (!serverId) {
+      return { success: false, error: 'serverId required' };
     }
 
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+
+    console.log(`sendMcCommand: serverId=${serverId} command=${command}`);
+
     try {
-      const rcon = await Rcon.connect({
-        host,
-        port,
-        password,
-        timeout: 15000,
-      });
-
-      const response = await rcon.send(command);
-      await rcon.end();
-
-      console.log(`RCON response: ${response}`);
-
-      return {
-        success: true,
-        output: response || "",
-      };
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/send-command', { serverId, command });
+      return result;
     } catch (error) {
-      console.error("RCON Error:", error);
-
-      return {
-        success: false,
-        error: error?.message || String(error),
-      };
+      console.error('sendMcCommand error:', error);
+      return { success: false, error: error?.message || String(error) };
     }
   }
 );

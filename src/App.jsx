@@ -271,6 +271,10 @@ const DEFAULT_ADDONS = [
   { id: 'p31', name: 'InteractiveChat', desc: 'משדרג את הצ\'אט: שחקנים יכולים לכתוב [item] או [inv] כדי להראות את הנשק או התיק שלהם לכולם בצ\'אט', type: 'plugins', downloads: '6M', rating: 4.8, reviews: 9200 },
   { id: 'p32', name: 'Chunky', desc: 'כלי חובה לשרתים פתוחים: טוען את כל העולם מראש! מונע לחלוטין את הלאגים שנוצרים כששחקנים חוקרים אזורים חדשים', type: 'plugins', downloads: '12M', rating: 4.9, reviews: 14000 },
 
+  // --- כלים ועיצוב ---
+  { id: 'p-axiom', name: 'Axiom', desc: 'כלי בנייה מתקדם לשחקני creative - בנייה מהירה, brushes, undo מלא', type: 'plugins', downloads: '1.2M', rating: 4.9, reviews: 3100 },
+  { id: 'p-chatfmt', name: 'ChatFormatter', desc: 'פורמט צ\'אט מתקדם עם תגיות צבעוניות, emoji reactions, ופקודות מותאמות אישית', type: 'plugins', downloads: '800K', rating: 4.6, reviews: 1200 },
+
   // --- עיצוב וניהול עומסים (בקשת משתמש) ---
   { id: 'p33', name: 'TAB', desc: 'מעצב את רשימת השחקנים (Tablist) שמופיעה שלוחצים על TAB. מאפשר להוסיף צבעים, את הדרגה של השחקן, אנימציות, והודעות למעלה ולמטה (Header/Footer).', type: 'plugins', downloads: '10M', rating: 4.9, reviews: 18000 },
   { id: 'p34', name: 'InvisibleItemFrames', desc: 'מאפשר להפוך מסגרות של חפצים (Item Frames) לבלתי נראות. מעולה לעיצוב חדרים וחנויות בלי לראות את העץ של המסגרת!', type: 'plugins', downloads: '1.2M', rating: 4.8, reviews: 2100 },
@@ -313,12 +317,48 @@ export default function App() {
   const [activeServerId, setActiveServerId] = useState(null);
   
   const [mcVersions, setMcVersions] = useState([
-    '26.1.1', 
-    '1.21.11', 
-    '1.20.4', 
-    '1.19.4', 
-    '1.18.2', 
-    '1.16.5'
+    // Game Drops era
+    '26.1', '26.1.1', '26.1.2',
+    // 1.21.x
+    '1.21.5', '1.21.4', '1.21.3', '1.21.2', '1.21.1', '1.21',
+    // 1.20.x
+    '1.20.6', '1.20.5', '1.20.4', '1.20.3', '1.20.2', '1.20.1', '1.20',
+    // 1.19.x
+    '1.19.4', '1.19.3', '1.19.2', '1.19.1', '1.19',
+    // 1.18.x
+    '1.18.2', '1.18.1', '1.18',
+    // 1.17.x
+    '1.17.1', '1.17',
+    // 1.16.x
+    '1.16.5', '1.16.4', '1.16.3', '1.16.2', '1.16.1', '1.16',
+    // 1.15.x
+    '1.15.2', '1.15.1', '1.15',
+    // 1.14.x
+    '1.14.4', '1.14.3', '1.14.2', '1.14.1', '1.14',
+    // 1.13.x
+    '1.13.2', '1.13.1', '1.13',
+    // 1.12.x
+    '1.12.2', '1.12.1', '1.12',
+    // 1.11.x
+    '1.11.2', '1.11.1', '1.11',
+    // 1.10.x
+    '1.10.2', '1.10.1', '1.10',
+    // 1.9.x
+    '1.9.4', '1.9.3', '1.9.2', '1.9.1', '1.9',
+    // 1.8.x
+    '1.8.9', '1.8.8', '1.8.7', '1.8.6', '1.8.5', '1.8.4', '1.8.3', '1.8.2', '1.8.1', '1.8',
+    // 1.7.x
+    '1.7.10', '1.7.9', '1.7.8', '1.7.7', '1.7.6', '1.7.5', '1.7.4', '1.7.2',
+    // 1.6.x
+    '1.6.4', '1.6.2', '1.6.1',
+    // 1.5.x
+    '1.5.2', '1.5.1', '1.5',
+    // 1.4.x
+    '1.4.7', '1.4.6', '1.4.5', '1.4.4', '1.4.2',
+    // 1.3.x
+    '1.3.2', '1.3.1',
+    // 1.2.x
+    '1.2.5', '1.2.4', '1.2.3', '1.2.2', '1.2.1',
   ]);
 
   const [servers, setServers] = useState([]);
@@ -537,7 +577,10 @@ export default function App() {
         memoryMb: data.memoryMb || 2048,
         gamemode: data.gamemode || 'survival',
         ops: data.ops || [],
-        maxPlayers: data.maxPlayers || 20
+        maxPlayers: data.maxPlayers || 20,
+        seed: String(finalSeed || ''),
+        addons: resolvedAddons,
+        icon: data.icon || ''
       });
 
       if (!result.data?.success) {
@@ -976,7 +1019,8 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
   const [opsString, setOpsString] = useState('');
   const [seed, setSeed] = useState('');
   const [selectedAddons, setSelectedAddons] = useState([]);
-  
+  const [maxPlayers, setMaxPlayers] = useState(20);
+
   // State חדש לחיפוש תוספים
   const [addonSearch, setAddonSearch] = useState('');
 
@@ -997,9 +1041,9 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
   const handleSubmit = (e) => {
     e.preventDefault();
     const opsArray = opsString.split(',').map(o => o.trim()).filter(Boolean);
-    onCreate({ 
-      name, icon, software, version, gamemode, worldType, ops: opsArray, 
-      seed: seed || undefined, installedAddons: selectedAddons 
+    onCreate({
+      name, icon, software, version, gamemode, worldType, ops: opsArray,
+      seed: seed || undefined, installedAddons: selectedAddons, maxPlayers
     });
   };
 
@@ -1051,7 +1095,7 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
               <label className="block text-sm font-bold text-zinc-400 mb-2">{t('version')}</label>
               <select value={version} onChange={(e) => setVersion(e.target.value)}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-all">
-                {mcVersions.map(v => <option key={v} value={v}>{v}</option>)}
+                {mcVersions.map(v => <option key={v} value={v}>{v}{v === '1.21.4' ? ' (מומלץ)' : ''}</option>)}
               </select>
             </div>
             <div>
@@ -1076,6 +1120,11 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
               <label className="block text-sm font-bold text-zinc-400 mb-2">{t('seed')}</label>
               <input type="text" placeholder={t('seed')} value={seed} onChange={(e) => setSeed(e.target.value)}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-all placeholder:text-zinc-600" />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-zinc-400 mb-2">{t('maxPlayers')}</label>
+              <input type="number" min={1} max={100} value={maxPlayers} onChange={e => setMaxPlayers(Number(e.target.value))}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-all" />
             </div>
           </div>
           
@@ -1654,6 +1703,9 @@ function ConsoleTab({ server, t, userRole }) {
     `[INFO]: Starting minecraft server version ${server.version}`,
     '[INFO]: Loading properties',
   ]);
+  const [consoleInput, setConsoleInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const logsEndRef = useRef(null);
 
   useEffect(() => {
     if (server.status === 'starting') {
@@ -1664,6 +1716,35 @@ function ConsoleTab({ server, t, userRole }) {
     }
   }, [server.status, server.software]);
 
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
+
+  const handleSend = async () => {
+    const cmd = consoleInput.trim();
+    if (!cmd || sending) return;
+    setConsoleInput('');
+    setLogs(prev => [...prev, `> ${cmd}`]);
+    setSending(true);
+    try {
+      const result = await sendMcCommand({ serverId: server.id, command: cmd });
+      const data = result.data || result;
+      if (data.success) {
+        if (data.output) setLogs(prev => [...prev, `[RCON]: ${data.output}`]);
+      } else {
+        setLogs(prev => [...prev, `[ERROR]: ${data.error || 'Command failed'}`]);
+      }
+    } catch (e) {
+      setLogs(prev => [...prev, `[ERROR]: ${e.message}`]);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') handleSend();
+  };
+
   return (
     <div className="h-full flex flex-col animate-in fade-in">
       <div className="bg-zinc-950 border border-zinc-800 rounded-t-xl p-3 flex justify-between items-center">
@@ -1673,14 +1754,32 @@ function ConsoleTab({ server, t, userRole }) {
       <div className="flex-1 bg-black border-x border-zinc-800 p-4 font-mono text-sm overflow-y-auto text-zinc-300 min-h-[300px]" dir="ltr">
         {logs.map((log, i) => (
           <div key={i} className="mb-1">
-            {log.includes('INFO') ? <span className="text-blue-400">INFO </span> : null}
-            <span dangerouslySetInnerHTML={{__html: log.replace(/INFO|WARN|ERROR/, '')}}></span>
+            {log.includes('[INFO]') ? <span className="text-blue-400">INFO </span> : null}
+            {log.includes('[ERROR]') ? <span className="text-red-400">ERROR </span> : null}
+            {log.includes('[RCON]') ? <span className="text-green-400">RCON </span> : null}
+            <span dangerouslySetInnerHTML={{__html: log.replace(/\[INFO\]:\s*|\[ERROR\]:\s*|\[RCON\]:\s*/, '')}}></span>
           </div>
         ))}
+        <div ref={logsEndRef} />
       </div>
       <div className="border border-zinc-800 rounded-b-xl overflow-hidden flex">
-        <input type="text" placeholder={server.status === 'online' && userRole === 'admin' ? ">" : "..."} disabled={server.status !== 'online' || userRole !== 'admin'} className="flex-1 bg-zinc-950 px-4 py-3 outline-none text-white disabled:opacity-50" dir="ltr" />
-        <button disabled={server.status !== 'online' || userRole !== 'admin'} className="bg-zinc-800 hover:bg-zinc-700 px-6 font-bold transition-colors disabled:opacity-50">Send</button>
+        <input
+          type="text"
+          placeholder={server.status === 'online' && userRole === 'admin' ? 'הכנס פקודה...' : '...'}
+          disabled={server.status !== 'online' || userRole !== 'admin' || sending}
+          value={consoleInput}
+          onChange={e => setConsoleInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="flex-1 bg-zinc-950 px-4 py-3 outline-none text-white disabled:opacity-50 font-mono"
+          dir="ltr"
+        />
+        <button
+          onClick={handleSend}
+          disabled={server.status !== 'online' || userRole !== 'admin' || sending || !consoleInput.trim()}
+          className="bg-zinc-800 hover:bg-zinc-700 px-6 font-bold transition-colors disabled:opacity-50"
+        >
+          {sending ? '...' : 'Send'}
+        </button>
       </div>
     </div>
   );
