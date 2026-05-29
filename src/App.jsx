@@ -1749,7 +1749,7 @@ function ConsoleTab({ server, t, userRole }) {
     <div className="h-full flex flex-col animate-in fade-in">
       <div className="bg-zinc-950 border border-zinc-800 rounded-t-xl p-3 flex justify-between items-center">
         <h3 className="font-bold flex items-center gap-2"><Terminal size={18} className="text-zinc-400" /> {t('console')}</h3>
-        {server.status !== 'online' && <span className="text-xs text-red-400 flex items-center gap-1"><AlertCircle size={14}/> {t('offline')}</span>}
+        {server.status !== 'online' && <span className="text-xs text-yellow-400 flex items-center gap-1"><AlertCircle size={14}/> סטטוס לא ידוע — נסה לשלוח פקודה</span>}
       </div>
       <div className="flex-1 bg-black border-x border-zinc-800 p-4 font-mono text-sm overflow-y-auto text-zinc-300 min-h-[300px]" dir="ltr">
         {logs.map((log, i) => (
@@ -1765,8 +1765,8 @@ function ConsoleTab({ server, t, userRole }) {
       <div className="border border-zinc-800 rounded-b-xl overflow-hidden flex">
         <input
           type="text"
-          placeholder={server.status === 'online' && userRole === 'admin' ? 'הכנס פקודה...' : '...'}
-          disabled={server.status !== 'online' || userRole !== 'admin' || sending}
+          placeholder={userRole === 'admin' ? 'הכנס פקודה...' : 'אין הרשאה'}
+          disabled={userRole !== 'admin' || sending}
           value={consoleInput}
           onChange={e => setConsoleInput(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -1775,7 +1775,7 @@ function ConsoleTab({ server, t, userRole }) {
         />
         <button
           onClick={handleSend}
-          disabled={server.status !== 'online' || userRole !== 'admin' || sending || !consoleInput.trim()}
+          disabled={userRole !== 'admin' || sending || !consoleInput.trim()}
           className="bg-zinc-800 hover:bg-zinc-700 px-6 font-bold transition-colors disabled:opacity-50"
         >
           {sending ? '...' : 'Send'}
