@@ -740,6 +740,27 @@ export default function App() {
     } catch(e) {}
   };
 
+  // Auto-sync all server statuses when dashboard is shown
+  useEffect(() => {
+    if (currentView !== 'dashboard' || !db || !authUser || servers.length === 0) return;
+    let cancelled = false;
+    const syncAll = async () => {
+      for (const srv of servers) {
+        if (cancelled) break;
+        try {
+          const res = await getServerStatusFn({ serverId: srv.id });
+          const running = res.data?.running === true;
+          const newStatus = running ? 'online' : 'offline';
+          if (srv.status !== newStatus) {
+            await updateDoc(doc(db, getServersPath(), srv.id), { status: newStatus });
+          }
+        } catch(e) {}
+      }
+    };
+    syncAll();
+    return () => { cancelled = true; };
+  }, [currentView, authUser]);
+
   const restartServer = async (id) => {
     if (userRole !== 'admin') return;
     
