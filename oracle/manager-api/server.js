@@ -118,6 +118,19 @@ function rconConnect(host, port, password, command, timeout) {
   });
 }
 
+// Check real running status by PID file
+app.get('/server-status/:serverId', function(req, res) {
+  const serverId = req.params.serverId;
+  if (!SAFE_ID.test(serverId)) return res.status(400).json({ success: false, error: 'Invalid id' });
+  const pidFile = path.join(SERVERS_DIR, serverId, 'server.pid');
+  let running = false;
+  try {
+    const pid = fs.readFileSync(pidFile, 'utf8').trim();
+    if (pid) { process.kill(parseInt(pid), 0); running = true; }
+  } catch (e) { running = false; }
+  return res.json({ success: true, serverId, running });
+});
+
 app.post('/create-server', async function(req, res) {
   const body = req.body;
   const serverId = body.serverId;

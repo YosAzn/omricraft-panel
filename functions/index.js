@@ -189,6 +189,63 @@ exports.deleteServer = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// startServer / stopServer — control server via Oracle Manager API
+// ---------------------------------------------------------------------------
+exports.startServer = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 30 },
+  async (request) => {
+    const { serverId } = request.data || {};
+    if (!serverId || !/^[a-z0-9_-]+$/.test(serverId)) return { success: false, error: 'Invalid serverId' };
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    // Get server memoryMb from servers.json via /servers endpoint
+    let memoryMb = 2048;
+    try {
+      const list = await callManagerApi(BASE_URL, API_KEY, 'GET', '/servers', null);
+      const srv = (list.servers || []).find(s => s.id === serverId);
+      if (srv && srv.memoryMb) memoryMb = srv.memoryMb;
+    } catch(e) {}
+    return await callManagerApi(BASE_URL, API_KEY, 'POST', '/start-server', { serverId, memoryMb });
+  }
+);
+
+exports.stopServer = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 30 },
+  async (request) => {
+    const { serverId } = request.data || {};
+    if (!serverId || !/^[a-z0-9_-]+$/.test(serverId)) return { success: false, error: 'Invalid serverId' };
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    return await callManagerApi(BASE_URL, API_KEY, 'POST', '/stop-server', { serverId });
+  }
+);
+
+// ---------------------------------------------------------------------------
+// getServerStatus — returns real running status from VPS PID check
+// ---------------------------------------------------------------------------
+exports.getServerStatus = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 15,
+  },
+  async (request) => {
+    const { serverId } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'GET', `/server-status/${serverId}`, null);
+      return result;
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // setServerPrivacy — enables/disables whitelist via Oracle Manager API
 // ---------------------------------------------------------------------------
 exports.setServerPrivacy = onCall(

@@ -35,6 +35,9 @@ const deleteServerFn = httpsCallable(functionsInstance, 'deleteServer');
 const updateServerIconFn = httpsCallable(functionsInstance, 'updateServerIcon');
 const setServerPrivacyFn = httpsCallable(functionsInstance, 'setServerPrivacy');
 const updateWhitelistPlayersFn = httpsCallable(functionsInstance, 'updateWhitelistPlayers');
+const getServerStatusFn = httpsCallable(functionsInstance, 'getServerStatus');
+const startServerFn = httpsCallable(functionsInstance, 'startServer');
+const stopServerFn = httpsCallable(functionsInstance, 'stopServer');
 
 
 // --- מילון שפות ---
@@ -698,19 +701,43 @@ export default function App() {
 
   const toggleServerStatus = async (id) => {
     if (userRole !== 'admin') return;
-    const currentServer = servers.find(s => s.id === id);
-    if (!currentServer) return;
 
-    let newStatus = currentServer.status === 'offline' ? 'starting' : 'offline';
+    // First get real status from VPS
+    let isRunning = false;
+    try {
+      const statusRes = await getServerStatusFn({ serverId: id });
+      isRunning = statusRes.data?.running === true;
+    } catch (e) {
+      // fallback to Firestore status
+      const srv = servers.find(s => s.id === id);
+      isRunning = srv?.status === 'online';
+    }
 
-    if (db && authUser) {
-      await updateDoc(doc(db, getServersPath(), id), { status: newStatus, players: 0, needsRestart: false });
-      if (newStatus === 'starting') {
-        setTimeout(async () => {
-          await updateDoc(doc(db, getServersPath(), id), { status: 'online' });
-        }, 3000);
+    if (isRunning) {
+      // Stop the server
+      if (db && authUser) await updateDoc(doc(db, getServersPath(), id), { status: 'offline', players: 0 });
+      try { await stopServerFn({ serverId: id }); } catch(e) { console.error('Stop failed', e); }
+    } else {
+      // Start the server
+      if (db && authUser) await updateDoc(doc(db, getServersPath(), id), { status: 'starting', players: 0 });
+      try {
+        await startServerFn({ serverId: id });
+        if (db && authUser) await updateDoc(doc(db, getServersPath(), id), { status: 'online' });
+      } catch(e) {
+        console.error('Start failed', e);
+        if (db && authUser) await updateDoc(doc(db, getServersPath(), id), { status: 'offline' });
       }
     }
+  };
+
+  // Sync status from VPS when entering server panel
+  const syncServerStatus = async (id) => {
+    if (!id || !db || !authUser) return;
+    try {
+      const statusRes = await getServerStatusFn({ serverId: id });
+      const running = statusRes.data?.running === true;
+      await updateDoc(doc(db, getServersPath(), id), { status: running ? 'online' : 'offline' });
+    } catch(e) {}
   };
 
   const restartServer = async (id) => {
@@ -844,7 +871,7 @@ export default function App() {
         )}
 
         {currentView === 'server' && activeServer && (
-          <ServerPanel 
+          <ServerPanel
             server={activeServer} t={t} allAddons={allAddons} userRole={userRole} mcVersions={mcVersions}
             onBack={() => setCurrentView('dashboard')}
             toggleStatus={() => toggleServerStatus(activeServer.id)}
@@ -852,6 +879,7 @@ export default function App() {
             toggleAddon={(addon) => toggleAddonForServer(activeServer.id, addon)}
             onDelete={() => deleteServer(activeServer.id)}
             updateServer={(newData) => updateServer(activeServer.id, newData)}
+            syncStatus={syncServerStatus}
           />
         )}
 
@@ -1014,14 +1042,18 @@ function Dashboard({ servers, onOpenServer, onCreateClick, toggleServerStatus, t
                 </div>
               </div>
               <div className="p-4 bg-zinc-950/50 border-t border-zinc-800 flex gap-2">
-                <button 
+                <button
                   onClick={() => toggleServerStatus(server.id)}
-                  disabled={server.status === 'starting' || userRole !== 'admin'}
+                  disabled={userRole !== 'admin'}
                   title={userRole !== 'admin' ? t('noPermission') : ''}
                   className={`flex-1 py-2 rounded-lg font-medium flex justify-center items-center gap-2 transition-colors disabled:opacity-30
                     ${server.status === 'online' ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20' : 'bg-green-600 hover:bg-green-500 text-white'}`}
                 >
-                  {server.status === 'online' ? <Square size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
+                  {server.status === 'starting'
+                    ? <RefreshCw size={16} className="animate-spin" />
+                    : server.status === 'online'
+                    ? <Square size={16} fill="currentColor" />
+                    : <Play size={16} fill="currentColor" />}
                   {server.status === 'online' ? t('stop') : t('start')}
                 </button>
                 <button onClick={() => onOpenServer(server.id)} className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-2 rounded-lg font-medium transition-colors text-zinc-100">
@@ -1547,9 +1579,14 @@ function GlobalRepository({ allAddons, customAddons, onAdd, onDelete, t, userRol
   );
 }
 
-function ServerPanel({ server, onBack, toggleStatus, restartServer, toggleAddon, onDelete, updateServer, t, allAddons, userRole, mcVersions }) {
+function ServerPanel({ server, onBack, toggleStatus, restartServer, toggleAddon, onDelete, updateServer, t, allAddons, userRole, mcVersions, syncStatus }) {
   const [activeTab, setActiveTab] = useState('overview');
   const hasMapPlugin = server.installedAddons.includes('p9');
+
+  // Sync real status from VPS on panel open
+  useEffect(() => {
+    if (syncStatus) syncStatus(server.id);
+  }, [server.id]);
 
   return (
     <div className="animate-in fade-in duration-300">
@@ -1597,15 +1634,27 @@ function ServerPanel({ server, onBack, toggleStatus, restartServer, toggleAddon,
           </div>
           
           {userRole === 'admin' && (
-            <button 
-              onClick={toggleStatus}
-              disabled={server.status === 'starting'}
-              className={`px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-all disabled:opacity-50
-                ${server.status === 'online' ? 'bg-zinc-800 hover:bg-zinc-700 text-white' : 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/20'}`}
-            >
-              {server.status === 'online' ? <Square size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
-              {server.status === 'online' ? t('stop') : t('start')}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => syncStatus && syncStatus(server.id)}
+                className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+                title="רענן סטטוס אמיתי מהשרת"
+              >
+                <RefreshCw size={16} />
+              </button>
+              <button
+                onClick={toggleStatus}
+                className={`px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-all
+                  ${server.status === 'online' ? 'bg-zinc-800 hover:bg-zinc-700 text-white' : 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/20'}`}
+              >
+                {server.status === 'starting'
+                  ? <RefreshCw size={16} className="animate-spin" />
+                  : server.status === 'online'
+                  ? <Square size={16} fill="currentColor" />
+                  : <Play size={16} fill="currentColor" />}
+                {server.status === 'online' ? t('stop') : t('start')}
+              </button>
+            </div>
           )}
         </div>
       </div>
