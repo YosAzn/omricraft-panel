@@ -134,6 +134,7 @@ app.post('/create-server', async function(req, res) {
   const ops = body.ops;
   const addons = body.addons;
   const icon = body.icon;
+  const isPrivate = body.isPrivate === true;
 
   if (!validateId(serverId, res)) return;
   if (!validateId(slug, res)) return;
@@ -150,7 +151,8 @@ app.post('/create-server', async function(req, res) {
       JSON.stringify(Array.isArray(ops) ? ops : []),
       JSON.stringify(Array.isArray(addons) ? addons : []),
       String(maxPlayers || 20),
-      String(gamemode || 'survival')
+      String(gamemode || 'survival'),
+      isPrivate ? 'true' : 'false'
     ]);
 
     if (icon && icon.length > 0) {
@@ -277,6 +279,43 @@ app.post('/send-command', async function(req, res) {
     console.error('RCON error ' + serverId + ':', e.message);
     return res.status(500).json({ success: false, error: e.message });
   }
+});
+
+app.post('/set-whitelist', async function(req, res) {
+  const serverId = req.body.serverId;
+  const enabled = req.body.enabled === true;
+  if (!validateId(serverId, res)) return;
+
+  const propsPath = path.join(SERVERS_DIR, serverId, 'server.properties');
+  try {
+    let props = fs.readFileSync(propsPath, 'utf8');
+    props = props.replace(/^white-list=.*/m, 'white-list=' + (enabled ? 'true' : 'false'));
+    if (!/^white-list=/m.test(props)) props += '\nwhite-list=' + (enabled ? 'true' : 'false');
+    fs.writeFileSync(propsPath, props);
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Could not update server.properties: ' + err.message });
+  }
+
+  // Also send RCON command if server is running
+  try {
+    const serversData = JSON.parse(fs.readFileSync(SERVERS_JSON, 'utf8'));
+    const arr = Array.isArray(serversData) ? serversData : (serversData.servers || []);
+    const srv = arr.find(function(s) { return s.id === serverId; });
+    if (srv) {
+      const rconPort = srv.rconPort || 25575;
+      const propsContent = fs.readFileSync(propsPath, 'utf8');
+      const passMatch = propsContent.match(/^rcon\.password=(.*)$/m);
+      const portMatch = propsContent.match(/^rcon\.port=(\d+)/m);
+      const rconPass = passMatch ? passMatch[1].trim() : '';
+      const rconPortActual = portMatch ? parseInt(portMatch[1]) : rconPort;
+      if (rconPass) {
+        await rconConnect('127.0.0.1', rconPortActual, rconPass, enabled ? 'whitelist on' : 'whitelist off', 5000).catch(() => {});
+      }
+    }
+  } catch (e) { /* server might not be running, ignore */ }
+
+  console.log('[' + new Date().toISOString() + '] Whitelist ' + (enabled ? 'enabled' : 'disabled') + ' for ' + serverId);
+  return res.json({ success: true });
 });
 
 app.post('/update-icon', function(req, res) {

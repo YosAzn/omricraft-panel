@@ -33,6 +33,7 @@ const sendMcCommand = httpsCallable(functionsInstance, 'sendMcCommand');
 const createServerFn = httpsCallable(functionsInstance, 'createServer');
 const deleteServerFn = httpsCallable(functionsInstance, 'deleteServer');
 const updateServerIconFn = httpsCallable(functionsInstance, 'updateServerIcon');
+const setServerPrivacyFn = httpsCallable(functionsInstance, 'setServerPrivacy');
 
 
 // --- מילון שפות ---
@@ -595,7 +596,8 @@ export default function App() {
         maxPlayers: data.maxPlayers || 20,
         seed: String(finalSeed || ''),
         addons: resolvedAddons,
-        icon: smallIcon
+        icon: smallIcon,
+        isPrivate: data.isPrivate === true
       });
 
       if (!result.data?.success) {
@@ -618,6 +620,7 @@ export default function App() {
         seed: finalSeed.toString(),
         installedAddons: resolvedAddons,
         icon: smallIcon,
+        isPrivate: data.isPrivate === true,
         status: 'starting',
         players: 0,
         needsRestart: false,
@@ -984,13 +987,20 @@ function Dashboard({ servers, onOpenServer, onCreateClick, toggleServerStatus, t
                     </div>
                   </div>
                   
-                  <div className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold flex items-center gap-1.5 whitespace-nowrap
-                    ${server.status === 'online' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 
-                      server.status === 'starting' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' : 
-                      'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}
-                  >
-                    <span className={`w-2 h-2 rounded-full ${server.status === 'online' ? 'bg-green-400' : server.status === 'starting' ? 'bg-yellow-400 animate-pulse' : 'bg-zinc-500'}`}></span>
-                    {t(server.status)}
+                  <div className="flex items-center gap-2">
+                    {server.isPrivate && (
+                      <div className="px-2 py-1 rounded-full text-[10px] font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 flex items-center gap-1">
+                        <Shield size={10} /> פרטי
+                      </div>
+                    )}
+                    <div className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold flex items-center gap-1.5 whitespace-nowrap
+                      ${server.status === 'online' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
+                        server.status === 'starting' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' :
+                        'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${server.status === 'online' ? 'bg-green-400' : server.status === 'starting' ? 'bg-yellow-400 animate-pulse' : 'bg-zinc-500'}`}></span>
+                      {t(server.status)}
+                    </div>
                   </div>
                 </div>
                 <div className="space-y-2 mb-2 ml-14 rtl:ml-0 rtl:mr-14">
@@ -1038,6 +1048,7 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
   const [seed, setSeed] = useState('');
   const [selectedAddons, setSelectedAddons] = useState([]);
   const [maxPlayers, setMaxPlayers] = useState(20);
+  const [isPrivate, setIsPrivate] = useState(false);
 
   // State חדש לחיפוש תוספים
   const [addonSearch, setAddonSearch] = useState('');
@@ -1061,7 +1072,7 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
     const opsArray = opsString.split(',').map(o => o.trim()).filter(Boolean);
     onCreate({
       name, icon, software, version, gamemode, worldType, ops: opsArray,
-      seed: seed || undefined, installedAddons: selectedAddons, maxPlayers
+      seed: seed || undefined, installedAddons: selectedAddons, maxPlayers, isPrivate
     });
   };
 
@@ -1145,7 +1156,26 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-all" />
             </div>
           </div>
-          
+
+          {/* Private / Public toggle */}
+          <div
+            onClick={() => setIsPrivate(p => !p)}
+            className={`flex items-center justify-between rounded-xl p-4 cursor-pointer border transition-all ${isPrivate ? 'bg-yellow-500/10 border-yellow-500/40' : 'bg-zinc-950 border-zinc-800 hover:border-zinc-600'}`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isPrivate ? 'bg-yellow-500/20' : 'bg-zinc-800'}`}>
+                <Shield size={18} className={isPrivate ? 'text-yellow-400' : 'text-zinc-500'} />
+              </div>
+              <div>
+                <p className={`font-bold text-sm ${isPrivate ? 'text-yellow-400' : 'text-zinc-300'}`}>{isPrivate ? 'שרת פרטי' : 'שרת ציבורי'}</p>
+                <p className="text-xs text-zinc-500">{isPrivate ? 'רק שחקנים ב-Whitelist יוכלו להתחבר' : 'כל שחקן יכול להתחבר'}</p>
+              </div>
+            </div>
+            <div className={`w-11 h-6 rounded-full transition-colors relative ${isPrivate ? 'bg-yellow-500' : 'bg-zinc-700'}`}>
+              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${isPrivate ? 'left-6' : 'left-1'}`} />
+            </div>
+          </div>
+
           <div className="bg-zinc-950 border border-red-500/20 rounded-xl p-5">
              <label className="block text-sm font-bold text-red-400 mb-2">{t('opPlayers')}</label>
              <input type="text" placeholder={t('opPlayersDesc')} value={opsString} onChange={(e) => setOpsString(e.target.value)}
@@ -2130,6 +2160,29 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
               </select>
             </div>
           </div>
+          {/* Privacy toggle */}
+          <div
+            onClick={async () => {
+              const newVal = !server.isPrivate;
+              updateServer({ isPrivate: newVal });
+              try { await setServerPrivacyFn({ serverId: server.id, isPrivate: newVal }); } catch(e) {}
+            }}
+            className={`flex items-center justify-between rounded-xl p-4 cursor-pointer border transition-all ${server.isPrivate ? 'bg-yellow-500/10 border-yellow-500/40' : 'bg-zinc-950 border-zinc-800 hover:border-zinc-600'}`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${server.isPrivate ? 'bg-yellow-500/20' : 'bg-zinc-800'}`}>
+                <Shield size={18} className={server.isPrivate ? 'text-yellow-400' : 'text-zinc-500'} />
+              </div>
+              <div>
+                <p className={`font-bold text-sm ${server.isPrivate ? 'text-yellow-400' : 'text-zinc-300'}`}>{server.isPrivate ? 'שרת פרטי' : 'שרת ציבורי'}</p>
+                <p className="text-xs text-zinc-500">{server.isPrivate ? 'רק שחקנים ב-Whitelist יוכלו להתחבר' : 'כל שחקן יכול להתחבר'}</p>
+              </div>
+            </div>
+            <div className={`w-11 h-6 rounded-full transition-colors relative ${server.isPrivate ? 'bg-yellow-500' : 'bg-zinc-700'}`}>
+              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${server.isPrivate ? 'left-6' : 'left-1'}`} />
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm text-zinc-400 mb-1">{t('opPlayers')}</label>
             <input type="text" placeholder={t('opPlayersDesc')} value={server.ops?.join(', ') || ''} onChange={(e) => updateServer({ ops: e.target.value.split(',').map(o=>o.trim()).filter(Boolean) })} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600 text-sm" />

@@ -84,7 +84,7 @@ exports.createServer = onCall(
     timeoutSeconds: 120,
   },
   async (request) => {
-    const { displayName, version, memoryMb, gamemode, ops, maxPlayers, seed, addons, icon } = request.data || {};
+    const { displayName, version, memoryMb, gamemode, ops, maxPlayers, seed, addons, icon, isPrivate } = request.data || {};
 
     if (!displayName || typeof displayName !== 'string' || !displayName.trim()) {
       return { success: false, error: 'displayName is required' };
@@ -135,7 +135,8 @@ exports.createServer = onCall(
       seed: seed || '',
       ops: Array.isArray(ops) ? ops : [],
       addons: Array.isArray(addons) ? addons : [],
-      icon: icon || ''
+      icon: icon || '',
+      isPrivate: isPrivate === true
     });
 
     if (!result.success) {
@@ -184,6 +185,37 @@ exports.deleteServer = onCall(
     }
 
     return { success: true, serverId };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// setServerPrivacy — enables/disables whitelist via Oracle Manager API
+// ---------------------------------------------------------------------------
+exports.setServerPrivacy = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    const { serverId, isPrivate } = request.data || {};
+
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+
+    console.log(`setServerPrivacy: id=${serverId} isPrivate=${isPrivate}`);
+
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/set-whitelist', { serverId, enabled: isPrivate === true });
+      return result;
+    } catch (error) {
+      console.error('setServerPrivacy error:', error);
+      return { success: false, error: error?.message || String(error) };
+    }
   }
 );
 

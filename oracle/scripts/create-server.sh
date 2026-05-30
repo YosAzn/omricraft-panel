@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: ./create-server.sh SERVER_ID DISPLAY_NAME SLUG TYPE VERSION GAME_PORT RCON_PORT MEMORY_MB [SEED] [OPS_JSON] [ADDONS_JSON] [MAX_PLAYERS] [GAMEMODE]
+# Usage: ./create-server.sh SERVER_ID DISPLAY_NAME SLUG TYPE VERSION GAME_PORT RCON_PORT MEMORY_MB [SEED] [OPS_JSON] [ADDONS_JSON] [MAX_PLAYERS] [GAMEMODE] [WHITELIST]
 
 if [ "$#" -lt 8 ]; then
-  echo "Usage: $0 SERVER_ID DISPLAY_NAME SLUG TYPE VERSION GAME_PORT RCON_PORT MEMORY_MB [SEED] [OPS_JSON] [ADDONS_JSON] [MAX_PLAYERS] [GAMEMODE]"
+  echo "Usage: $0 SERVER_ID DISPLAY_NAME SLUG TYPE VERSION GAME_PORT RCON_PORT MEMORY_MB [SEED] [OPS_JSON] [ADDONS_JSON] [MAX_PLAYERS] [GAMEMODE] [WHITELIST]"
   exit 1
 fi
 
@@ -21,6 +21,7 @@ OPS="${10:-[]}"
 ADDONS="${11:-[]}"
 MAX_PLAYERS="${12:-20}"
 GAMEMODE="${13:-survival}"
+WHITELIST="${14:-false}"
 
 BASE="/home/ubuntu/omricraft"
 SERVERS_DIR="$BASE/servers"
@@ -100,6 +101,7 @@ motd=${DISPLAY_NAME}
 max-players=${MAX_PLAYERS}
 difficulty=normal
 gamemode=${GAMEMODE}
+white-list=${WHITELIST}
 spawn-protection=16
 enable-command-block=false
 PROPS
