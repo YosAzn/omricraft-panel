@@ -318,6 +318,42 @@ app.post('/set-whitelist', async function(req, res) {
   return res.json({ success: true });
 });
 
+app.post('/update-whitelist-players', async function(req, res) {
+  const serverId = req.body.serverId;
+  const players = req.body.players; // array of player name strings
+  if (!validateId(serverId, res)) return;
+  if (!Array.isArray(players)) {
+    return res.status(400).json({ success: false, error: 'players must be an array' });
+  }
+
+  const whitelistPath = path.join(SERVERS_DIR, serverId, 'whitelist.json');
+  const whitelist = players.map(function(name) {
+    return { uuid: '', name: String(name).trim(), whitelisted: true };
+  }).filter(function(e) { return e.name.length > 0; });
+
+  try {
+    fs.writeFileSync(whitelistPath, JSON.stringify(whitelist, null, 2));
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Could not write whitelist.json: ' + err.message });
+  }
+
+  // Reload whitelist via RCON if server is running
+  try {
+    const propsPath = path.join(SERVERS_DIR, serverId, 'server.properties');
+    const propsContent = fs.readFileSync(propsPath, 'utf8');
+    const passMatch = propsContent.match(/^rcon\.password=(.*)$/m);
+    const portMatch = propsContent.match(/^rcon\.port=(\d+)/m);
+    const rconPass = passMatch ? passMatch[1].trim() : '';
+    const rconPort = portMatch ? parseInt(portMatch[1]) : 25575;
+    if (rconPass) {
+      await rconConnect('127.0.0.1', rconPort, rconPass, 'whitelist reload', 5000).catch(() => {});
+    }
+  } catch (e) { /* server might not be running */ }
+
+  console.log('[' + new Date().toISOString() + '] Whitelist updated for ' + serverId + ' (' + whitelist.length + ' players)');
+  return res.json({ success: true, count: whitelist.length });
+});
+
 app.post('/update-icon', function(req, res) {
   const serverId = req.body.serverId;
   const icon = req.body.icon;

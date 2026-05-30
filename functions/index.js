@@ -220,6 +220,40 @@ exports.setServerPrivacy = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// updateWhitelistPlayers — writes whitelist.json + reloads via Oracle Manager API
+// ---------------------------------------------------------------------------
+exports.updateWhitelistPlayers = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    const { serverId, players } = request.data || {};
+
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    if (!Array.isArray(players)) {
+      return { success: false, error: 'players must be an array' };
+    }
+
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+
+    console.log(`updateWhitelistPlayers: id=${serverId} count=${players.length}`);
+
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/update-whitelist-players', { serverId, players });
+      return result;
+    } catch (error) {
+      console.error('updateWhitelistPlayers error:', error);
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // updateServerIcon — writes server-icon.png to VPS via Oracle Manager API
 // ---------------------------------------------------------------------------
 exports.updateServerIcon = onCall(
