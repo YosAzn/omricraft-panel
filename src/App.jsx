@@ -587,8 +587,12 @@ export default function App() {
         throw new Error(result.data?.error || 'Server creation failed');
       }
 
+      // Strip base64 icon from Firestore doc (too large, hits 1MB doc limit)
+      // Icon is already saved on VPS as server-icon.png
+      const { icon: _iconBase64, ...dataWithoutIcon } = data;
+
       const serverData = {
-        ...data,
+        ...dataWithoutIcon,
         id: result.data.id,
         name: result.data.displayName,
         displayName: result.data.displayName,
@@ -600,6 +604,7 @@ export default function App() {
         backendAddress: `127.0.0.1:${result.data.gamePort}`,
         seed: finalSeed.toString(),
         installedAddons: resolvedAddons,
+        icon: '',
         status: 'starting',
         players: 0,
         needsRestart: false,
@@ -1013,7 +1018,7 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
   const [name, setName] = useState('My Awesome Server');
   const [icon, setIcon] = useState(null); 
   const [software, setSoftware] = useState('paper');
-  const [version, setVersion] = useState(mcVersions[0]); 
+  const [version, setVersion] = useState('1.21.4');
   const [gamemode, setGamemode] = useState('survival');
   const [worldType, setWorldType] = useState('default');
   const [opsString, setOpsString] = useState('');
