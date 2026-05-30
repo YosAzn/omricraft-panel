@@ -537,6 +537,20 @@ export default function App() {
     }
   };
 
+  // Resize image to 64x64 PNG (Minecraft server-icon spec), returns small base64
+  const resizeIconTo64 = (base64Src) => new Promise((resolve) => {
+    if (!base64Src) return resolve('');
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64; canvas.height = 64;
+      canvas.getContext('2d').drawImage(img, 0, 0, 64, 64);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => resolve('');
+    img.src = base64Src;
+  });
+
   const handleCreateServer = async (data) => {
     if (creatingServerRef.current) {
       console.warn('World creation is already in progress. Ignoring duplicate click.');
@@ -550,6 +564,9 @@ export default function App() {
       if (!db || !authUser) {
         throw new Error('Database or user is not ready.');
       }
+
+      // Resize icon to 64x64 PNG before sending (keeps Firestore doc small + valid MC format)
+      const smallIcon = await resizeIconTo64(data.icon || '');
 
       const finalSeed = data.seed || Math.floor(Math.random() * 9000000000) + 1000000000;
 
@@ -580,16 +597,14 @@ export default function App() {
         maxPlayers: data.maxPlayers || 20,
         seed: String(finalSeed || ''),
         addons: resolvedAddons,
-        icon: data.icon || ''
+        icon: smallIcon
       });
 
       if (!result.data?.success) {
         throw new Error(result.data?.error || 'Server creation failed');
       }
 
-      // Strip base64 icon from Firestore doc (too large, hits 1MB doc limit)
-      // Icon is already saved on VPS as server-icon.png
-      const { icon: _iconBase64, ...dataWithoutIcon } = data;
+      const { icon: _raw, ...dataWithoutIcon } = data;
 
       const serverData = {
         ...dataWithoutIcon,
@@ -604,7 +619,7 @@ export default function App() {
         backendAddress: `127.0.0.1:${result.data.gamePort}`,
         seed: finalSeed.toString(),
         installedAddons: resolvedAddons,
-        icon: '',
+        icon: smallIcon,
         status: 'starting',
         players: 0,
         needsRestart: false,
