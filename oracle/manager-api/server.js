@@ -279,6 +279,26 @@ app.post('/send-command', async function(req, res) {
   }
 });
 
+app.post('/update-icon', function(req, res) {
+  const serverId = req.body.serverId;
+  const icon = req.body.icon;
+  if (!validateId(serverId, res)) return;
+  if (!icon || typeof icon !== 'string' || icon.length === 0) {
+    return res.status(400).json({ success: false, error: 'Missing icon' });
+  }
+  try {
+    const iconData = icon.replace(/^data:image\/\w+;base64,/, '');
+    const iconBuffer = Buffer.from(iconData, 'base64');
+    const iconPath = path.join(SERVERS_DIR, serverId, 'server-icon.png');
+    fs.writeFileSync(iconPath, iconBuffer);
+    console.log('[' + new Date().toISOString() + '] Updated icon for ' + serverId);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('update-icon error:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', function() {
   console.log('[' + new Date().toISOString() + '] OmriCraft Manager API listening on 0.0.0.0:' + PORT);
 });

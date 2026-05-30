@@ -188,6 +188,40 @@ exports.deleteServer = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// updateServerIcon — writes server-icon.png to VPS via Oracle Manager API
+// ---------------------------------------------------------------------------
+exports.updateServerIcon = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    const { serverId, icon } = request.data || {};
+
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    if (!icon || typeof icon !== 'string') {
+      return { success: false, error: 'Missing icon' };
+    }
+
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+
+    console.log(`updateServerIcon: id=${serverId}`);
+
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/update-icon', { serverId, icon });
+      return result;
+    } catch (error) {
+      console.error('updateServerIcon error:', error);
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // sendMcCommand — proxies through Oracle Manager API /send-command
 // ---------------------------------------------------------------------------
 exports.sendMcCommand = onCall(
