@@ -380,6 +380,34 @@ exports.sendMcCommand = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// updateServerOps — writes ops to server via RCON (op/deop commands)
+// ---------------------------------------------------------------------------
+exports.updateServerOps = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    const { serverId, ops } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    if (!Array.isArray(ops)) {
+      return { success: false, error: 'ops must be an array' };
+    }
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/update-ops', { serverId, ops });
+      return result;
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // getPaperVersions — fetches Paper versions server-side (bypasses CORS)
 // ---------------------------------------------------------------------------
 exports.getPaperVersions = onCall(

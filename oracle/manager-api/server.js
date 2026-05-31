@@ -366,6 +366,45 @@ app.post('/update-whitelist-players', async function(req, res) {
   return res.json({ success: true, count: whitelist.length });
 });
 
+app.post('/update-ops', async function(req, res) {
+  const serverId = req.body.serverId;
+  const ops = req.body.ops; // array of player name strings
+  if (!validateId(serverId, res)) return;
+  if (!Array.isArray(ops)) {
+    return res.status(400).json({ success: false, error: 'ops must be an array' });
+  }
+
+  // Write ops.json
+  const opsPath = path.join(SERVERS_DIR, serverId, 'ops.json');
+  const opsData = ops.map(function(name) {
+    return { uuid: '', name: String(name).trim(), level: 4, bypassesPlayerLimit: false };
+  }).filter(function(e) { return e.name.length > 0; });
+
+  try {
+    fs.writeFileSync(opsPath, JSON.stringify(opsData, null, 2));
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Could not write ops.json: ' + err.message });
+  }
+
+  // Also send RCON op commands if server is running
+  try {
+    const propsPath = path.join(SERVERS_DIR, serverId, 'server.properties');
+    const propsContent = fs.readFileSync(propsPath, 'utf8');
+    const passMatch = propsContent.match(/^rcon\.password=(.*)$/m);
+    const portMatch = propsContent.match(/^rcon\.port=(\d+)/m);
+    const rconPass = passMatch ? passMatch[1].trim() : '';
+    const rconPort = portMatch ? parseInt(portMatch[1]) : 25575;
+    if (rconPass && opsData.length > 0) {
+      for (const op of opsData) {
+        await rconConnect('127.0.0.1', rconPort, rconPass, 'op ' + op.name, 5000).catch(() => {});
+      }
+    }
+  } catch (e) { /* server might not be running */ }
+
+  console.log('[' + new Date().toISOString() + '] Ops updated for ' + serverId + ' (' + opsData.length + ' ops)');
+  return res.json({ success: true, count: opsData.length });
+});
+
 function saveIcon(iconBase64, iconPath, cb) {
   const iconData = iconBase64.replace(/^data:image\/\w+;base64,/, '');
   const tmpPath = iconPath + '.tmp';

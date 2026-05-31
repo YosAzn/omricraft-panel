@@ -39,6 +39,7 @@ const getServerStatusFn = httpsCallable(functionsInstance, 'getServerStatus');
 const startServerFn = httpsCallable(functionsInstance, 'startServer');
 const stopServerFn = httpsCallable(functionsInstance, 'stopServer');
 const getPaperVersionsFn = httpsCallable(functionsInstance, 'getPaperVersions');
+const updateServerOpsFn = httpsCallable(functionsInstance, 'updateServerOps');
 
 
 // --- מילון שפות ---
@@ -1798,6 +1799,11 @@ function OverviewTab({ server, t }) {
 }
 
 function MapTab({ server, t }) {
+  const VPS_IP = '151.145.94.177';
+  const mapUrl = server.blueMapPort
+    ? `http://${VPS_IP}:${server.blueMapPort}`
+    : null;
+
   return (
     <div className="h-full flex flex-col animate-in fade-in space-y-4">
       <div className="flex justify-between items-center">
@@ -1805,12 +1811,23 @@ function MapTab({ server, t }) {
         {server.status !== 'online' && <span className="text-xs text-red-400 bg-red-500/10 px-2 py-1 rounded">{t('offline')}</span>}
       </div>
       <div className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl flex items-center justify-center min-h-[400px] relative overflow-hidden">
-        {server.status === 'online' ? (
-          <iframe src="https://demo.bluemap.app/" title="Live Map" className="absolute inset-0 w-full h-full border-0"></iframe>
+        {server.status === 'online' && mapUrl ? (
+          <iframe src={mapUrl} title="Live Map" className="absolute inset-0 w-full h-full border-0"></iframe>
         ) : (
-          <div className="text-zinc-600 flex flex-col items-center gap-2 z-10">
-            <AlertCircle size={32}/>
-            <p>השרת חייב להיות מחובר כדי לצפות במפה</p>
+          <div className="text-zinc-500 flex flex-col items-center gap-3 text-center px-8 z-10">
+            <MapIcon size={40} className="text-zinc-700"/>
+            {server.status !== 'online' ? (
+              <p>הפעל את השרת כדי לצפות במפה החיה</p>
+            ) : (
+              <>
+                <p className="text-sm">BlueMap מותקן אך לא מוגדר</p>
+                <p className="text-xs text-zinc-600">יש להוסיף <code className="text-blue-400">blueMapPort</code> לנתוני השרת</p>
+                <a href={`http://${VPS_IP}:8100`} target="_blank" rel="noopener noreferrer"
+                   className="text-blue-400 hover:underline text-sm">
+                  נסה ב-{VPS_IP}:8100
+                </a>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1850,7 +1867,7 @@ function ConsoleTab({ server, t, userRole }) {
       const result = await sendMcCommand({ serverId: server.id, command: cmd });
       const data = result.data || result;
       if (data.success) {
-        if (data.output) setLogs(prev => [...prev, `[RCON]: ${data.output}`]);
+        setLogs(prev => [...prev, `[RCON]: ${data.output || '✓ הפקודה בוצעה'}`]);
       } else {
         setLogs(prev => [...prev, `[ERROR]: ${data.error || 'Command failed'}`]);
       }
@@ -2241,6 +2258,46 @@ function WhitelistEditor({ server, updateServer }) {
   );
 }
 
+function OpsEditor({ server, updateServer }) {
+  const [opsText, setOpsText] = React.useState((server.ops || []).join(', '));
+  const [saving, setSaving] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+
+  const handleSave = async () => {
+    const ops = opsText.split(',').map(o => o.trim()).filter(Boolean);
+    setSaving(true);
+    setSaved(false);
+    updateServer({ ops });
+    try { await updateServerOpsFn({ serverId: server.id, ops }); } catch(e) {}
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div>
+      <label className="block text-sm text-zinc-400 mb-1">שחקני OP (מנהלים)</label>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          placeholder="Omri, Notch, Steve"
+          value={opsText}
+          onChange={e => { setOpsText(e.target.value); setSaved(false); }}
+          className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600 text-sm"
+        />
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-4 py-2 rounded-lg text-sm font-bold transition-colors bg-green-600 hover:bg-green-500 text-white disabled:opacity-50 whitespace-nowrap"
+        >
+          {saving ? '...' : saved ? '✓ נשמר' : 'החל בשרת'}
+        </button>
+      </div>
+      <p className="text-xs text-zinc-500 mt-1">הפרד בפסיקים. לוחץ "החל בשרת" כותב ops.json ושולח RCON</p>
+    </div>
+  );
+}
+
 function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
   return (
     <div className="space-y-8 animate-in fade-in max-w-2xl">
@@ -2318,10 +2375,7 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm text-zinc-400 mb-1">{t('opPlayers')}</label>
-            <input type="text" placeholder={t('opPlayersDesc')} value={server.ops?.join(', ') || ''} onChange={(e) => updateServer({ ops: e.target.value.split(',').map(o=>o.trim()).filter(Boolean) })} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600 text-sm" />
-          </div>
+          <OpsEditor server={server} updateServer={updateServer} />
 
           {/* Whitelist players — only shown when server is private */}
           {server.isPrivate && (
