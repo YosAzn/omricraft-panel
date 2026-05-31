@@ -40,6 +40,7 @@ const startServerFn = httpsCallable(functionsInstance, 'startServer');
 const stopServerFn = httpsCallable(functionsInstance, 'stopServer');
 const getPaperVersionsFn = httpsCallable(functionsInstance, 'getPaperVersions');
 const updateServerOpsFn = httpsCallable(functionsInstance, 'updateServerOps');
+const installPluginFn = httpsCallable(functionsInstance, 'installPlugin');
 
 
 // --- מילון שפות ---
@@ -790,15 +791,18 @@ export default function App() {
         newAddons = [...new Set([...newAddons, ...addon.includedAddons])];
       }
     }
-    
-    const requiresRestart = currentServer.status === 'online';
 
+    // Update Firestore metadata immediately (optimistic)
     if (db && authUser) {
-      await updateDoc(doc(db, getServersPath(), serverId), { 
-        installedAddons: newAddons, 
-        needsRestart: requiresRestart || currentServer.needsRestart 
+      await updateDoc(doc(db, getServersPath(), serverId), {
+        installedAddons: newAddons,
+        needsRestart: true,
       });
     }
+
+    // Actually install/remove the plugin on VPS (fire-and-forget, don't block UI)
+    installPluginFn({ serverId, pluginId: addon.id, install: !isInstalled })
+      .catch(() => {}); // silent fail — Firestore already updated
   };
 
   const updateServer = async (serverId, newData) => {

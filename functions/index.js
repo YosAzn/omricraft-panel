@@ -380,6 +380,35 @@ exports.sendMcCommand = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// installPlugin — installs or removes a plugin on an existing server
+// ---------------------------------------------------------------------------
+exports.installPlugin = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 90,
+  },
+  async (request) => {
+    const { serverId, pluginId, install } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    if (!pluginId || typeof pluginId !== 'string') {
+      return { success: false, error: 'Invalid pluginId' };
+    }
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    const endpoint = install === false ? '/remove-plugin' : '/install-plugin';
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', endpoint, { serverId, pluginId });
+      return result;
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // updateServerOps — writes ops to server via RCON (op/deop commands)
 // ---------------------------------------------------------------------------
 exports.updateServerOps = onCall(

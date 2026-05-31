@@ -366,6 +366,62 @@ app.post('/update-whitelist-players', async function(req, res) {
   return res.json({ success: true, count: whitelist.length });
 });
 
+// Map of plugin IDs to names (for remove-plugin: find jar by name prefix)
+var PLUGIN_NAMES = {
+  'p1':'EssentialsX','p2':'Geyser','p3':'CoreProtect','p4':'LuckPerms',
+  'p5':'Vault','p6':'worldedit','p9':'BlueMap','p10':'FastLeafDecay',
+  'p11':'GSit','p12':'Multiverse-Core','p14':'PlaceholderAPI','p17':'Towny',
+  'p19':'AuraSkills','p20':'AuctionHouse','p22':'BetterRTP','p23':'spark',
+  'p25':'ExcellentEnchants','p29':'GrimAC','p30':'ViaVersion','p32':'Chunky',
+  'p33':'TAB','p35':'ClearLag','p-chatfmt':'ChatFormatter','p-axiom':'Axiom',
+  'p-viaversion':'ViaVersion'
+};
+
+app.post('/install-plugin', async function(req, res) {
+  var serverId = req.body.serverId;
+  var pluginId = req.body.pluginId;
+  if (!validateId(serverId, res)) return;
+  if (!pluginId || typeof pluginId !== 'string' || !/^[a-z0-9_-]+$/.test(pluginId)) {
+    return res.status(400).json({ success: false, error: 'Invalid pluginId' });
+  }
+  try {
+    await runScript('install-plugin.sh', [serverId, pluginId], 90000);
+    console.log('[' + new Date().toISOString() + '] Installed plugin ' + pluginId + ' on ' + serverId);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('install-plugin error:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/remove-plugin', function(req, res) {
+  var serverId = req.body.serverId;
+  var pluginId = req.body.pluginId;
+  if (!validateId(serverId, res)) return;
+  if (!pluginId || typeof pluginId !== 'string') {
+    return res.status(400).json({ success: false, error: 'Invalid pluginId' });
+  }
+  var pluginsDir = path.join(SERVERS_DIR, serverId, 'plugins');
+  var namePrefix = PLUGIN_NAMES[pluginId];
+  if (!namePrefix) {
+    return res.json({ success: true, note: 'No name mapping — nothing removed' });
+  }
+  try {
+    var files = fs.readdirSync(pluginsDir);
+    var removed = [];
+    files.forEach(function(f) {
+      if (f.toLowerCase().startsWith(namePrefix.toLowerCase()) && f.endsWith('.jar')) {
+        fs.unlinkSync(path.join(pluginsDir, f));
+        removed.push(f);
+      }
+    });
+    console.log('[' + new Date().toISOString() + '] Removed plugin ' + pluginId + ' (' + removed.join(',') + ') from ' + serverId);
+    return res.json({ success: true, removed: removed });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/update-ops', async function(req, res) {
   const serverId = req.body.serverId;
   const ops = req.body.ops; // array of player name strings
