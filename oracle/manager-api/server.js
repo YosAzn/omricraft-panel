@@ -169,14 +169,13 @@ app.post('/create-server', async function(req, res) {
     ]);
 
     if (icon && icon.length > 0) {
-      try {
-        const iconData = icon.replace(/^data:image\/\w+;base64,/, '');
-        const iconBuffer = Buffer.from(iconData, 'base64');
-        const iconPath = path.join(SERVERS_DIR, serverId, 'server-icon.png');
-        fs.writeFileSync(iconPath, iconBuffer);
-      } catch (iconErr) {
-        console.warn('Could not write icon: ' + iconErr.message);
-      }
+      const iconPath = path.join(SERVERS_DIR, serverId, 'server-icon.png');
+      await new Promise(function(resolve) {
+        saveIcon(icon, iconPath, function(err) {
+          if (err) console.warn('Could not write icon: ' + err.message);
+          resolve();
+        });
+      });
     }
 
     await runScript('start-server.sh', [serverId, String(memoryMb)]);
@@ -367,6 +366,31 @@ app.post('/update-whitelist-players', async function(req, res) {
   return res.json({ success: true, count: whitelist.length });
 });
 
+function saveIcon(iconBase64, iconPath, cb) {
+  const iconData = iconBase64.replace(/^data:image\/\w+;base64,/, '');
+  const tmpPath = iconPath + '.tmp';
+  try {
+    fs.writeFileSync(tmpPath, Buffer.from(iconData, 'base64'));
+  } catch(e) { return cb(e); }
+  // Resize to 64x64 PNG using ImageMagick if available
+  execFile('which', ['convert'], function(err) {
+    if (err) {
+      // No ImageMagick — just save as-is
+      try { fs.renameSync(tmpPath, iconPath); cb(null); } catch(e) { cb(e); }
+      return;
+    }
+    execFile('convert', [tmpPath, '-resize', '64x64!', '-background', 'none', '-gravity', 'center', 'PNG:' + iconPath], function(err2) {
+      try { fs.unlinkSync(tmpPath); } catch(_) {}
+      if (err2) {
+        // Fallback: save original without resize
+        try { fs.writeFileSync(iconPath, Buffer.from(iconData, 'base64')); cb(null); } catch(e) { cb(e); }
+      } else {
+        cb(null);
+      }
+    });
+  });
+}
+
 app.post('/update-icon', function(req, res) {
   const serverId = req.body.serverId;
   const icon = req.body.icon;
@@ -374,17 +398,15 @@ app.post('/update-icon', function(req, res) {
   if (!icon || typeof icon !== 'string' || icon.length === 0) {
     return res.status(400).json({ success: false, error: 'Missing icon' });
   }
-  try {
-    const iconData = icon.replace(/^data:image\/\w+;base64,/, '');
-    const iconBuffer = Buffer.from(iconData, 'base64');
-    const iconPath = path.join(SERVERS_DIR, serverId, 'server-icon.png');
-    fs.writeFileSync(iconPath, iconBuffer);
+  const iconPath = path.join(SERVERS_DIR, serverId, 'server-icon.png');
+  saveIcon(icon, iconPath, function(err) {
+    if (err) {
+      console.error('update-icon error:', err.message);
+      return res.status(500).json({ success: false, error: err.message });
+    }
     console.log('[' + new Date().toISOString() + '] Updated icon for ' + serverId);
     return res.json({ success: true });
-  } catch (err) {
-    console.error('update-icon error:', err.message);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  });
 });
 
 app.listen(PORT, '0.0.0.0', function() {
