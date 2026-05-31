@@ -38,6 +38,7 @@ const updateWhitelistPlayersFn = httpsCallable(functionsInstance, 'updateWhiteli
 const getServerStatusFn = httpsCallable(functionsInstance, 'getServerStatus');
 const startServerFn = httpsCallable(functionsInstance, 'startServer');
 const stopServerFn = httpsCallable(functionsInstance, 'stopServer');
+const getPaperVersionsFn = httpsCallable(functionsInstance, 'getPaperVersions');
 
 
 // --- מילון שפות ---
@@ -342,22 +343,22 @@ export default function App() {
   ];
   const [mcVersions, setMcVersions] = useState(FALLBACK_VERSIONS);
 
-  // Load versions dynamically from PaperMC API (cache 24h)
+  // Load versions via Firebase Function (avoids PaperMC CORS restriction), cache 6h
   useEffect(() => {
     const cached = localStorage.getItem('mc-versions');
     const ts = parseInt(localStorage.getItem('mc-versions-ts') || '0');
-    if (cached && Date.now() - ts < 86400000) {
+    if (cached && Date.now() - ts < 21600000) {
       try { setMcVersions(JSON.parse(cached)); return; } catch(e) {}
     }
-    fetch('https://api.papermc.io/v2/projects/paper')
-      .then(r => r.json())
-      .then(d => {
-        const stable = [...(d.versions || [])]
-          .filter(v => !v.includes('-pre') && !v.includes('-rc'))
-          .reverse();
-        if (stable.length > 0) {
-          setMcVersions(stable);
-          localStorage.setItem('mc-versions', JSON.stringify(stable));
+    // Clear stale cache so fresh data is fetched
+    localStorage.removeItem('mc-versions');
+    localStorage.removeItem('mc-versions-ts');
+    getPaperVersionsFn()
+      .then(res => {
+        const versions = res.data?.versions;
+        if (Array.isArray(versions) && versions.length > 0) {
+          setMcVersions(versions);
+          localStorage.setItem('mc-versions', JSON.stringify(versions));
           localStorage.setItem('mc-versions-ts', String(Date.now()));
         }
       })

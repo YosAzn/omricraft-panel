@@ -1,6 +1,7 @@
 const { onCall } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const http = require("http");
+const https = require("https");
 
 const managerApiUrl = defineSecret("MANAGER_API_URL");
 const managerApiKey = defineSecret("MANAGER_API_KEY");
@@ -375,5 +376,37 @@ exports.sendMcCommand = onCall(
       console.error('sendMcCommand error:', error);
       return { success: false, error: error?.message || String(error) };
     }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// getPaperVersions — fetches Paper versions server-side (bypasses CORS)
+// ---------------------------------------------------------------------------
+exports.getPaperVersions = onCall(
+  { region: "us-central1", timeoutSeconds: 15 },
+  async () => {
+    return new Promise((resolve) => {
+      const req = https.get(
+        'https://api.papermc.io/v2/projects/paper',
+        { headers: { 'User-Agent': 'OmriCraft-Panel/1.0' } },
+        (res) => {
+          let data = '';
+          res.on('data', chunk => { data += chunk; });
+          res.on('end', () => {
+            try {
+              const parsed = JSON.parse(data);
+              const stable = (parsed.versions || [])
+                .filter(v => !v.includes('-pre') && !v.includes('-rc') && !v.includes('-alpha') && !v.includes('-beta'))
+                .reverse();
+              resolve({ success: true, versions: stable });
+            } catch {
+              resolve({ success: false, versions: [] });
+            }
+          });
+        }
+      );
+      req.on('error', () => resolve({ success: false, versions: [] }));
+      req.setTimeout(10000, () => { req.destroy(); resolve({ success: false, versions: [] }); });
+    });
   }
 );
