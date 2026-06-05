@@ -55,12 +55,38 @@ mkdir -p "$SERVER_DIR/logs" "$SERVER_DIR/plugins" "$SERVER_DIR/mods" "$SERVER_DI
 VERSION_JAR="$BASE/templates/paper/paper-${VERSION}.jar"
 if [ ! -f "$VERSION_JAR" ]; then
   echo "[$(date)] Downloading Paper $VERSION..."
-  BUILD=$(curl -sf "https://api.papermc.io/v2/projects/paper/versions/${VERSION}/builds" | \
-    node -e "process.stdin.resume(); let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{try{const o=JSON.parse(d); console.log(o.builds[o.builds.length-1].build);}catch(e){process.exit(1);}})" 2>/dev/null || echo "")
-  if [ -n "$BUILD" ]; then
-    wget -q "https://api.papermc.io/v2/projects/paper/versions/${VERSION}/builds/${BUILD}/downloads/paper-${VERSION}-${BUILD}.jar" \
-      -O "$VERSION_JAR" && echo "[$(date)] Downloaded Paper $VERSION build $BUILD"
+  DOWNLOADED=false
+
+  # 26.x versions use new PaperMC download system (fill-data.papermc.io)
+  if echo "$VERSION" | grep -qE '^[2-9][0-9]\.' ; then
+    echo "[$(date)] Using new PaperMC download system for $VERSION..."
+    DL_URL=$(python3 -c "
+import re, urllib.request
+try:
+    req = urllib.request.Request('https://papermc.io/downloads/paper', headers={'User-Agent': 'curl/7.88'})
+    content = urllib.request.urlopen(req, timeout=20).read().decode('latin-1', errors='replace')
+    ver = '${VERSION}'.replace('.', r'\\\.')
+    urls = re.findall(r'fill-data\\.papermc\\.io/v1/objects/[a-f0-9]+/paper-' + ver + r'-[0-9]+\\.jar', content)
+    print('https://' + urls[0] if urls else '')
+except Exception as e:
+    print('')
+" 2>/dev/null || echo "")
+    if [ -n "$DL_URL" ]; then
+      wget -q --timeout=120 -L "$DL_URL" -O "$VERSION_JAR" \
+        && echo "[$(date)] Downloaded Paper $VERSION from $DL_URL" && DOWNLOADED=true
+    fi
+
   else
+    # 1.x.x versions use old PaperMC API
+    BUILD=$(curl -sf "https://api.papermc.io/v2/projects/paper/versions/${VERSION}/builds" | \
+      node -e "process.stdin.resume(); let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{try{const o=JSON.parse(d); console.log(o.builds[o.builds.length-1].build);}catch(e){process.exit(1);}})" 2>/dev/null || echo "")
+    if [ -n "$BUILD" ]; then
+      wget -q "https://api.papermc.io/v2/projects/paper/versions/${VERSION}/builds/${BUILD}/downloads/paper-${VERSION}-${BUILD}.jar" \
+        -O "$VERSION_JAR" && echo "[$(date)] Downloaded Paper $VERSION build $BUILD" && DOWNLOADED=true
+    fi
+  fi
+
+  if [ "$DOWNLOADED" != "true" ]; then
     echo "[$(date)] WARNING: Could not download Paper $VERSION, using template jar"
     VERSION_JAR="$TEMPLATE_JAR"
   fi

@@ -442,6 +442,9 @@ exports.updateServerOps = onCall(
 exports.getPaperVersions = onCall(
   { region: "us-central1", timeoutSeconds: 15 },
   async () => {
+    // 26.x versions use new PaperMC versioning scheme (not in old v2 API)
+    const knownNew = ['26.2', '26.1.2', '26.1.1', '26.1'];
+
     return new Promise((resolve) => {
       const req = https.get(
         'https://api.papermc.io/v2/projects/paper',
@@ -455,15 +458,15 @@ exports.getPaperVersions = onCall(
               const stable = (parsed.versions || [])
                 .filter(v => !v.includes('-pre') && !v.includes('-rc') && !v.includes('-alpha') && !v.includes('-beta'))
                 .reverse();
-              resolve({ success: true, versions: stable });
+              resolve({ success: true, versions: [...knownNew, ...stable] });
             } catch {
-              resolve({ success: false, versions: [] });
+              resolve({ success: true, versions: knownNew });
             }
           });
         }
       );
-      req.on('error', () => resolve({ success: false, versions: [] }));
-      req.setTimeout(10000, () => { req.destroy(); resolve({ success: false, versions: [] }); });
+      req.on('error', () => resolve({ success: true, versions: knownNew }));
+      req.setTimeout(10000, () => { req.destroy(); resolve({ success: true, versions: knownNew }); });
     });
   }
 );
