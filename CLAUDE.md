@@ -1,0 +1,41 @@
+# OmriCraft Panel — הקשר לסוכן
+
+## מה הפרויקט
+פאנל ניהול שרתי Minecraft. משתמש יוצר שרת → מקבל `{slug}.omricraft.com` → משחק מיד.
+
+## קבצים קריטיים
+- `src/App.jsx` — כל ה-frontend (קומפוננטה אחת גדולה)
+- `functions/index.js` — כל Firebase Functions
+- `oracle/scripts/` — bash scripts שרצים על ה-VPS
+- `oracle/manager-api/server.js` — Express API על ה-VPS
+- `ARCHITECTURE.md` — תיעוד מלא של המערכת (קרא לפני כל שינוי גדול)
+
+## גישה ל-VPS
+```
+IP: 151.145.94.177
+SSH: ssh -i "D:\Apps Webs\Oracle_Code\ssh-key-2026-04-20.key" ubuntu@151.145.94.177
+```
+
+## Deploy
+```powershell
+npm run build
+npx firebase-tools deploy --only hosting   # אתר
+npx firebase-tools deploy --only functions # פונקציות
+# oracle scripts → deploy אוטומטי ב-git push לmain
+```
+
+## Firestore
+- Path: `omricraft/main/servers` (משותף לכל המכשירים — לא per-user!)
+- Project: `omricraft-74735`
+
+## כללים קריטיים
+1. **לא לשנות** את Firestore path — היה `users/{uid}` ותוקן, לא לחזור לזה
+2. **wget תמיד עם `-L`** בסקריפטי bash (redirects)
+3. **stop-velocity.sh** — חייב `pkill -f velocity.jar` כדי לא להשאיר Velocity ישן
+4. `SERVER_ID` ו-`SLUG` — רק `[a-z0-9_-]`
+5. `online-mode=false` על כל Paper (Velocity מטפל ב-auth)
+
+## מה לא לעשות
+- לא לשנות את שם הפונקציות ב-`functions/index.js` בלי לעדכן את `src/App.jsx`
+- לא להוסיף ספריות חדשות בלי לבדוק שהן חינמיות
+- לא לגעת ב-`velocity.toml` ידנית — רק דרך הסקריפטים
