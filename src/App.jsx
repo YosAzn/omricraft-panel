@@ -347,22 +347,24 @@ export default function App() {
   const [mcVersions, setMcVersions] = useState(FALLBACK_VERSIONS);
 
   // Load versions via Firebase Function (avoids PaperMC CORS restriction), cache 6h
+  // v2 cache key — forces refresh after 26.x versions were added
   useEffect(() => {
-    const cached = localStorage.getItem('mc-versions');
-    const ts = parseInt(localStorage.getItem('mc-versions-ts') || '0');
+    localStorage.removeItem('mc-versions');
+    localStorage.removeItem('mc-versions-ts');
+    const cached = localStorage.getItem('mc-versions-v2');
+    const ts = parseInt(localStorage.getItem('mc-versions-v2-ts') || '0');
     if (cached && Date.now() - ts < 21600000) {
       try { setMcVersions(JSON.parse(cached)); return; } catch(e) {}
     }
-    // Clear stale cache so fresh data is fetched
-    localStorage.removeItem('mc-versions');
-    localStorage.removeItem('mc-versions-ts');
+    localStorage.removeItem('mc-versions-v2');
+    localStorage.removeItem('mc-versions-v2-ts');
     getPaperVersionsFn()
       .then(res => {
         const versions = res.data?.versions;
         if (Array.isArray(versions) && versions.length > 0) {
           setMcVersions(versions);
-          localStorage.setItem('mc-versions', JSON.stringify(versions));
-          localStorage.setItem('mc-versions-ts', String(Date.now()));
+          localStorage.setItem('mc-versions-v2', JSON.stringify(versions));
+          localStorage.setItem('mc-versions-v2-ts', String(Date.now()));
         }
       })
       .catch(() => {}); // keep fallback on error
