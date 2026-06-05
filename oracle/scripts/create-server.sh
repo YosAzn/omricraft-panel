@@ -192,7 +192,7 @@ if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
     if [ -n "$url" ]; then
       filename=$(basename "$url" | sed 's/\?.*$//')
       echo "[$(date)] Downloading $addonId: $filename"
-      wget -q "$url" -O "$SERVER_DIR/plugins/$filename" && echo "[$(date)] OK: $addonId" || echo "[$(date)] Failed to download $addonId"
+      wget -q -L --timeout=60 "$url" -O "$SERVER_DIR/plugins/$filename" && echo "[$(date)] OK: $addonId" || { rm -f "$SERVER_DIR/plugins/$filename"; echo "[$(date)] Failed to download $addonId"; }
     else
       echo "[$(date)] No URL mapped for addon: $addonId (skipping)"
     fi

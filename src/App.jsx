@@ -399,23 +399,15 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const getServersPath = () => {
-    if (!authUser) return null;
-    return `users/${authUser.uid}/servers`;
-  };
-
-  const getAddonsPath = () => {
-    if (!authUser) return null;
-    return `users/${authUser.uid}/customAddons`;
-  };
+  // Shared path — all browsers/devices see the same servers
+  const getServersPath = () => 'omricraft/main/servers';
+  const getAddonsPath = () => 'omricraft/main/customAddons';
 
   useEffect(() => {
-    if (!db || !authUser) return;
+    if (!db) return;
 
     const serversPath = getServersPath();
     const addonsPath = getAddonsPath();
-
-    if (!serversPath || !addonsPath) return;
 
     const unsubServers = onSnapshot(collection(db, serversPath), (snap) => {
       setServers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -426,7 +418,7 @@ export default function App() {
     }, (err) => console.error("Firestore Listen Error (Addons):", err));
 
     return () => { unsubServers(); unsubAddons(); };
-  }, [authUser]);
+  }, []);
   // ----------------------------------------
 
   const allAddons = useMemo(() => [...DEFAULT_ADDONS, ...customAddons], [customAddons]);
@@ -570,8 +562,8 @@ export default function App() {
     setIsCreatingServer(true);
 
     try {
-      if (!db || !authUser) {
-        throw new Error('Database or user is not ready.');
+      if (!db) {
+        throw new Error('Database is not ready.');
       }
 
       // Resize icon to 64x64 PNG before sending (keeps Firestore doc small + valid MC format)
@@ -652,6 +644,25 @@ export default function App() {
     }
   };
 
+  const deleteAllServers = async () => {
+    if (userRole !== 'admin') return;
+    if (servers.length === 0) { alert('אין שרתים למחיקה.'); return; }
+    const approved = window.confirm(
+      `מחיקת כל ${servers.length} השרתים?\n\nפעולה זו תמחק לצמיתות את כל השרתים מהשרת ומה-Firebase. לא ניתן לבטל.`
+    );
+    if (!approved) return;
+    for (const srv of servers) {
+      try {
+        await deleteServerFn({ serverId: srv.id }).catch(() => {});
+        await deleteDoc(doc(db, getServersPath(), srv.id)).catch(() => {});
+      } catch (e) {
+        console.error('Failed to delete', srv.id, e);
+      }
+    }
+    setCurrentView('dashboard');
+    alert('כל השרתים נמחקו.');
+  };
+
   const deleteServer = async (id) => {
     if (userRole !== 'admin') return;
 
@@ -670,8 +681,8 @@ export default function App() {
     if (!approved) return;
 
     try {
-      if (!db || !authUser) {
-        throw new Error('אין חיבור תקין ל-Firebase או שאין משתמש מחובר.');
+      if (!db) {
+        throw new Error('אין חיבור תקין ל-Firebase.');
       }
 
       await updateDoc(doc(db, getServersPath(), id), {
@@ -880,11 +891,12 @@ export default function App() {
 
       <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 relative">
         {currentView === 'dashboard' && (
-          <Dashboard 
+          <Dashboard
             servers={servers} t={t} userRole={userRole}
             onOpenServer={(id) => { setActiveServerId(id); setCurrentView('server'); }}
             onCreateClick={() => setCurrentView('create')}
             toggleServerStatus={toggleServerStatus}
+            onDeleteAll={deleteAllServers}
           />
         )}
         
@@ -995,7 +1007,7 @@ function ImageUploader({ iconUrl, setIconUrl, t, size = 'lg' }) {
   );
 }
 
-function Dashboard({ servers, onOpenServer, onCreateClick, toggleServerStatus, t, userRole }) {
+function Dashboard({ servers, onOpenServer, onCreateClick, toggleServerStatus, onDeleteAll, t, userRole }) {
   return (
     <div className="animate-in fade-in duration-300">
       <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-4 mb-8">
@@ -1004,12 +1016,22 @@ function Dashboard({ servers, onOpenServer, onCreateClick, toggleServerStatus, t
           <p className="text-zinc-400">{t('manageDesc')}</p>
         </div>
         {userRole === 'admin' && (
-          <button 
-            onClick={onCreateClick}
-            className="bg-green-600 hover:bg-green-500 text-white px-5 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-900/20"
-          >
-            <Plus size={20} /> <span>{t('newServer')}</span>
-          </button>
+          <div className="flex gap-2">
+            {servers.length > 0 && (
+              <button
+                onClick={onDeleteAll}
+                className="bg-red-900/40 hover:bg-red-800/60 text-red-400 border border-red-800/40 px-4 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-all"
+              >
+                <Trash2 size={16} /> <span>מחק הכל</span>
+              </button>
+            )}
+            <button
+              onClick={onCreateClick}
+              className="bg-green-600 hover:bg-green-500 text-white px-5 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-900/20"
+            >
+              <Plus size={20} /> <span>{t('newServer')}</span>
+            </button>
+          </div>
         )}
       </div>
 
