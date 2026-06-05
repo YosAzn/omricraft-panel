@@ -20,7 +20,7 @@ if ! kill -0 "$PID" 2>/dev/null; then
   exit 0
 fi
 
-kill "$PID"
+kill "$PID" 2>/dev/null || true
 
 # Wait up to 15 seconds for graceful shutdown
 for i in $(seq 1 15); do
@@ -35,6 +35,10 @@ if kill -0 "$PID" 2>/dev/null; then
   echo "[$(date)] Velocity did not stop gracefully, force killing..."
   kill -9 "$PID" 2>/dev/null || true
 fi
+
+# Kill ALL remaining velocity.jar processes (handles stale/duplicate instances)
+pkill -f "velocity.jar" 2>/dev/null || true
+sleep 1
 
 rm -f "$PID_FILE"
 echo "[$(date)] Velocity stopped."

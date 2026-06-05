@@ -117,10 +117,10 @@ User clicks "Delete Server"
 
 ## Firestore Schema
 
-Collection: `servers` (path may vary by auth state — check `getServersPath()` in App.jsx)
+Collection: `omricraft/main/servers` (shared across all devices — NOT per-user UID)
 
 ```
-servers/<id>: {
+omricraft/main/servers/<id>: {
   id, displayName, slug,
   address,        // <slug>.omricraft.com
   publicHost,     // same
@@ -138,13 +138,22 @@ servers/<id>: {
 
 File: `functions/index.js`
 
-| Function | Trigger | Secrets |
-|----------|---------|---------|
-| `createServer` | httpsCallable | MANAGER_API_URL, MANAGER_API_KEY |
-| `deleteServer` | httpsCallable | MANAGER_API_URL, MANAGER_API_KEY |
-| `sendMcCommand` | httpsCallable (legacy) | RCON_PASSWORD |
+| Function | Secrets |
+|----------|---------|
+| `createServer` | MANAGER_API_URL, MANAGER_API_KEY |
+| `deleteServer` | MANAGER_API_URL, MANAGER_API_KEY |
+| `startServer` | MANAGER_API_URL, MANAGER_API_KEY |
+| `stopServer` | MANAGER_API_URL, MANAGER_API_KEY |
+| `getServerStatus` | MANAGER_API_URL, MANAGER_API_KEY |
+| `sendMcCommand` | MANAGER_API_URL, MANAGER_API_KEY |
+| `installPlugin` | MANAGER_API_URL, MANAGER_API_KEY |
+| `updateServerIcon` | MANAGER_API_URL, MANAGER_API_KEY |
+| `setServerPrivacy` | MANAGER_API_URL, MANAGER_API_KEY |
+| `updateWhitelistPlayers` | MANAGER_API_URL, MANAGER_API_KEY |
+| `updateServerOps` | MANAGER_API_URL, MANAGER_API_KEY |
+| `getPaperVersions` | — (public PaperMC API proxy) |
 
-Manager API URL: `http://151.145.94.177:3001`
+Manager API URL: `http://151.145.94.177:3001` (listens on `0.0.0.0:3001`, secured by API key header)
 
 ---
 
@@ -155,7 +164,7 @@ Manager API URL: `http://151.145.94.177:3001`
 3. **Delete safety**: only delete inside `/home/ubuntu/omricraft/servers/<SERVER_ID>`
 4. **online-mode=false** on all Paper servers (Velocity handles auth)
 5. **forwarding.secret** must match between Velocity and all Paper backends
-6. **Manager API listens on 127.0.0.1:3001** — never expose to internet
+6. **Manager API listens on 0.0.0.0:3001** — secured by `Authorization: Bearer <KEY>` header
 7. **Port allocation**: start at 25566, RCON = gamePort + 10
 
 ---
@@ -165,4 +174,14 @@ Manager API URL: `http://151.145.94.177:3001`
 - Repo: `YosAzn/omricraft-panel`
 - Branch: `main` → auto-deploys to GitHub Pages (GitHub Actions)
 - Oracle deploy: GitHub Actions on push to main (SSH)
-- Firebase Functions: manual `firebase deploy --only functions` for now
+- Firebase Functions: auto-deploy on push to main (GitHub Actions)
+- Oracle scripts: auto-deploy on push to main (GitHub Actions via SSH)
+- Local repo: `C:\Users\yosij\omricraft-panel` (single source of truth)
+- SSH key: `D:\Apps Webs\Oracle_Code\ssh-key-2026-04-20.key`
+
+## Known Fixes Applied (June 2026)
+
+- **Firestore path**: changed from `users/{uid}/servers` → `omricraft/main/servers` (shared)
+- **Velocity restart bug**: `stop-velocity.sh` now uses `pkill -f velocity.jar` to kill ALL instances
+- **Plugin downloads**: `wget` now uses `-L` flag to follow redirects (modrinth, etc.)
+- **Delete All button**: dashboard has bulk-delete for clean resets

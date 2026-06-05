@@ -1,16 +1,50 @@
-# React + Vite
+# OmriCraft Panel
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+פאנל ניהול שרתי Minecraft — יוצרים שרת Paper עצמאי בלחיצה, מקבלים כתובת `{slug}.omricraft.com`.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## הפעלה מקומית
 
-## React Compiler
+```powershell
+cd C:\Users\yosij\omricraft-panel
+npm install
+npm run dev
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Deploy
 
-## Expanding the ESLint configuration
+```powershell
+npm run build
+npx firebase-tools deploy        # hosting + functions
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## ארכיטקטורה
+
+ראה [`ARCHITECTURE.md`](./ARCHITECTURE.md) — כולל stack, DNS, VPS structure, lifecycle.
+
+## גישה ל-VPS
+
+```powershell
+ssh -i "D:\Apps Webs\Oracle_Code\ssh-key-2026-04-20.key" ubuntu@151.145.94.177
+```
+
+## Firebase Project
+
+`omricraft-74735` — Auth (anonymous), Firestore, Functions, Hosting
+
+**Firestore path:** `omricraft/main/servers` (משותף לכל המכשירים)
+
+---
+
+## מבנה תיקיות
+
+```
+src/           — React app (App.jsx — קומפוננטה אחת גדולה)
+functions/     — Firebase Functions (index.js)
+oracle/
+  scripts/     — Bash scripts → deployed to VPS via GitHub Actions
+  manager-api/ — Express.js API on VPS port 3001
+```
