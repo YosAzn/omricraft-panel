@@ -934,7 +934,7 @@ export default function App() {
       <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 relative">
         {currentView === 'dashboard' && (
           <Dashboard
-            servers={servers} t={t} userRole={userRole}
+            servers={visibleServers} t={t} userRole={userRole}
             onOpenServer={(id) => { setActiveServerId(id); setCurrentView('server'); }}
             onCreateClick={() => setCurrentView('create')}
             toggleServerStatus={toggleServerStatus}
@@ -1060,7 +1060,7 @@ function Dashboard({ servers, onOpenServer, onCreateClick, toggleServerStatus, o
         </div>
         {userRole === 'admin' && (
           <div className="flex gap-2">
-            {visibleServers.length > 0 && (
+            {servers.length > 0 && (
               <button
                 onClick={onDeleteAll}
                 className="bg-red-900/40 hover:bg-red-800/60 text-red-400 border border-red-800/40 px-4 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-all"
@@ -1078,7 +1078,7 @@ function Dashboard({ servers, onOpenServer, onCreateClick, toggleServerStatus, o
         )}
       </div>
 
-      {visibleServers.length === 0 ? (
+      {servers.length === 0 ? (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center">
           <Server className="mx-auto text-zinc-600 mb-4" size={48} />
           <h3 className="text-xl font-bold mb-2">{t('noServers')}</h3>
@@ -1091,7 +1091,7 @@ function Dashboard({ servers, onOpenServer, onCreateClick, toggleServerStatus, o
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {visibleServers.map(server => (
+          {servers.map(server => (
             <div key={server.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-zinc-700 transition-colors group flex flex-col relative">
               {server.needsRestart && (
                 <div className="absolute top-0 left-0 w-full h-1 bg-yellow-500"></div>
