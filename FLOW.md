@@ -24,7 +24,7 @@
                     ├── Manager API :3001 (Node.js)
                     │      ├── scripts/create|start|stop|delete
                     │      ├── /send-command (RCON)
-                    │      └── /list-files | /read-file | /write-file (File Manager)
+                    │      └── /list-files | /read-file | /write-file | /delete-file (File Manager)
                     │
                     ├── Velocity Proxy :25565
                     │      ├── bbb.omricraft.com    → :25569
@@ -253,10 +253,9 @@ config/admin:  read לכל authenticated | create פעם אחת | update=false
 
 | פיצ'ר | עדיפות | Issue |
 |--------|--------|-------|
-| ✅ File Manager (VPS files ב-UI) | בוצע 2026-06-07 | [#8](https://github.com/YosAzn/squad-hub/issues/8) |
+| ✅ File Manager (VPS files ב-UI — list/read/write/delete) | בוצע 2026-06-07 | [#8](https://github.com/YosAzn/squad-hub/issues/8) |
 | Console UI — live log streaming (שליחת פקודות כבר עובדת) | 🔴 גבוהה | [#9](https://github.com/YosAzn/squad-hub/issues/9) |
 | User / Admin system | 🔴 גבוהה | [#10](https://github.com/YosAzn/squad-hub/issues/10) |
 | Plugin browser | 🟡 בינונית | [#11](https://github.com/YosAzn/squad-hub/issues/11) |
 | Backups | 🟡 בינונית | [#12](https://github.com/YosAzn/squad-hub/issues/12) |
-| מחיקת קבצים ב-File Manager (כרגע list/read/write בלבד) | 🟢 נמוכה | — |
 | Scheduled start/stop | 🟢 נמוכה | — |
