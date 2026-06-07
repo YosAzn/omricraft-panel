@@ -45,6 +45,7 @@ const getPlayersOnlineFn = httpsCallable(functionsInstance, 'getPlayersOnline');
 const listFilesFn = httpsCallable(functionsInstance, 'listFiles');
 const readFileFn = httpsCallable(functionsInstance, 'readFile');
 const writeFileFn = httpsCallable(functionsInstance, 'writeFile');
+const deleteFileFn = httpsCallable(functionsInstance, 'deleteFile');
 
 
 // --- מילון שפות ---
@@ -2231,6 +2232,19 @@ function FilesTab({ server, t, userRole }) {
     setSaving(false);
   };
 
+  const handleDelete = async (entry, e) => {
+    e.stopPropagation();
+    if (userRole !== 'admin') return;
+    if (!window.confirm(`למחוק את "${entry.name}"? פעולה בלתי הפיכה.`)) return;
+    setFileNote(null);
+    try {
+      const res = await deleteFileFn({ serverId: server.id, path: [...currentPath, entry.name].join('/') });
+      const d = res.data || res;
+      if (d.success) loadDir();
+      else setFileNote(d.error || 'מחיקה נכשלה');
+    } catch (err) { setFileNote(err.message); }
+  };
+
   const fmtSize = (n) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
 
   return (
@@ -2312,6 +2326,12 @@ function FilesTab({ server, t, userRole }) {
                 <div className="flex items-center gap-3">
                   {!isFolder && <span className="text-xs text-zinc-600">{fmtSize(entry.size)}</span>}
                   {!isFolder && userRole === 'admin' && <Edit3 size={16} className="text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity"/>}
+                  {!isFolder && userRole === 'admin' && (
+                    <button onClick={(e) => handleDelete(entry, e)} title="מחק"
+                      className="text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
+                      <Trash2 size={16}/>
+                    </button>
+                  )}
                 </div>
               </div>
             );

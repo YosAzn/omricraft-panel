@@ -595,6 +595,29 @@ app.post('/write-file', function(req, res) {
   }
 });
 
+app.post('/delete-file', function(req, res) {
+  var serverId = req.body.serverId;
+  var relPath = req.body.path;
+  if (!validateId(serverId, res)) return;
+  if (!relPath) return res.status(400).json({ success: false, error: 'Missing path' });
+  var file = resolveServerPath(serverId, relPath);
+  if (!file) return res.status(400).json({ success: false, error: 'Invalid path' });
+  if (file === path.resolve(SERVERS_DIR, serverId)) {
+    return res.status(400).json({ success: false, error: 'Cannot delete server root' });
+  }
+  try {
+    var stat = fs.statSync(file);
+    if (stat.isDirectory()) {
+      return res.status(400).json({ success: false, error: 'Directory deletion not allowed' });
+    }
+    fs.unlinkSync(file);
+    console.log('[' + new Date().toISOString() + '] File deleted: ' + serverId + '/' + relPath);
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', function() {
   console.log('[' + new Date().toISOString() + '] OmriCraft Manager API listening on 0.0.0.0:' + PORT);
 });

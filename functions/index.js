@@ -436,9 +436,10 @@ function fileFn(endpoint, timeoutSeconds) {
   );
 }
 
-exports.listFiles = fileFn('/list-files');
-exports.readFile  = fileFn('/read-file');
-exports.writeFile = fileFn('/write-file');
+exports.listFiles  = fileFn('/list-files');
+exports.readFile   = fileFn('/read-file');
+exports.writeFile  = fileFn('/write-file');
+exports.deleteFile = fileFn('/delete-file');
 
 // ---------------------------------------------------------------------------
 // getPlayersOnline — real-time player count for all servers via Manager API
