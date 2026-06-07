@@ -2,13 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/omricraft-panel/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>omricraft-web</title>
-    <script type="module" crossorigin src="/omricraft-panel/assets/index-C3E1f6gw.js"></script>
-    <link rel="stylesheet" crossorigin href="/omricraft-panel/assets/index-BZTHL7b4.css">
+    <script type="module" crossorigin src="/assets/index-D4CJ0pVe.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BfVDqyzx.css">
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Unregister any cached service workers to prevent stale JS
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          regs.forEach(function(reg) { reg.unregister(); });
+        });
+      }
+    </script>
   </body>
 </html>
