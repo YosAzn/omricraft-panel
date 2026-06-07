@@ -11,10 +11,10 @@
 [Browser / לקוח]
        │ HTTPS
        ▼
-[Firebase Hosting] ← omricraft.com
-       │ React App (App.jsx)
+[GitHub Pages] ← omricraft.com   (frontend בלבד — host יחיד)
+       │ React App (App.jsx)      DNS: 185.199.108-111.153 | www → yosazn.github.io
        │
-       ├──► [Firestore] ← state שרתים, users, config
+       ├──► [Firestore] ← state שרתים, users, config   (Firebase = backend בלבד)
        │
        └──► [Firebase Functions] ← לוגיקה עסקית
                     │ HTTP → Manager API :3001
@@ -22,7 +22,9 @@
             [Oracle VPS — 151.145.94.177]
                     │
                     ├── Manager API :3001 (Node.js)
-                    │      └── scripts/create|start|stop|delete
+                    │      ├── scripts/create|start|stop|delete
+                    │      ├── /send-command (RCON)
+                    │      └── /list-files | /read-file | /write-file (File Manager)
                     │
                     ├── Velocity Proxy :25565
                     │      ├── bbb.omricraft.com    → :25569
@@ -49,6 +51,9 @@
 
 ## 🔄 Flow A — שינוי קוד (React / Firebase Functions)
 
+> ⚠️ **שינוי 2026-06-07:** Frontend מתפרסם ל-**GitHub Pages** (דרך git push), לא ל-Firebase Hosting.
+> Firebase Hosting הוסר/הושבת. firebase.json = functions + firestore בלבד (אין hosting).
+
 ```
 עריכת קוד מקומי
 D:\Apps Webs\OmriCraft-Panel\
@@ -57,34 +62,37 @@ D:\Apps Webs\OmriCraft-Panel\
 npm run dev          ← בדיקה מקומית (אופציונלי)
         │
         ▼
-npm run build        ← מקמפל React → dist/
+npm run build        ← מקמפל React → dist/ (בדיקת שגיאות בלבד; ה-CI בונה שוב)
         │
         ▼
-npx firebase-tools deploy
-   ├── hosting  → dist/ → omricraft.com
-   ├── functions → Firebase Functions
-   └── firestore → rules (אם השתנו)
+   ┌─────────────── FRONTEND ───────────────┐   ┌──────── BACKEND ────────┐
+   │ git add -A && git commit && git push   │   │ npx firebase-tools deploy │
+   │ → workflow "Deploy to Pages"           │   │   --only functions,firestore │
+   │   בונה + מפרסם ל-GitHub Pages          │   │ (functions / rules)       │
+   │   (+ deploy-functions אוטומטי)         │   └───────────────────────────┘
+   └────────────────────────────────────────┘
         │
         ▼
-✅ בדוק על omricraft.com
-   └── Console browser נקי? פעולה עובדת?
-        │
-        ▼
-git add -A
-git commit -m "תיאור"
-git push origin main    ← קוד מקור בלבד (dist/ ב-.gitignore)
+✅ בדוק על omricraft.com (Console browser נקי? פעולה עובדת?)
         │
         ▼
 עדכן omricraft-session.md
 ```
 
-### Deploy חלקי (כשצריך):
+### Deploy לפי שכבה:
 ```bash
-npx firebase-tools deploy --only hosting          # UI בלבד
-npx firebase-tools deploy --only functions        # Functions בלבד
+git push origin main                              # Frontend → GitHub Pages (+functions ב-CI)
+npx firebase-tools deploy --only functions        # Functions בלבד (ידני/מהיר)
 npx firebase-tools deploy --only firestore        # Rules בלבד
-npx firebase-tools deploy --only hosting,firestore
 ```
+
+### שינוי ל-oracle/** (Manager API / scripts):
+```
+git push origin main → workflow "Deploy to Oracle"
+   rsync oracle/manager-api → VPS + restart omricraft-manager + gate-tests
+   rsync oracle/scripts     → VPS
+```
+> כלומר אין צורך ב-SSH ידני לשינוי קוד Manager API — push ל-oracle/** מפרסם אוטומטית.
 
 ---
 
@@ -172,15 +180,17 @@ server-1780813501890    │ bbb    │ 25569 │ 25579 │ 1.21.11
 ## 📡 Flow D — RCON (פקודות לשרת)
 
 ```
-דרך UI (כשיהיה Console — Issue #9):
+דרך UI (עובד! ✅):
   Panel → Console tab → הקלד פקודה → Enter
+  (שליחה אמיתית דרך RCON. הערה: לוג הפתיחה קוסמטי — אין עדיין live log streaming, Issue #9)
 
-דרך Firebase Function (כרגע):
+דרך Firebase Function:
   sendMcCommand({ serverId, command })
 
 דרך Manager API ישירות:
-  POST http://localhost:3001/rcon
-  Body: { serverId: "server-xxx", command: "/list" }
+  POST http://localhost:3001/send-command
+  Body: { serverId: "server-xxx", command: "list" }
+  Header: Authorization: Bearer <MANAGER_API_KEY>
 
 דרך SSH ישיר (debug בלבד):
   ssh לVPS
@@ -229,8 +239,9 @@ config/admin:  read לכל authenticated | create פעם אחת | update=false
 |-----|-----|
 | RCON password — תמיד קרא מ-server.properties | שונה לכל שרת |
 | אל תגע בקבצים מחוץ ל-`/home/ubuntu/omricraft/` | סיכון VPS |
-| build לפני deploy | Firebase צריך dist/ |
-| deploy לפני git push | git שומר source, לא build |
+| Frontend = git push → GitHub Pages | host יחיד; אין יותר Firebase Hosting |
+| Backend = firebase deploy --only functions,firestore | firebase.json בלי hosting |
+| File Manager — כתיבה רק לקבצי טקסט, scoped לתיקיית השרת | path-traversal guard |
 | Paper + ViaVersion + Velocity — בדוק תאימות | ראה חוק גרסאות |
 | ownerUid תמיד ב-Firestore doc | privacy בין users |
 | config/admin — נכתב פעם אחת | adminUid קבוע |
@@ -242,10 +253,10 @@ config/admin:  read לכל authenticated | create פעם אחת | update=false
 
 | פיצ'ר | עדיפות | Issue |
 |--------|--------|-------|
-| File Manager (VPS files ב-UI) | 🔴 גבוהה | [#8](https://github.com/YosAzn/squad-hub/issues/8) |
-| Console UI (RCON live) | 🔴 גבוהה | [#9](https://github.com/YosAzn/squad-hub/issues/9) |
+| ✅ File Manager (VPS files ב-UI) | בוצע 2026-06-07 | [#8](https://github.com/YosAzn/squad-hub/issues/8) |
+| Console UI — live log streaming (שליחת פקודות כבר עובדת) | 🔴 גבוהה | [#9](https://github.com/YosAzn/squad-hub/issues/9) |
 | User / Admin system | 🔴 גבוהה | [#10](https://github.com/YosAzn/squad-hub/issues/10) |
 | Plugin browser | 🟡 בינונית | [#11](https://github.com/YosAzn/squad-hub/issues/11) |
 | Backups | 🟡 בינונית | [#12](https://github.com/YosAzn/squad-hub/issues/12) |
-| Log viewer | 🟡 בינונית | — |
+| מחיקת קבצים ב-File Manager (כרגע list/read/write בלבד) | 🟢 נמוכה | — |
 | Scheduled start/stop | 🟢 נמוכה | — |
