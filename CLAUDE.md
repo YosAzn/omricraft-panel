@@ -39,3 +39,32 @@ npx firebase-tools deploy --only functions # פונקציות
 - לא לשנות את שם הפונקציות ב-`functions/index.js` בלי לעדכן את `src/App.jsx`
 - לא להוסיף ספריות חדשות בלי לבדוק שהן חינמיות
 - לא לגעת ב-`velocity.toml` ידנית — רק דרך הסקריפטים
+
+## ⚠️ חוק גרסאות — חובה לקרוא לפני כל שינוי
+
+המערכת מורכבת מ-5 שכבות שתלויות אחת בשנייה:
+
+```
+Minecraft Client
+      ↓ (פרוטוקול)
+Velocity Proxy  ← צריך לתמוך בגרסת ה-client
+      ↓ (MODERN forwarding)
+ViaVersion      ← צריך לתמוך בגרסת server + client
+      ↓ (תרגום פרוטוקול)
+Paper Server    ← גרסת MC
+      ↓ (RCON)
+Manager API
+```
+
+**כל שינוי גרסה חייב לעבור בכל השכבות:**
+| שינוי | מה צריך לעדכן |
+|-------|--------------|
+| גרסת Paper חדשה | ViaVersion (תמיכה בגרסה), Velocity (פרוטוקול client) |
+| גרסת Velocity חדשה | בדוק תאימות Plugins (PlasmoVoice וכו') |
+| גרסת ViaVersion חדשה | בדוק שתומך בכל גרסאות ה-server הפעילות |
+
+**גרסאות מאומתות (עדכן כאן אחרי בדיקה):**
+- Velocity: 3.4.0-SNAPSHOT build 559
+- ViaVersion: 5.9.1
+- Paper: 1.21.11 (לשרתים חדשים)
+- MC Client נתמך: 1.7.1 – 1.21.11

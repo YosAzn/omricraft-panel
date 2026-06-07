@@ -2,6 +2,9 @@ const { onCall } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const http = require("http");
 const https = require("https");
+const admin = require("firebase-admin");
+admin.initializeApp();
+const db = admin.firestore();
 
 const managerApiUrl = defineSecret("MANAGER_API_URL");
 const managerApiKey = defineSecret("MANAGER_API_KEY");
@@ -401,6 +404,37 @@ exports.installPlugin = onCall(
     const endpoint = install === false ? '/remove-plugin' : '/install-plugin';
     try {
       const result = await callManagerApi(BASE_URL, API_KEY, 'POST', endpoint, { serverId, pluginId });
+      return result;
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// getPlayersOnline — real-time player count for all servers via Manager API
+// ---------------------------------------------------------------------------
+exports.getPlayersOnline = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 20,
+  },
+  async (request) => {
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'GET', '/players', null);
+      // Sync server status to Firestore based on RCON reachability
+      if (result?.success && result.servers) {
+        const batch = db.batch();
+        for (const [serverId, info] of Object.entries(result.servers)) {
+          const ref = db.collection('omricraft/main/servers').doc(serverId);
+          const newStatus = info.online ? 'online' : 'offline';
+          batch.update(ref, { status: newStatus, players: info.count || 0 });
+        }
+        await batch.commit().catch(() => {}); // silent — don't fail the request
+      }
       return result;
     } catch (error) {
       return { success: false, error: error?.message || String(error) };
