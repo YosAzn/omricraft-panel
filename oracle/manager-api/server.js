@@ -506,6 +506,95 @@ app.post('/update-icon', function(req, res) {
   });
 });
 
+// ---------------------------------------------------------------------------
+// File manager — list / read / write inside a server's own directory only
+// ---------------------------------------------------------------------------
+var TEXT_EXT = /\.(properties|ya?ml|yaml|json|txt|conf|cfg|toml|ini|log|sh|md|csv)$/i;
+var MAX_READ_BYTES = 1024 * 1024; // 1 MB
+
+// Resolve a path relative to the server dir; returns null if it escapes the dir.
+function resolveServerPath(serverId, relPath) {
+  var base = path.resolve(SERVERS_DIR, serverId);
+  var target = path.resolve(base, relPath || '');
+  if (target !== base && target.indexOf(base + path.sep) !== 0) return null;
+  return target;
+}
+
+function isBinary(buf) {
+  var n = Math.min(buf.length, 8000);
+  for (var i = 0; i < n; i++) { if (buf[i] === 0) return true; }
+  return false;
+}
+
+app.post('/list-files', function(req, res) {
+  var serverId = req.body.serverId;
+  var relPath = req.body.path || '';
+  if (!validateId(serverId, res)) return;
+  var dir = resolveServerPath(serverId, relPath);
+  if (!dir) return res.status(400).json({ success: false, error: 'Invalid path' });
+  try {
+    var stat = fs.statSync(dir);
+    if (!stat.isDirectory()) return res.status(400).json({ success: false, error: 'Not a directory' });
+    var entries = fs.readdirSync(dir, { withFileTypes: true }).map(function(d) {
+      var size = 0;
+      try { if (d.isFile()) size = fs.statSync(path.join(dir, d.name)).size; } catch (_) {}
+      return { name: d.name, type: d.isDirectory() ? 'dir' : 'file', size: size };
+    }).sort(function(a, b) {
+      if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+    return res.json({ success: true, path: relPath, entries: entries });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/read-file', function(req, res) {
+  var serverId = req.body.serverId;
+  var relPath = req.body.path;
+  if (!validateId(serverId, res)) return;
+  if (!relPath) return res.status(400).json({ success: false, error: 'Missing path' });
+  var file = resolveServerPath(serverId, relPath);
+  if (!file) return res.status(400).json({ success: false, error: 'Invalid path' });
+  try {
+    var stat = fs.statSync(file);
+    if (!stat.isFile()) return res.status(400).json({ success: false, error: 'Not a file' });
+    if (stat.size > MAX_READ_BYTES) {
+      return res.json({ success: true, binary: true, tooLarge: true, size: stat.size, content: '' });
+    }
+    var buf = fs.readFileSync(file);
+    if (isBinary(buf)) {
+      return res.json({ success: true, binary: true, size: stat.size, content: '' });
+    }
+    return res.json({ success: true, binary: false, size: stat.size, content: buf.toString('utf8') });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/write-file', function(req, res) {
+  var serverId = req.body.serverId;
+  var relPath = req.body.path;
+  var content = req.body.content;
+  if (!validateId(serverId, res)) return;
+  if (!relPath) return res.status(400).json({ success: false, error: 'Missing path' });
+  if (typeof content !== 'string') return res.status(400).json({ success: false, error: 'content must be a string' });
+  var file = resolveServerPath(serverId, relPath);
+  if (!file) return res.status(400).json({ success: false, error: 'Invalid path' });
+  if (!TEXT_EXT.test(file)) return res.status(400).json({ success: false, error: 'Only text config files are editable' });
+  try {
+    if (fs.existsSync(file)) {
+      var existing = fs.readFileSync(file);
+      if (isBinary(existing)) return res.status(400).json({ success: false, error: 'Cannot edit binary file' });
+    }
+    fs.writeFileSync(file, content, 'utf8');
+    console.log('[' + new Date().toISOString() + '] File written: ' + serverId + '/' + relPath);
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', function() {
   console.log('[' + new Date().toISOString() + '] OmriCraft Manager API listening on 0.0.0.0:' + PORT);
 });

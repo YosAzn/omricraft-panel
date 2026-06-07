@@ -412,6 +412,35 @@ exports.installPlugin = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// File manager — list / read / write files inside a server's directory
+// ---------------------------------------------------------------------------
+function fileFn(endpoint, timeoutSeconds) {
+  return onCall(
+    { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: timeoutSeconds || 30 },
+    async (request) => {
+      const { serverId, path: relPath, content } = request.data || {};
+      if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+        return { success: false, error: 'Invalid serverId' };
+      }
+      const BASE_URL = managerApiUrl.value().trim();
+      const API_KEY  = managerApiKey.value().trim();
+      const body = { serverId };
+      if (relPath !== undefined) body.path = relPath;
+      if (content !== undefined) body.content = content;
+      try {
+        return await callManagerApi(BASE_URL, API_KEY, 'POST', endpoint, body);
+      } catch (error) {
+        return { success: false, error: error?.message || String(error) };
+      }
+    }
+  );
+}
+
+exports.listFiles = fileFn('/list-files');
+exports.readFile  = fileFn('/read-file');
+exports.writeFile = fileFn('/write-file');
+
+// ---------------------------------------------------------------------------
 // getPlayersOnline — real-time player count for all servers via Manager API
 // ---------------------------------------------------------------------------
 exports.getPlayersOnline = onCall(

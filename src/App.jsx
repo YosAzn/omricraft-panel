@@ -42,6 +42,9 @@ const getPaperVersionsFn = httpsCallable(functionsInstance, 'getPaperVersions');
 const updateServerOpsFn = httpsCallable(functionsInstance, 'updateServerOps');
 const installPluginFn = httpsCallable(functionsInstance, 'installPlugin');
 const getPlayersOnlineFn = httpsCallable(functionsInstance, 'getPlayersOnline');
+const listFilesFn = httpsCallable(functionsInstance, 'listFiles');
+const readFileFn = httpsCallable(functionsInstance, 'readFile');
+const writeFileFn = httpsCallable(functionsInstance, 'writeFile');
 
 
 // --- מילון שפות ---
@@ -2168,91 +2171,79 @@ function AddonsTab({ server, toggleAddon, t, allAddons, userRole }) {
   );
 }
 
-// --- NEW FILES TAB COMPONENT (File Manager) ---
+// --- FILES TAB (real file manager via Manager API → VPS) ---
 function FilesTab({ server, t, userRole }) {
   const [currentPath, setCurrentPath] = useState([]);
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [editingFile, setEditingFile] = useState(null);
   const [fileContent, setFileContent] = useState('');
+  const [fileNote, setFileNote] = useState(null);
   const [savedMsg, setSavedMsg] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // מערכת קבצים וירטואלית להדגמה (בדיוק כמו באטרנוס)
-  const [fileSystem, setFileSystem] = useState({
-    'server.properties': 'motd=Welcome to OmriCraft!\nmax-players=20\nview-distance=10\nonline-mode=true\npvp=true\ndifficulty=hard\ngenerate-structures=true',
-    'bukkit.yml': 'settings:\n  allow-end: true\n  connection-throttle: 4000\n  ticks-per:\n    animal-spawns: 400\n    monster-spawns: 1',
-    'spigot.yml': 'messages:\n  whitelist: "You are not whitelisted on this server!"\n  unknown-command: "Unknown command. Type /help"\nstats:\n  disable-saving: false',
-    'world': {
-      'level.dat': '[Binary Data - Cannot Edit]',
-      'playerdata': {
-        'Omri.dat': '[Binary Data]'
-      }
-    },
-    'plugins': {
-      'Essentials': {
-        'config.yml': '# Essentials Configuration\nops-name-color: "4"\nheal-cooldown: 60\nspawnmob-limit: 10\nchat:\n  radius: 0\n  format: "<{DISPLAYNAME}> {MESSAGE}"'
-      },
-      'Towny': {
-        'config.yml': 'town:\n  max_residents: 50\n  upkeep: 10.0\neconomy:\n  daily_taxes: true\n  tax_percentage: 5.0'
-      },
-      'Slimefun': {
-        'config.yml': '# Slimefun 4 Core Settings\nauto-update: true\nclear-holograms-on-shutdown: true\noptions:\n  print-out-loading: false'
-      },
-      'AureliumSkills': {
-        'config.yml': 'skills:\n  farming:\n    enabled: true\n  foraging:\n    enabled: true\n  mining:\n    enabled: true\nmodifiers:\n  health:\n    base: 20.0'
-      },
-      'AuctionHouse': {
-        'config.yml': 'auction:\n  max-listings: 5\n  tax-rate: 5.0\n  listing-duration: 7d\n  prevent-creative-sale: true'
-      },
-      'MythicMobs': {
-        'config.yml': 'Configuration:\n  CheckForUpdates: true\n  General:\n    AllowMetrics: true\n  Mobs:\n    EnableAIModifiers: true'
-      }
-    }
-  });
+  const pathStr = currentPath.join('/');
 
-  const getCurrentFolder = () => {
-    let current = fileSystem;
-    for (const folder of currentPath) {
-      if (current[folder]) current = current[folder];
-    }
-    return current;
+  const loadDir = async () => {
+    setLoading(true); setError(null); setFileNote(null);
+    try {
+      const res = await listFilesFn({ serverId: server.id, path: pathStr });
+      const d = res.data || res;
+      if (d.success) setEntries(d.entries || []);
+      else setError(d.error || 'שגיאה בטעינת קבצים');
+    } catch (e) { setError(e.message); }
+    setLoading(false);
   };
 
-  const handleOpen = (name, content) => {
-    if (typeof content === 'object') {
-      setCurrentPath([...currentPath, name]);
-    } else {
-      if (userRole !== 'admin') return;
-      if (content.includes('[Binary Data')) return; // לא ניתן לערוך קבצים בינאריים
-      setEditingFile(name);
-      setFileContent(content);
-    }
+  useEffect(() => {
+    if (!editingFile) loadDir();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [server.id, pathStr]);
+
+  const openEntry = async (entry) => {
+    if (entry.type === 'dir') { setCurrentPath([...currentPath, entry.name]); return; }
+    setFileNote(null);
+    try {
+      const res = await readFileFn({ serverId: server.id, path: [...currentPath, entry.name].join('/') });
+      const d = res.data || res;
+      if (!d.success) { setFileNote(d.error || 'שגיאה בקריאת הקובץ'); return; }
+      if (d.binary) { setFileNote(d.tooLarge ? 'הקובץ גדול מדי לתצוגה' : 'קובץ בינארי — לא ניתן לעריכה'); return; }
+      setEditingFile(entry.name);
+      setFileContent(d.content || '');
+    } catch (e) { setFileNote(e.message); }
   };
 
   const navigateUp = (index) => {
-    setCurrentPath(currentPath.slice(0, index + 1));
-    setEditingFile(null);
+    setEditingFile(null); setFileNote(null);
+    setCurrentPath(index < 0 ? [] : currentPath.slice(0, index + 1));
   };
 
-  const handleSave = () => {
-    // בחיים האמיתיים זה ישלח בקשה לשרת כדי לעדכן את הקובץ
-    setSavedMsg(true);
-    setTimeout(() => setSavedMsg(false), 3000);
+  const handleSave = async () => {
+    if (saving) return;
+    setSaving(true); setFileNote(null);
+    try {
+      const res = await writeFileFn({ serverId: server.id, path: [...currentPath, editingFile].join('/'), content: fileContent });
+      const d = res.data || res;
+      if (d.success) { setSavedMsg(true); setTimeout(() => setSavedMsg(false), 4000); }
+      else setFileNote(d.error || 'שמירה נכשלה');
+    } catch (e) { setFileNote(e.message); }
+    setSaving(false);
   };
 
-  const currentFolder = getCurrentFolder();
+  const fmtSize = (n) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
 
   return (
     <div className="h-full flex flex-col animate-in fade-in">
-      {/* Breadcrumb Navigation (שורת הניווט למעלה) */}
+      {/* Breadcrumb */}
       <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 flex items-center gap-2 mb-4 overflow-x-auto text-sm font-bold">
         <button onClick={() => navigateUp(-1)} className="text-zinc-400 hover:text-white transition-colors flex items-center gap-1">
-          <HardDrive size={16}/> Root
+          <HardDrive size={16}/> {server.slug || 'Root'}
         </button>
         {currentPath.map((folder, idx) => (
           <React.Fragment key={idx}>
             <span className="text-zinc-600">/</span>
-            <button onClick={() => navigateUp(idx)} className="text-zinc-400 hover:text-white transition-colors">
-              {folder}
-            </button>
+            <button onClick={() => navigateUp(idx)} className="text-zinc-400 hover:text-white transition-colors">{folder}</button>
           </React.Fragment>
         ))}
         {editingFile && (
@@ -2261,60 +2252,70 @@ function FilesTab({ server, t, userRole }) {
             <span className="text-green-400 flex items-center gap-1"><FileCode size={16}/> {editingFile}</span>
           </>
         )}
+        {!editingFile && (
+          <button onClick={loadDir} className="ml-auto text-zinc-500 hover:text-white transition-colors text-xs">↻ רענן</button>
+        )}
       </div>
 
-      {/* אזור עריכת קובץ */}
+      {fileNote && !editingFile && (
+        <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 rounded-lg p-3 mb-4 text-sm flex items-center gap-2">
+          <AlertCircle size={16}/> {fileNote}
+        </div>
+      )}
+
       {editingFile ? (
         <div className="flex-1 flex flex-col bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden relative">
           <div className="bg-zinc-900 border-b border-zinc-800 p-3 flex justify-between items-center">
             <span className="font-mono text-sm text-zinc-300">{editingFile}</span>
             <div className="flex items-center gap-3">
-              {savedMsg && <span className="text-green-400 text-xs font-bold animate-pulse">{t('fileSaved')}</span>}
-              <button onClick={handleSave} className="bg-green-600 hover:bg-green-500 text-white px-4 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors">
-                <Save size={14}/> {t('saveFile')}
-              </button>
-              <button onClick={() => setEditingFile(null)} className="text-zinc-400 hover:text-red-400 p-1 transition-colors">
+              {savedMsg && <span className="text-green-400 text-xs font-bold animate-pulse">{t('fileSaved')} — ייתכן שצריך הפעלה מחדש</span>}
+              {fileNote && <span className="text-red-400 text-xs font-bold">{fileNote}</span>}
+              {userRole === 'admin' && (
+                <button onClick={handleSave} disabled={saving} className="bg-green-600 hover:bg-green-500 text-white px-4 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors disabled:opacity-50">
+                  <Save size={14}/> {saving ? '...' : t('saveFile')}
+                </button>
+              )}
+              <button onClick={() => { setEditingFile(null); setFileNote(null); }} className="text-zinc-400 hover:text-red-400 p-1 transition-colors">
                 <X size={18}/>
               </button>
             </div>
           </div>
-          <textarea 
-            value={fileContent} 
+          <textarea
+            value={fileContent}
             onChange={(e) => setFileContent(e.target.value)}
+            readOnly={userRole !== 'admin'}
             className="flex-1 w-full bg-black text-zinc-300 font-mono text-sm p-4 outline-none resize-none leading-relaxed"
             dir="ltr"
             spellCheck="false"
           />
         </div>
       ) : (
-        /* אזור תצוגת תיקיות וקבצים */
         <div className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl overflow-y-auto">
-          {Object.entries(currentFolder).map(([name, content]) => {
-            const isFolder = typeof content === 'object';
-            const isEditable = !isFolder && !content.includes('[Binary Data');
+          {loading ? (
+            <div className="p-8 text-center text-zinc-600">טוען...</div>
+          ) : error ? (
+            <div className="p-8 text-center text-red-400 text-sm">{error}</div>
+          ) : entries.length === 0 ? (
+            <div className="p-8 text-center text-zinc-600">תיקייה ריקה</div>
+          ) : entries.map((entry) => {
+            const isFolder = entry.type === 'dir';
             return (
-              <div 
-                key={name} 
-                onClick={() => handleOpen(name, content)}
-                className={`flex items-center justify-between p-4 border-b border-zinc-900/50 hover:bg-zinc-900 transition-colors group
-                  ${isFolder || isEditable ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
-                dir="ltr"
-              >
+              <div key={entry.name} onClick={() => openEntry(entry)}
+                className="flex items-center justify-between p-4 border-b border-zinc-900/50 hover:bg-zinc-900 transition-colors group cursor-pointer"
+                dir="ltr">
                 <div className="flex items-center gap-3">
-                  {isFolder ? <Folder size={20} className="text-blue-400 fill-blue-400/20"/> : 
-                   name.endsWith('.yml') || name.endsWith('.properties') ? <FileCode size={20} className="text-orange-400"/> : 
+                  {isFolder ? <Folder size={20} className="text-blue-400 fill-blue-400/20"/> :
+                   /\.(yml|yaml|properties|json|toml|conf|cfg|ini)$/i.test(entry.name) ? <FileCode size={20} className="text-orange-400"/> :
                    <FileText size={20} className="text-zinc-500"/>}
-                  <span className="font-medium text-zinc-200">{name}</span>
+                  <span className="font-medium text-zinc-200">{entry.name}</span>
                 </div>
-                {isEditable && userRole === 'admin' && (
-                   <Edit3 size={16} className="text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity"/>
-                )}
+                <div className="flex items-center gap-3">
+                  {!isFolder && <span className="text-xs text-zinc-600">{fmtSize(entry.size)}</span>}
+                  {!isFolder && userRole === 'admin' && <Edit3 size={16} className="text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity"/>}
+                </div>
               </div>
             );
           })}
-          {Object.keys(currentFolder).length === 0 && (
-            <div className="p-8 text-center text-zinc-600">תיקייה ריקה</div>
-          )}
         </div>
       )}
     </div>
