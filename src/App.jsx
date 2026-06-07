@@ -11,7 +11,7 @@ import {
 // --- Firebase Setup ---
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
 
 import { getFunctions, httpsCallable } from "firebase/functions";
 
@@ -41,6 +41,7 @@ const stopServerFn = httpsCallable(functionsInstance, 'stopServer');
 const getPaperVersionsFn = httpsCallable(functionsInstance, 'getPaperVersions');
 const updateServerOpsFn = httpsCallable(functionsInstance, 'updateServerOps');
 const installPluginFn = httpsCallable(functionsInstance, 'installPlugin');
+const getPlayersOnlineFn = httpsCallable(functionsInstance, 'getPlayersOnline');
 
 
 // --- מילון שפות ---
@@ -79,6 +80,13 @@ const DICT = {
     worldFlat: "שטוח (Flat)",
     opPlayers: "שחקני OP (מנהלים)",
     opPlayersDesc: "הכנס שמות משתמש מופרדים בפסיק (לדוגמה: Omri,Notch)",
+    difficulty: "רמת קושי",
+    peaceful: "שלווה (Peaceful)",
+    easy: "קל (Easy)",
+    normal: "רגיל (Normal)",
+    hard: "קשה (Hard)",
+    whitelistPlayers: "שחקני Whitelist",
+    whitelistPlayersDesc: "הכנס שמות משתמש מופרדים בפסיק (לדוגמה: Omri,Notch)",
     seed: "Seed לעולם (מושאר ריק? ניצור אחד רנדומלי)",
     cancel: "ביטול",
     selectAddons: "בחר תוספים מראש (אופציונלי)",
@@ -165,6 +173,13 @@ const DICT = {
     worldFlat: "Flat",
     opPlayers: "OP Players (Admins)",
     opPlayersDesc: "Comma separated usernames (e.g., Omri,Notch)",
+    difficulty: "Difficulty",
+    peaceful: "Peaceful",
+    easy: "Easy",
+    normal: "Normal",
+    hard: "Hard",
+    whitelistPlayers: "Whitelist Players",
+    whitelistPlayersDesc: "Comma separated usernames (e.g., Omri,Notch)",
     seed: "World Seed (Leave empty for random)",
     cancel: "Cancel",
     selectAddons: "Pre-install Add-ons (Optional)",
@@ -230,6 +245,7 @@ const TYPE_COLORS = {
 const SOFTWARE_TYPES = [
   { id: 'vanilla', name: 'Vanilla', type: 'official' },
   { id: 'paper', name: 'Paper', type: 'plugins' },
+  { id: 'purpur', name: 'Purpur', type: 'plugins' },
   { id: 'fabric', name: 'Fabric', type: 'mods' },
   { id: 'forge', name: 'Forge', type: 'mods' }
 ];
@@ -263,7 +279,7 @@ const DEFAULT_ADDONS = [
   { id: 'p18', name: 'Slimefun 4', desc: 'מוסיף מכונות, גנרטורים וקסמים בלי צורך במודים! חווית הישרדות מתקדמת', type: 'plugins', downloads: '6M', rating: 4.9, reviews: 21000 },
   { id: 'p19', name: 'Aurelium Skills', desc: 'מערכת סקילים ורמות RPG - לחימה, חציבה, פארקור ועוד הרבה', type: 'plugins', downloads: '4M', rating: 4.9, reviews: 8500 },
   { id: 'p20', name: 'AuctionHouse', desc: 'שוק עולמי שבו שחקנים מוכרים וקונים פריטים אחד מהשני (מערכת כלכלה)', type: 'plugins', downloads: '9M', rating: 4.8, reviews: 11000 },
-  { id: 'p21', name: 'MythicMobs', desc: 'מאפשר ליצור בוסים ומפלצות מותאמים אישית עם כוחות מיוחדים (כמו בנייטפול)', type: 'plugins', downloads: '7M', rating: 4.9, reviews: 16000 },
+  { id: 'p21', name: 'MythicMobs', desc: 'מאפשר ליצור בוסים ומפלצות מותאמים אישית עם כוחות מיוחדים (כמו בנייטפול)', type: 'plugins', downloads: '7M', rating: 4.9, reviews: 16000, paid: true },
   { id: 'p22', name: 'BetterRTP', desc: 'מאפשר לשחקנים להשתגר בבטחה למקום רנדומלי בעולם הפתוח כדי לבנות', type: 'plugins', downloads: '11M', rating: 4.7, reviews: 12500 },
 
   // --- ניהול ביצועים וכישופים (סגנון נייטפול) ---
@@ -273,8 +289,8 @@ const DEFAULT_ADDONS = [
   { id: 'p26', name: 'AdvancedShulkerboxes', desc: 'פותח שאלקרים מהיד, שואב אליהם חפצים אוטומטית ומוסיף יכולות מתקדמות (Refill)', type: 'plugins', downloads: '1.8M', rating: 4.7, reviews: 2100 },
 
   // --- תוספות RPG, חיות רכיבה ואנטי-צ'יט (חדש) ---
-  { id: 'p27', name: 'MythicMounts', desc: 'חיות רכיבה מיוחדות! מאפשר לרכוב על אפיגאסט (Epigast), לשים לו הארנס (רתמה) עם כישוף Soul Speed שככל שרמתו גבוהה יותר, החיה טסה מהר יותר!', type: 'plugins', downloads: '1.5M', rating: 4.8, reviews: 4200 },
-  { id: 'p28', name: 'ItemsAdder', desc: 'הוספת אלפי חפצים, נשקים, רהיטים ובלוקים חדשים לשרת (כולל טקסטורות) בלי שאף שחקן יצטרך להוריד מודים', type: 'plugins', downloads: '4.5M', rating: 4.9, reviews: 18000 },
+  { id: 'p27', name: 'MythicMounts', desc: 'חיות רכיבה מיוחדות! מאפשר לרכוב על אפיגאסט (Epigast), לשים לו הארנס (רתמה) עם כישוף Soul Speed שככל שרמתו גבוהה יותר, החיה טסה מהר יותר!', type: 'plugins', downloads: '1.5M', rating: 4.8, reviews: 4200, paid: true },
+  { id: 'p28', name: 'ItemsAdder', desc: 'הוספת אלפי חפצים, נשקים, רהיטים ובלוקים חדשים לשרת (כולל טקסטורות) בלי שאף שחקן יצטרך להוריד מודים', type: 'plugins', downloads: '4.5M', rating: 4.9, reviews: 18000, paid: true },
   { id: 'p29', name: 'Grim AntiCheat', desc: 'מערכת האנטי-צ\'יט (נגד האקרים) המתקדמת בעולם כיום. חוסמת צ\'יטים מבלי לפגוע בשחקנים רגילים', type: 'plugins', downloads: '8M', rating: 4.9, reviews: 25000 },
   { id: 'p30', name: 'ViaVersion', desc: 'חובה! מאפשר לשחקנים מגרסאות מיינקראפט ישנות או חדשות יותר (מ-1.8 עד 1.26) להיכנס לשרת שלך בלי בעיות', type: 'plugins', downloads: '45M', rating: 4.9, reviews: 150000 },
   { id: 'p31', name: 'InteractiveChat', desc: 'משדרג את הצ\'אט: שחקנים יכולים לכתוב [item] או [inv] כדי להראות את הנשק או התיק שלהם לכולם בצ\'אט', type: 'plugins', downloads: '6M', rating: 4.8, reviews: 9200 },
@@ -283,9 +299,6 @@ const DEFAULT_ADDONS = [
   // --- כלים ועיצוב ---
   { id: 'p-axiom', name: 'Axiom', desc: 'כלי בנייה מתקדם לשחקני creative - בנייה מהירה, brushes, undo מלא', type: 'plugins', downloads: '1.2M', rating: 4.9, reviews: 3100 },
   { id: 'p-chatfmt', name: 'ChatFormatter', desc: 'פורמט צ\'אט מתקדם עם תגיות צבעוניות, emoji reactions, ופקודות מותאמות אישית', type: 'plugins', downloads: '800K', rating: 4.6, reviews: 1200 },
-
-  // --- תאימות גרסאות ---
-  { id: 'p-viaversion', name: 'ViaVersion', desc: 'מאפשר לשחקנים מכל גרסת Minecraft להתחבר לשרת — ללא קשר לגרסה שלהם', type: 'plugins', downloads: '50M', rating: 5.0, reviews: 82000 },
 
   // --- עיצוב וניהול עומסים (בקשת משתמש) ---
   { id: 'p33', name: 'TAB', desc: 'מעצב את רשימת השחקנים (Tablist) שמופיעה שלוחצים על TAB. מאפשר להוסיף צבעים, את הדרגה של השחקן, אנימציות, והודעות למעלה ולמטה (Header/Footer).', type: 'plugins', downloads: '10M', rating: 4.9, reviews: 18000 },
@@ -320,6 +333,7 @@ const DEFAULT_ADDONS = [
 
 export default function App() {
   const [authUser, setAuthUser] = useState(null);
+  const [adminUid, setAdminUid] = useState(null);
   const [userRole, setUserRole] = useState('admin');
   const [lang, setLang] = useState('he');
   const t = (key) => DICT[lang][key] || key;
@@ -372,6 +386,7 @@ export default function App() {
 
   const [servers, setServers] = useState([]);
   const [customAddons, setCustomAddons] = useState([]);
+  const [playersData, setPlayersData] = useState({}); // { serverId: { count, max, players, online } }
 
   const creatingServerRef = useRef(false);
   const [isCreatingServer, setIsCreatingServer] = useState(false);
@@ -388,9 +403,21 @@ export default function App() {
       }
     };
     
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setAuthUser(user);
+        // Check/set admin UID from Firestore config
+        try {
+          const configRef = doc(db, 'omricraft/main/config', 'admin');
+          const configSnap = await getDoc(configRef);
+          if (configSnap.exists()) {
+            setAdminUid(configSnap.data().adminUid || null);
+          } else {
+            // First device to auth — claim admin
+            await setDoc(configRef, { adminUid: user.uid });
+            setAdminUid(user.uid);
+          }
+        } catch (e) { /* silent */ }
       } else {
         initAuth();
       }
@@ -419,10 +446,34 @@ export default function App() {
 
     return () => { unsubServers(); unsubAddons(); };
   }, []);
+
+  // Poll player counts every 30s (non-blocking, best-effort)
+  useEffect(() => {
+    const fetchPlayers = async () => {
+      try {
+        const res = await getPlayersOnlineFn();
+        if (res?.data?.success && res.data.servers) {
+          setPlayersData(res.data.servers);
+        }
+      } catch (e) { /* silent */ }
+    };
+    fetchPlayers();
+    const interval = setInterval(fetchPlayers, 30000);
+    return () => clearInterval(interval);
+  }, []);
   // ----------------------------------------
 
+  const isAdmin = authUser && adminUid && authUser.uid === adminUid;
+
+  const visibleServers = useMemo(() => {
+    if (isAdmin) return servers; // admin sees all
+    if (!authUser) return [];
+    // non-admin: sees only own servers (or legacy servers with no ownerUid)
+    return servers.filter(s => !s.ownerUid || s.ownerUid === authUser.uid);
+  }, [servers, isAdmin, authUser]);
+
   const allAddons = useMemo(() => [...DEFAULT_ADDONS, ...customAddons], [customAddons]);
-  const activeServer = servers.find(s => s.id === activeServerId);
+  const activeServer = visibleServers.find(s => s.id === activeServerId);
 
   const HEBREW_TO_LATIN = {
     'א': 'a', 'ב': 'b', 'ג': 'g', 'ד': 'd', 'ה': 'h', 'ו': 'v',
@@ -502,38 +553,24 @@ export default function App() {
 
   const copyToClipboard = (text) => {
     const value = String(text || '').trim();
-
-    if (!value) {
-      alert('אין דומיין להעתקה');
-      return false;
-    }
+    if (!value) return false;
 
     try {
-      const textarea = document.createElement('textarea');
-      textarea.value = value;
-      textarea.setAttribute('readonly', '');
-      textarea.style.position = 'fixed';
-      textarea.style.top = '0';
-      textarea.style.left = '0';
-      textarea.style.opacity = '0';
-
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-
-      const copied = document.execCommand('copy');
-      document.body.removeChild(textarea);
-
-      if (copied) {
-        alert(`הועתק: ${value}`);
-        return true;
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(value).catch(() => {});
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
       }
-
-      window.prompt('העתק את הדומיין ידנית:', value);
-      return false;
+      return true;
     } catch (error) {
       console.error('Clipboard copy failed:', error);
-      window.prompt('העתק את הדומיין ידנית:', value);
       return false;
     }
   };
@@ -591,9 +628,11 @@ export default function App() {
 
       const result = await createServerFn({
         displayName,
+        type: data.software || 'paper',
         version: data.version || '1.21.1',
         memoryMb: data.memoryMb || 2048,
         gamemode: data.gamemode || 'survival',
+        difficulty: data.difficulty || 'normal',
         ops: data.ops || [],
         maxPlayers: data.maxPlayers || 20,
         seed: String(finalSeed || ''),
@@ -622,7 +661,10 @@ export default function App() {
         seed: finalSeed.toString(),
         installedAddons: resolvedAddons,
         icon: smallIcon,
+        difficulty: data.difficulty || 'normal',
         isPrivate: data.isPrivate === true,
+        whitelistPlayers: data.whitelistPlayers || [],
+        ownerUid: authUser?.uid || null,
         status: 'starting',
         players: 0,
         needsRestart: false,
@@ -922,6 +964,7 @@ export default function App() {
             onDelete={() => deleteServer(activeServer.id)}
             updateServer={(newData) => updateServer(activeServer.id, newData)}
             syncStatus={syncServerStatus}
+            playersData={playersData}
           />
         )}
 
@@ -1017,7 +1060,7 @@ function Dashboard({ servers, onOpenServer, onCreateClick, toggleServerStatus, o
         </div>
         {userRole === 'admin' && (
           <div className="flex gap-2">
-            {servers.length > 0 && (
+            {visibleServers.length > 0 && (
               <button
                 onClick={onDeleteAll}
                 className="bg-red-900/40 hover:bg-red-800/60 text-red-400 border border-red-800/40 px-4 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-all"
@@ -1035,7 +1078,7 @@ function Dashboard({ servers, onOpenServer, onCreateClick, toggleServerStatus, o
         )}
       </div>
 
-      {servers.length === 0 ? (
+      {visibleServers.length === 0 ? (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center">
           <Server className="mx-auto text-zinc-600 mb-4" size={48} />
           <h3 className="text-xl font-bold mb-2">{t('noServers')}</h3>
@@ -1048,7 +1091,7 @@ function Dashboard({ servers, onOpenServer, onCreateClick, toggleServerStatus, o
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {servers.map(server => (
+          {visibleServers.map(server => (
             <div key={server.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-zinc-700 transition-colors group flex flex-col relative">
               {server.needsRestart && (
                 <div className="absolute top-0 left-0 w-full h-1 bg-yellow-500"></div>
@@ -1133,7 +1176,9 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
   const [seed, setSeed] = useState('');
   const [selectedAddons, setSelectedAddons] = useState([]);
   const [maxPlayers, setMaxPlayers] = useState(20);
+  const [difficulty, setDifficulty] = useState('normal');
   const [isPrivate, setIsPrivate] = useState(false);
+  const [whitelistString, setWhitelistString] = useState('');
 
   // State חדש לחיפוש תוספים
   const [addonSearch, setAddonSearch] = useState('');
@@ -1141,7 +1186,7 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
   const relevantAddons = allAddons.filter(a => {
     if (a.type === 'textures') return true; 
     if (['fabric', 'forge'].includes(software) && ['mods', 'modpacks'].includes(a.type)) return true;
-    if (software === 'paper' && a.type === 'plugins') return true;
+    if (['paper', 'purpur'].includes(software) && a.type === 'plugins') return true;
     if (a.type === 'datapacks') return true;
     return false;
   });
@@ -1155,9 +1200,11 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
   const handleSubmit = (e) => {
     e.preventDefault();
     const opsArray = opsString.split(',').map(o => o.trim()).filter(Boolean);
+    const whitelistArray = isPrivate ? whitelistString.split(',').map(o => o.trim()).filter(Boolean) : [];
     onCreate({
       name, icon, software, version, gamemode, worldType, ops: opsArray,
-      seed: seed || undefined, installedAddons: selectedAddons, maxPlayers, isPrivate
+      seed: seed || undefined, installedAddons: selectedAddons, maxPlayers,
+      difficulty, isPrivate, whitelistPlayers: whitelistArray
     });
   };
 
@@ -1240,32 +1287,53 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
               <input type="number" min={1} max={100} value={maxPlayers} onChange={e => setMaxPlayers(Number(e.target.value))}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-all" />
             </div>
-          </div>
-
-          {/* Private / Public toggle */}
-          <div
-            onClick={() => setIsPrivate(p => !p)}
-            className={`flex items-center justify-between rounded-xl p-4 cursor-pointer border transition-all ${isPrivate ? 'bg-yellow-500/10 border-yellow-500/40' : 'bg-zinc-950 border-zinc-800 hover:border-zinc-600'}`}
-          >
-            <div className="flex items-center gap-3">
-              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isPrivate ? 'bg-yellow-500/20' : 'bg-zinc-800'}`}>
-                <Shield size={18} className={isPrivate ? 'text-yellow-400' : 'text-zinc-500'} />
-              </div>
-              <div>
-                <p className={`font-bold text-sm ${isPrivate ? 'text-yellow-400' : 'text-zinc-300'}`}>{isPrivate ? 'שרת פרטי' : 'שרת ציבורי'}</p>
-                <p className="text-xs text-zinc-500">{isPrivate ? 'רק שחקנים ב-Whitelist יוכלו להתחבר' : 'כל שחקן יכול להתחבר'}</p>
-              </div>
-            </div>
-            <div className={`w-11 h-6 rounded-full transition-colors relative ${isPrivate ? 'bg-yellow-500' : 'bg-zinc-700'}`}>
-              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${isPrivate ? 'left-6' : 'left-1'}`} />
+            <div>
+              <label className="block text-sm font-bold text-zinc-400 mb-2">{t('difficulty')}</label>
+              <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-all">
+                <option value="peaceful">{t('peaceful')}</option>
+                <option value="easy">{t('easy')}</option>
+                <option value="normal">{t('normal')}</option>
+                <option value="hard">{t('hard')}</option>
+              </select>
             </div>
           </div>
 
+          {/* OP Players */}
           <div className="bg-zinc-950 border border-red-500/20 rounded-xl p-5">
              <label className="block text-sm font-bold text-red-400 mb-2">{t('opPlayers')}</label>
              <input type="text" placeholder={t('opPlayersDesc')} value={opsString} onChange={(e) => setOpsString(e.target.value)}
                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 transition-all placeholder:text-zinc-600" />
              <p className="text-xs text-zinc-500 mt-2">רק השחקנים ברשימה זו יוכלו להשתמש בפקודות ניהול בשרת.</p>
+          </div>
+
+          {/* Private / Public toggle + Whitelist (no gap between them) */}
+          <div>
+            <div
+              onClick={() => setIsPrivate(p => !p)}
+              className={`flex items-center justify-between rounded-xl p-4 cursor-pointer border transition-all ${isPrivate ? 'bg-yellow-500/10 border-yellow-500/40 rounded-b-none border-b-0' : 'bg-zinc-950 border-zinc-800 hover:border-zinc-600'}`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isPrivate ? 'bg-yellow-500/20' : 'bg-zinc-800'}`}>
+                  <Shield size={18} className={isPrivate ? 'text-yellow-400' : 'text-zinc-500'} />
+                </div>
+                <div>
+                  <p className={`font-bold text-sm ${isPrivate ? 'text-yellow-400' : 'text-zinc-300'}`}>{isPrivate ? 'שרת פרטי' : 'שרת ציבורי'}</p>
+                  <p className="text-xs text-zinc-500">{isPrivate ? 'רק שחקנים ב-Whitelist יוכלו להתחבר' : 'כל שחקן יכול להתחבר'}</p>
+                </div>
+              </div>
+              <div className={`w-11 h-6 rounded-full transition-colors relative ${isPrivate ? 'bg-yellow-500' : 'bg-zinc-700'}`}>
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${isPrivate ? 'left-6' : 'left-1'}`} />
+              </div>
+            </div>
+            {isPrivate && (
+              <div className="bg-yellow-500/5 border border-yellow-500/40 border-t-0 rounded-b-xl p-5">
+                <label className="block text-sm font-bold text-yellow-400 mb-2">{t('whitelistPlayers')}</label>
+                <input type="text" placeholder={t('whitelistPlayersDesc')} value={whitelistString} onChange={(e) => setWhitelistString(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition-all placeholder:text-zinc-600" />
+                <p className="text-xs text-zinc-500 mt-2">שחקנים שלא ברשימה לא יוכלו להתחבר לשרת.</p>
+              </div>
+            )}
           </div>
 
           {relevantAddons.length > 0 && (
@@ -1631,7 +1699,7 @@ function GlobalRepository({ allAddons, customAddons, onAdd, onDelete, t, userRol
   );
 }
 
-function ServerPanel({ server, onBack, toggleStatus, restartServer, toggleAddon, onDelete, updateServer, t, allAddons, userRole, mcVersions, syncStatus }) {
+function ServerPanel({ server, onBack, toggleStatus, restartServer, toggleAddon, onDelete, updateServer, t, allAddons, userRole, mcVersions, syncStatus, playersData }) {
   const [activeTab, setActiveTab] = useState('overview');
   const hasMapPlugin = server.installedAddons.includes('p9');
 
@@ -1724,7 +1792,7 @@ function ServerPanel({ server, onBack, toggleStatus, restartServer, toggleAddon,
         </div>
 
         <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl p-6 min-h-[500px]">
-          {activeTab === 'overview' && <OverviewTab server={server} t={t} />}
+          {activeTab === 'overview' && <OverviewTab server={server} t={t} playersLive={(playersData || {})[server.id]} />}
           {activeTab === 'map' && <MapTab server={server} t={t} />}
           {activeTab === 'console' && <ConsoleTab server={server} t={t} userRole={userRole} />}
           {activeTab === 'addons' && <AddonsTab server={server} toggleAddon={toggleAddon} t={t} allAddons={allAddons} userRole={userRole} />}
@@ -1745,7 +1813,7 @@ function TabBtn({ icon, label, active, onClick, badge }) {
   );
 }
 
-function OverviewTab({ server, t }) {
+function OverviewTab({ server, t, playersLive }) {
   const [copiedDomain, setCopiedDomain] = useState(false);
 
   const slug =
@@ -1754,14 +1822,15 @@ function OverviewTab({ server, t }) {
     server?.worldName ||
     server?.id;
 
-  const domain = server?.address || (server?.slug ? `${server.slug}.omricraft.com` : (slug ? `${slug}.omricraft.com` : '—'));
+  // Domain is the connection address (Velocity proxies by hostname, port 25565 default)
+  const connectAddress = server?.publicHost || server?.address || (server?.slug ? `${server.slug}.omricraft.com` : '—');
 
   return (
     <div className="space-y-6 animate-in fade-in">
       <div>
         <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-xl flex items-center justify-between gap-3">
-          <div className="font-mono text-lg text-green-400 tracking-wider truncate" dir="ltr" title={domain}>
-            {domain}
+          <div className="font-mono text-lg text-green-400 tracking-wider truncate" dir="ltr" title={connectAddress}>
+            {connectAddress}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -1773,18 +1842,25 @@ function OverviewTab({ server, t }) {
 
             <button
               type="button"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(domain);
-                  setCopiedDomain(true);
-                  setTimeout(() => setCopiedDomain(false), 2000);
-                } catch (error) {
-                  window.prompt('העתק ידנית את הדומיין:', domain);
+              onClick={() => {
+                if (navigator.clipboard?.writeText) {
+                  navigator.clipboard.writeText(connectAddress).catch(() => {});
+                } else {
+                  const ta = document.createElement('textarea');
+                  ta.value = connectAddress;
+                  ta.style.position = 'fixed';
+                  ta.style.opacity = '0';
+                  document.body.appendChild(ta);
+                  ta.select();
+                  document.execCommand('copy');
+                  document.body.removeChild(ta);
                 }
+                setCopiedDomain(true);
+                setTimeout(() => setCopiedDomain(false), 2000);
               }}
               className="text-sm bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-lg transition-colors"
             >
-              {copiedDomain ? 'הועתק!' : t('copyIp')}
+              {copiedDomain ? 'הועתק! ✓' : t('copyIp')}
             </button>
           </div>
         </div>
@@ -1811,8 +1887,17 @@ function OverviewTab({ server, t }) {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-zinc-950 border border-zinc-800 p-5 rounded-xl">
-          <div className="text-zinc-400 text-sm mb-1 flex items-center gap-2"><Cpu size={16} /> {t('players')}</div>
-          <div className="text-3xl font-bold">{server.status === 'online' ? server.players : 0} <span className="text-base text-zinc-500 font-normal">/ {server.maxPlayers}</span></div>
+          <div className="text-zinc-400 text-sm mb-1 flex items-center gap-2">
+            <Users size={16} /> {t('players')}
+            {playersLive?.online && <span className="text-xs text-green-400 ml-auto">● live</span>}
+          </div>
+          <div className="text-3xl font-bold">
+            {playersLive?.online ? playersLive.count : (server.status === 'online' ? server.players : 0)}
+            <span className="text-base text-zinc-500 font-normal"> / {playersLive?.max || server.maxPlayers || 20}</span>
+          </div>
+          {playersLive?.players?.length > 0 && (
+            <div className="mt-2 text-xs text-zinc-400 truncate">{playersLive.players.join(', ')}</div>
+          )}
         </div>
         <div className="bg-zinc-950 border border-zinc-800 p-5 rounded-xl">
           <div className="text-zinc-400 text-sm mb-1">{t('ram')}</div>
@@ -2043,11 +2128,16 @@ function AddonsTab({ server, toggleAddon, t, allAddons, userRole }) {
                   <IconComp size={24} className={isInstalled ? (item.type === 'textures' ? 'text-teal-500' : 'text-green-500') : 'text-zinc-600'} />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-bold text-lg">{item.name}</h4>
                     <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border ${badgeStyle}`}>
                       {t(item.type) || item.type}
                     </span>
+                    {item.paid && (
+                      <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border bg-yellow-500/10 text-yellow-400 border-yellow-500/20">
+                        💎 Premium
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-zinc-400 mt-2 leading-relaxed">{item.desc}</p>
                   <div className="flex items-center gap-1 text-[11px] text-yellow-500 mt-2">
@@ -2058,9 +2148,16 @@ function AddonsTab({ server, toggleAddon, t, allAddons, userRole }) {
                 </div>
               </div>
               {userRole === 'admin' && (
-                <button onClick={() => handleToggle(item)} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${isInstalled ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20' : 'bg-green-600 hover:bg-green-500 text-white'}`}>
-                  {isInstalled ? t('uninstall') : <><Download size={16} /> {t('install')}</>}
-                </button>
+                item.paid && !isInstalled ? (
+                  <a href="#" onClick={e => e.preventDefault()} title="Premium plugin — התקן ידנית מהאתר הרשמי"
+                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-sm border border-yellow-500/30 text-yellow-400 bg-yellow-500/5 cursor-not-allowed whitespace-nowrap">
+                    💎 Premium
+                  </a>
+                ) : (
+                  <button onClick={() => handleToggle(item)} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${isInstalled ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20' : 'bg-green-600 hover:bg-green-500 text-white'}`}>
+                    {isInstalled ? t('uninstall') : <><Download size={16} /> {t('install')}</>}
+                  </button>
+                )
               )}
             </div>
           );

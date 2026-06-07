@@ -370,11 +370,13 @@ app.post('/update-whitelist-players', async function(req, res) {
 var PLUGIN_NAMES = {
   'p1':'EssentialsX','p2':'Geyser','p3':'CoreProtect','p4':'LuckPerms',
   'p5':'Vault','p6':'worldedit','p9':'BlueMap','p10':'FastLeafDecay',
-  'p11':'GSit','p12':'Multiverse-Core','p14':'PlaceholderAPI','p17':'Towny',
-  'p19':'AuraSkills','p20':'AuctionHouse','p22':'BetterRTP','p23':'spark',
-  'p25':'ExcellentEnchants','p29':'GrimAC','p30':'ViaVersion','p32':'Chunky',
-  'p33':'TAB','p35':'ClearLag','p-chatfmt':'ChatFormatter','p-axiom':'Axiom',
-  'p-viaversion':'ViaVersion'
+  'p11':'GSit','p12':'Multiverse-Core','p13':'ZNPCsPlus','p14':'PlaceholderAPI',
+  'p15':'PowerRanks','p16':'ChatControl','p17':'Towny','p18':'Slimefun',
+  'p19':'AuraSkills','p20':'AuctionHouse','p21':'MythicMobs','p22':'BetterRTP',
+  'p23':'spark','p24':'PlugManX','p25':'ExcellentEnchants','p26':'AdvancedShulkerboxes',
+  'p27':'MythicMounts','p28':'ItemsAdder','p29':'GrimAC','p30':'ViaVersion',
+  'p31':'InteractiveChat','p32':'Chunky','p33':'TAB','p34':'InvisibleItemFrames',
+  'p35':'ClearLag','p-chatfmt':'ChatFormatter','p-axiom':'Axiom','p-viaversion':'ViaVersion'
 };
 
 app.post('/install-plugin', async function(req, res) {
