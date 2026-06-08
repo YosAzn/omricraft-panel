@@ -239,6 +239,32 @@ if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
   done < <(node -e "const ids=JSON.parse(process.argv[1]); ids.forEach(function(i){console.log(i);})" "$ADDONS")
 fi
 
+# Download datapacks if addons include datapacks
+# d1,d4,d6,d7,d8,d9,d10,d11 = Vanilla Tweaks — require browser picker, no direct URL
+declare -A DATAPACK_URLS
+DATAPACK_URLS["d2"]="https://github.com/Stardust-Labs-MC/Terralith/releases/download/v2.5.9/Terralith_1.21_v2.5.9_BETA.jar"
+# TODO: Data — add more datapack URLs when direct download becomes available (d3 Tectonic, Nullscape, Structory)
+
+mkdir -p "$SERVER_DIR/datapacks-pending"
+
+if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
+  while IFS= read -r addonId; do
+    [ -z "$addonId" ] && continue
+    url="${DATAPACK_URLS[$addonId]:-}"
+    if [ -n "$url" ]; then
+      filename=$(basename "$url" | sed 's/\?.*$//')
+      echo "[$(date)] Downloading datapack $addonId: $filename"
+      wget -q -L --timeout=60 "$url" -O "$SERVER_DIR/datapacks-pending/$filename"
+      if [ ! -s "$SERVER_DIR/datapacks-pending/$filename" ]; then
+        rm -f "$SERVER_DIR/datapacks-pending/$filename"
+        echo "[$(date)] FAILED (0 bytes): datapack $addonId"
+      else
+        echo "[$(date)] OK datapack: $addonId ($filename)"
+      fi
+    fi
+  done < <(node -e "const ids=JSON.parse(process.argv[1]); ids.forEach(function(i){console.log(i);})" "$ADDONS")
+fi
+
 # Update servers.json atomically
 mkdir -p "$(dirname "$SERVERS_JSON")"
 

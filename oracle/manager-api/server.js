@@ -720,6 +720,56 @@ app.post('/delete-file', function(req, res) {
   }
 });
 
+app.post('/install-datapack', async function(req, res) {
+  var serverId = req.body.serverId;
+  var url = req.body.url;
+  var filename = req.body.filename;
+  if (!validateId(serverId, res)) return;
+  if (!url || !filename) return res.status(400).json({ success: false, error: 'url and filename required' });
+  // Basic filename safety — no path traversal
+  if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
+    return res.status(400).json({ success: false, error: 'Invalid filename' });
+  }
+
+  var serverDir = path.join(SERVERS_DIR, serverId);
+  var worldDatapacks = path.join(serverDir, 'world', 'datapacks');
+  var pending = path.join(serverDir, 'datapacks-pending');
+  var targetDir = fs.existsSync(worldDatapacks) ? worldDatapacks : pending;
+
+  fs.mkdirSync(targetDir, { recursive: true });
+  var dest = path.join(targetDir, filename);
+
+  function fetchToFile(srcUrl, destPath, cb) {
+    var https = require('https');
+    var http = require('http');
+    var file = fs.createWriteStream(destPath);
+    var proto = srcUrl.startsWith('https') ? https : http;
+    proto.get(srcUrl, { headers: { 'User-Agent': 'omricraft/1.0' } }, function(response) {
+      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        file.close();
+        fs.unlink(destPath, function() {});
+        return fetchToFile(response.headers.location, destPath, cb);
+      }
+      response.pipe(file);
+      file.on('finish', function() { file.close(); cb(null); });
+    }).on('error', cb);
+  }
+
+  try {
+    await new Promise(function(resolve, reject) { fetchToFile(url, dest, function(err) { if (err) reject(err); else resolve(); }); });
+    if (!fs.existsSync(dest) || fs.statSync(dest).size === 0) {
+      try { fs.unlinkSync(dest); } catch(_) {}
+      return res.status(500).json({ success: false, error: 'Download failed (0 bytes)' });
+    }
+    var installedToWorld = fs.existsSync(worldDatapacks);
+    console.log('[' + new Date().toISOString() + '] Installed datapack ' + filename + ' on ' + serverId + ' -> ' + targetDir);
+    return res.json({ success: true, path: dest, needsRestart: !installedToWorld });
+  } catch (e) {
+    try { fs.unlinkSync(dest); } catch(_) {}
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', function() {
   console.log('[' + new Date().toISOString() + '] OmriCraft Manager API listening on 0.0.0.0:' + PORT);
 });

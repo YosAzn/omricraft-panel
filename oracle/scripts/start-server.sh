@@ -52,6 +52,25 @@ nohup java -Xms${MEMORY_MB}M -Xmx${MEMORY_MB}M \
 SERVER_PID=$!
 echo "$SERVER_PID" > "$PID_FILE"
 
+# Background: move datapacks-pending → world/datapacks when world folder appears
+DATAPACK_PENDING="$SERVER_DIR/datapacks-pending"
+if [ -d "$DATAPACK_PENDING" ] && [ "$(ls -A "$DATAPACK_PENDING" 2>/dev/null)" ]; then
+  (
+    for i in $(seq 1 24); do
+      sleep 5
+      if [ -d "$SERVER_DIR/world" ]; then
+        mkdir -p "$SERVER_DIR/world/datapacks"
+        mv "$DATAPACK_PENDING"/*.zip "$SERVER_DIR/world/datapacks/" 2>/dev/null || true
+        mv "$DATAPACK_PENDING"/*.jar "$SERVER_DIR/world/datapacks/" 2>/dev/null || true
+        echo "[$(date)] Datapacks installed: $(ls "$SERVER_DIR/world/datapacks/" 2>/dev/null | wc -l) files" >> "$LOG_FILE"
+        rmdir "$DATAPACK_PENDING" 2>/dev/null || true
+        exit 0
+      fi
+    done
+    echo "[$(date)] WARNING: world folder never appeared, datapacks not installed" >> "$LOG_FILE"
+  ) &
+fi
+
 # Update servers.json status
 if [ -f "$SERVERS_JSON" ] && command -v node &>/dev/null; then
   TMP_JSON="$SERVERS_JSON.tmp.$$"
