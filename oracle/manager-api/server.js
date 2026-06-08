@@ -528,23 +528,35 @@ app.post('/update-ops', async function(req, res) {
     return { uuid: '', name: String(name).trim(), level: 4, bypassesPlayerLimit: false };
   }).filter(function(e) { return e.name.length > 0; });
 
+  // Read old ops BEFORE overwriting, so we can deop removed players
+  let oldOpsNames = [];
+  try {
+    const existing = JSON.parse(fs.readFileSync(opsPath, 'utf8'));
+    if (Array.isArray(existing)) oldOpsNames = existing.map(function(o) { return o.name; });
+  } catch(_) {}
+
   try {
     fs.writeFileSync(opsPath, JSON.stringify(opsData, null, 2));
   } catch (err) {
     return res.status(500).json({ success: false, error: 'Could not write ops.json: ' + err.message });
   }
 
-  // Also send RCON op commands if server is running
+  // Send RCON deop/op commands if server is running
   try {
     const propsPath = path.join(SERVERS_DIR, serverId, 'server.properties');
     const propsContent = fs.readFileSync(propsPath, 'utf8');
     const passMatch = propsContent.match(/^rcon\.password=(.*)$/m);
     const portMatch = propsContent.match(/^rcon\.port=(\d+)/m);
     const rconPass = passMatch ? passMatch[1].trim() : '';
-    const rconPort = portMatch ? parseInt(portMatch[1]) : 25575;
-    if (rconPass && opsData.length > 0) {
+    const rconPortActual = portMatch ? parseInt(portMatch[1]) : 25575;
+    if (rconPass) {
+      const newNames = opsData.map(function(o) { return o.name; });
+      const toDeop = oldOpsNames.filter(function(n) { return !newNames.includes(n); });
+      for (const name of toDeop) {
+        await rconConnect('127.0.0.1', rconPortActual, rconPass, 'deop ' + name, 5000).catch(function() {});
+      }
       for (const op of opsData) {
-        await rconConnect('127.0.0.1', rconPort, rconPass, 'op ' + op.name, 5000).catch(() => {});
+        await rconConnect('127.0.0.1', rconPortActual, rconPass, 'op ' + op.name, 5000).catch(function() {});
       }
     }
   } catch (e) { /* server might not be running */ }

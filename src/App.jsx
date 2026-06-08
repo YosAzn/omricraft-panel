@@ -2366,7 +2366,13 @@ function WhitelistEditor({ server, updateServer }) {
     setInput('');
     updateServer({ whitelistPlayers: newList });
     setSaving(true);
-    try { await updateWhitelistPlayersFn({ serverId: server.id, players: newList }); } catch(e) {}
+    try {
+      await updateWhitelistPlayersFn({ serverId: server.id, players: newList });
+    } catch(e) {
+      console.error('updateWhitelistPlayers error:', e);
+      updateServer({ whitelistPlayers: players }); // rollback — remove the player we just added
+      alert(`שגיאה בהוספת שחקן ל-Whitelist: ${e.message}`);
+    }
     setSaving(false);
   };
 
@@ -2374,7 +2380,13 @@ function WhitelistEditor({ server, updateServer }) {
     const newList = players.filter(p => p !== name);
     updateServer({ whitelistPlayers: newList });
     setSaving(true);
-    try { await updateWhitelistPlayersFn({ serverId: server.id, players: newList }); } catch(e) {}
+    try {
+      await updateWhitelistPlayersFn({ serverId: server.id, players: newList });
+    } catch(e) {
+      console.error('updateWhitelistPlayers error:', e);
+      updateServer({ whitelistPlayers: players }); // rollback — re-add the player we just removed
+      alert(`שגיאה בהסרת שחקן מה-Whitelist: ${e.message}`);
+    }
     setSaving(false);
   };
 
@@ -2427,7 +2439,15 @@ function OpsEditor({ server, updateServer }) {
     setSaving(true);
     setSaved(false);
     updateServer({ ops });
-    try { await updateServerOpsFn({ serverId: server.id, ops }); } catch(e) {}
+    try {
+      const res = await updateServerOpsFn({ serverId: server.id, ops });
+      if (!res.data?.success) throw new Error(res.data?.error || 'Ops update failed');
+    } catch(e) {
+      console.error('updateServerOps error:', e);
+      setSaved(false);
+      alert(`שגיאה בעדכון OPs: ${e.message}`);
+      return;
+    }
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -2571,7 +2591,14 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
             onClick={async () => {
               const newVal = !server.isPrivate;
               updateServer({ isPrivate: newVal });
-              try { await setServerPrivacyFn({ serverId: server.id, isPrivate: newVal }); } catch(e) {}
+              try {
+                const res = await setServerPrivacyFn({ serverId: server.id, isPrivate: newVal });
+                if (!res.data?.success) throw new Error(res.data?.error || 'Privacy update failed');
+              } catch(e) {
+                console.error('setServerPrivacy error:', e);
+                updateServer({ isPrivate: !newVal }); // rollback
+                alert(lang === 'he' ? `שגיאה בשינוי פרטיות השרת: ${e.message}` : `Failed to update privacy: ${e.message}`);
+              }
             }}
             className={`flex items-center justify-between rounded-xl p-4 cursor-pointer border transition-all ${server.isPrivate ? 'bg-yellow-500/10 border-yellow-500/40' : 'bg-zinc-950 border-zinc-800 hover:border-zinc-600'}`}
           >
