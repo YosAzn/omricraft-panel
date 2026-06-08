@@ -84,6 +84,50 @@ if [ "$TYPE" = "fabric" ]; then
     exit 1
   fi
 
+elif [ "$TYPE" = "purpur" ]; then
+  echo "[$(date)] Installing Purpur $VERSION..."
+  PURPUR_URL="https://api.purpurmc.org/v2/purpur/${VERSION}/latest/download"
+  VERSION_JAR="$SERVER_DIR/server.jar"
+  wget -q -L "$PURPUR_URL" -O "$VERSION_JAR"
+  if [ ! -s "$VERSION_JAR" ]; then
+    echo "[$(date)] ERROR: Could not download Purpur $VERSION"
+    exit 1
+  fi
+  echo "[$(date)] Purpur $VERSION installed"
+
+elif [ "$TYPE" = "vanilla" ]; then
+  echo "[$(date)] Installing Vanilla $VERSION..."
+  # Get server jar URL from Mojang manifest
+  MANIFEST_URL="https://launchermeta.mojang.com/mc/game/version_manifest_v2.json"
+  VERSION_META_URL=$(curl -sf "$MANIFEST_URL" | node -e "
+    process.stdin.resume(); let d=''; process.stdin.on('data',c=>d+=c);
+    process.stdin.on('end',()=>{
+      try { const o=JSON.parse(d); const v=o.versions.find(x=>x.id==='${VERSION}');
+        console.log(v?v.url:''); } catch(e){console.log('');}
+    });
+  " 2>/dev/null || echo "")
+  if [ -z "$VERSION_META_URL" ]; then
+    echo "[$(date)] ERROR: Vanilla $VERSION not found in Mojang manifest"
+    exit 1
+  fi
+  VANILLA_JAR_URL=$(curl -sf "$VERSION_META_URL" | node -e "
+    process.stdin.resume(); let d=''; process.stdin.on('data',c=>d+=c);
+    process.stdin.on('end',()=>{
+      try { const o=JSON.parse(d); console.log(o.downloads.server.url); } catch(e){console.log('');}
+    });
+  " 2>/dev/null || echo "")
+  if [ -z "$VANILLA_JAR_URL" ]; then
+    echo "[$(date)] ERROR: Could not get Vanilla server jar URL"
+    exit 1
+  fi
+  VERSION_JAR="$SERVER_DIR/server.jar"
+  wget -q -L "$VANILLA_JAR_URL" -O "$VERSION_JAR"
+  if [ ! -s "$VERSION_JAR" ]; then
+    echo "[$(date)] ERROR: Vanilla jar download failed"
+    exit 1
+  fi
+  echo "[$(date)] Vanilla $VERSION installed"
+
 elif [ "$TYPE" = "forge" ]; then
   echo "[$(date)] Installing Forge $VERSION..."
   FORGE_META=$(curl -sf "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json" 2>/dev/null || echo "{}")

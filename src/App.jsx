@@ -43,6 +43,9 @@ const updateServerOpsFn = httpsCallable(functionsInstance, 'updateServerOps');
 const installPluginFn = httpsCallable(functionsInstance, 'installPlugin');
 const changeDifficultyFn = httpsCallable(functionsInstance, 'changeDifficulty');
 const getPlayersOnlineFn = httpsCallable(functionsInstance, 'getPlayersOnline');
+const getServerLogFn = httpsCallable(functionsInstance, 'getServerLog');
+const updateServerPropertiesFn = httpsCallable(functionsInstance, 'updateServerProperties');
+const restartServerFn = httpsCallable(functionsInstance, 'restartServer');
 const listFilesFn = httpsCallable(functionsInstance, 'listFiles');
 const readFileFn = httpsCallable(functionsInstance, 'readFile');
 const writeFileFn = httpsCallable(functionsInstance, 'writeFile');
@@ -836,8 +839,7 @@ export default function App() {
       await updateDoc(doc(db, getServersPath(), id), { status: 'starting', players: 0, needsRestart: false });
     }
     try {
-      await stopServerFn({ serverId: id });
-      await startServerFn({ serverId: id });
+      await restartServerFn({ serverId: id });
       if (db && authUser) await updateDoc(doc(db, getServersPath(), id), { status: 'online' });
     } catch (e) {
       console.error('Restart failed', e);
@@ -1966,22 +1968,28 @@ function MapTab({ server, t }) {
 }
 
 function ConsoleTab({ server, t, userRole }) {
-  const [logs, setLogs] = useState([
-    `[INFO]: Starting minecraft server version ${server.version}`,
-    '[INFO]: Loading properties',
-  ]);
+  const [logs, setLogs] = useState([]);
   const [consoleInput, setConsoleInput] = useState('');
   const [sending, setSending] = useState(false);
   const logsEndRef = useRef(null);
 
   useEffect(() => {
-    if (server.status === 'starting') {
-      setLogs(prev => [...prev, `[INFO]: Starting ${server.software} server...`, `[INFO]: Loading addons...`]);
-      setTimeout(() => setLogs(prev => [...prev, `[INFO]: Done (3.24s)! For help, type "help"`]), 3000);
-    } else if (server.status === 'offline') {
-      setLogs(prev => [...prev, `[INFO]: Stopping server`, `[INFO]: Saving chunks`]);
-    }
-  }, [server.status, server.software]);
+    let cancelled = false;
+    const fetchLogs = async () => {
+      try {
+        const result = await getServerLogFn({ serverId: server.id, lines: 200 });
+        const data = result.data || result;
+        if (!cancelled && data.success && Array.isArray(data.log)) {
+          setLogs(data.log);
+        }
+      } catch(e) {
+        if (!cancelled) setLogs([`[ERROR]: לא ניתן לטעון לוג: ${e.message}`]);
+      }
+    };
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 10000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [server.id]);
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -2530,6 +2538,12 @@ function DifficultyControl({ server, updateServer, t }) {
 }
 
 function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
+  const applyServerProperty = async (field, value) => {
+    try {
+      await updateServerPropertiesFn({ serverId: server.id, properties: { [field]: value } });
+    } catch(e) { console.error('updateServerProperties error:', e); }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in max-w-2xl">
       <div>
@@ -2550,7 +2564,7 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
            </div>
            <div className="flex-1">
               <label className="block text-sm text-zinc-400 mb-1">{t('serverName')}</label>
-              <input type="text" value={server.name} onChange={(e) => updateServer({ name: e.target.value })} onFocus={(e) => e.target.select()} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600" />
+              <input type="text" value={server.name} onChange={(e) => updateServer({ name: e.target.value })} onFocus={(e) => e.target.select()} onBlur={(e) => applyServerProperty('name', e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600" />
            </div>
         </div>
 
@@ -2564,11 +2578,11 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
             </div>
             <div>
               <label className="block text-sm text-zinc-400 mb-1">{t('maxPlayers')}</label>
-              <input type="number" value={server.maxPlayers} onChange={(e) => updateServer({ maxPlayers: parseInt(e.target.value) || 20 })} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600" />
+              <input type="number" value={server.maxPlayers} onChange={(e) => updateServer({ maxPlayers: parseInt(e.target.value) || 20 })} onBlur={(e) => applyServerProperty('maxPlayers', parseInt(e.target.value) || 20)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600" />
             </div>
             <div>
               <label className="block text-sm text-zinc-400 mb-1">{t('gamemode')}</label>
-              <select value={server.gamemode} onChange={(e) => updateServer({ gamemode: e.target.value })} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600">
+              <select value={server.gamemode} onChange={(e) => { updateServer({ gamemode: e.target.value }); applyServerProperty('gamemode', e.target.value); }} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600">
                 <option value="survival">{t('survival')}</option>
                 <option value="creative">{t('creative')}</option>
                 <option value="adventure">{t('adventure')}</option>
@@ -2577,7 +2591,7 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
             </div>
             <div>
               <label className="block text-sm text-zinc-400 mb-1">{t('worldType')}</label>
-              <select value={server.worldType} onChange={(e) => updateServer({ worldType: e.target.value })} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600">
+              <select value={server.worldType} onChange={(e) => { updateServer({ worldType: e.target.value }); applyServerProperty('worldType', e.target.value); }} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600">
                 <option value="default">{t('worldDefault')}</option>
                 <option value="flat">{t('worldFlat')}</option>
                 <option value="amplified">{t('worldAmplified')}</option>
@@ -2597,7 +2611,7 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
               } catch(e) {
                 console.error('setServerPrivacy error:', e);
                 updateServer({ isPrivate: !newVal }); // rollback
-                alert(lang === 'he' ? `שגיאה בשינוי פרטיות השרת: ${e.message}` : `Failed to update privacy: ${e.message}`);
+                alert(`שגיאה בשינוי פרטיות השרת: ${e.message}`);
               }
             }}
             className={`flex items-center justify-between rounded-xl p-4 cursor-pointer border transition-all ${server.isPrivate ? 'bg-yellow-500/10 border-yellow-500/40' : 'bg-zinc-950 border-zinc-800 hover:border-zinc-600'}`}

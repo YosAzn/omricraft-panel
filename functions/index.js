@@ -88,7 +88,7 @@ exports.createServer = onCall(
     timeoutSeconds: 120,
   },
   async (request) => {
-    const { displayName, version, memoryMb, gamemode, difficulty, worldType, ops, maxPlayers, seed, addons, icon, isPrivate, whitelistPlayers } = request.data || {};
+    const { displayName, version, memoryMb, gamemode, difficulty, worldType, ops, maxPlayers, seed, addons, icon, isPrivate, whitelistPlayers, type } = request.data || {};
 
     if (!displayName || typeof displayName !== 'string' || !displayName.trim()) {
       return { success: false, error: 'displayName is required' };
@@ -129,7 +129,7 @@ exports.createServer = onCall(
       serverId,
       displayName: displayName.trim(),
       slug,
-      type: 'paper',
+      type: type || 'paper',
       version: version || '1.21.1',
       gamePort,
       rconPort,
@@ -528,6 +528,63 @@ exports.changeDifficulty = onCall(
       return result;
     } catch (error) {
       return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// getServerLog — real console log tail from VPS
+// ---------------------------------------------------------------------------
+exports.getServerLog = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 20 },
+  async (request) => {
+    const { serverId, lines = 100 } = request.data || {};
+    if (!serverId || !/^[a-z0-9_-]+$/.test(serverId)) return { success: false, error: 'Invalid serverId' };
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/read-log', { serverId, lines });
+      return result;
+    } catch(e) {
+      return { success: false, error: e.message };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// updateServerProperties — syncs UI settings to server.properties on VPS
+// ---------------------------------------------------------------------------
+exports.updateServerProperties = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 30 },
+  async (request) => {
+    const { serverId, properties } = request.data || {};
+    if (!serverId) return { success: false, error: 'Missing serverId' };
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/update-server-properties', { serverId, properties });
+      return result;
+    } catch(e) {
+      return { success: false, error: e.message };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// restartServer — dedicated restart (stop+start via single script)
+// ---------------------------------------------------------------------------
+exports.restartServer = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 60 },
+  async (request) => {
+    const { serverId } = request.data || {};
+    if (!serverId) return { success: false, error: 'Missing serverId' };
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/restart-server', { serverId });
+      return result;
+    } catch(e) {
+      return { success: false, error: e.message };
     }
   }
 );

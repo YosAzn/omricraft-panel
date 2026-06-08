@@ -770,6 +770,67 @@ app.post('/install-datapack', async function(req, res) {
   }
 });
 
+app.post('/read-log', function(req, res) {
+  const serverId = req.body.serverId;
+  const lines = parseInt(req.body.lines) || 100;
+  if (!validateId(serverId, res)) return;
+  const logFile = path.join(SERVERS_DIR, serverId, 'logs', 'latest.log');
+  if (!fs.existsSync(logFile)) return res.json({ success: true, log: [] });
+  try {
+    const content = fs.readFileSync(logFile, 'utf8');
+    const allLines = content.split('\n').filter(Boolean);
+    const tail = allLines.slice(-lines);
+    return res.json({ success: true, log: tail });
+  } catch(e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/update-server-properties', async function(req, res) {
+  const serverId = req.body.serverId;
+  const properties = req.body.properties || {};
+  if (!validateId(serverId, res)) return;
+  const propsPath = path.join(SERVERS_DIR, serverId, 'server.properties');
+  if (!fs.existsSync(propsPath)) return res.status(404).json({ success: false, error: 'server.properties not found' });
+  try {
+    let props = fs.readFileSync(propsPath, 'utf8');
+    const keyMap = {
+      name: 'motd',
+      maxPlayers: 'max-players',
+      gamemode: 'gamemode',
+      worldType: 'level-type',
+    };
+    for (const [field, value] of Object.entries(properties)) {
+      const propKey = keyMap[field];
+      if (!propKey || value === undefined || value === null) continue;
+      let propVal = String(value);
+      if (field === 'worldType') {
+        const typeMap = { flat: 'minecraft:flat', large_biomes: 'minecraft:large_biomes', amplified: 'minecraft:amplified' };
+        propVal = typeMap[value] || 'minecraft:normal';
+      }
+      if (new RegExp('^' + propKey + '=', 'm').test(props)) {
+        props = props.replace(new RegExp('^' + propKey + '=.*', 'm'), propKey + '=' + propVal);
+      } else {
+        props += '\n' + propKey + '=' + propVal;
+      }
+    }
+    fs.writeFileSync(propsPath, props);
+    // Live max-players via RCON
+    try {
+      const passMatch = props.match(/^rcon\.password=(.*)$/m);
+      const portMatch = props.match(/^rcon\.port=(\d+)/m);
+      if (passMatch && portMatch && properties.maxPlayers) {
+        await rconConnect('127.0.0.1', parseInt(portMatch[1]), passMatch[1].trim(),
+          'setmaxplayers ' + properties.maxPlayers, 5000).catch(function() {});
+      }
+    } catch(_) {}
+    console.log('[' + new Date().toISOString() + '] Updated server.properties for ' + serverId + ': ' + Object.keys(properties).join(','));
+    return res.json({ success: true });
+  } catch(e) {
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', function() {
   console.log('[' + new Date().toISOString() + '] OmriCraft Manager API listening on 0.0.0.0:' + PORT);
 });
