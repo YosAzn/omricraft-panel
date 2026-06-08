@@ -88,7 +88,7 @@ exports.createServer = onCall(
     timeoutSeconds: 120,
   },
   async (request) => {
-    const { displayName, version, memoryMb, gamemode, difficulty, worldType, ops, maxPlayers, seed, addons, icon, isPrivate } = request.data || {};
+    const { displayName, version, memoryMb, gamemode, difficulty, worldType, ops, maxPlayers, seed, addons, icon, isPrivate, whitelistPlayers } = request.data || {};
 
     if (!displayName || typeof displayName !== 'string' || !displayName.trim()) {
       return { success: false, error: 'displayName is required' };
@@ -142,7 +142,8 @@ exports.createServer = onCall(
       ops: Array.isArray(ops) ? ops : [],
       addons: Array.isArray(addons) ? addons : [],
       icon: icon || '',
-      isPrivate: isPrivate === true
+      isPrivate: isPrivate === true,
+      whitelistPlayers: Array.isArray(whitelistPlayers) ? whitelistPlayers : []
     });
 
     if (!result.success) {

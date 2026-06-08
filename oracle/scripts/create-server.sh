@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: ./create-server.sh SERVER_ID DISPLAY_NAME SLUG TYPE VERSION GAME_PORT RCON_PORT MEMORY_MB [SEED] [OPS_JSON] [ADDONS_JSON] [MAX_PLAYERS] [GAMEMODE] [WHITELIST] [DIFFICULTY] [WORLD_TYPE]
+# Usage: ./create-server.sh SERVER_ID DISPLAY_NAME SLUG TYPE VERSION GAME_PORT RCON_PORT MEMORY_MB [SEED] [OPS_JSON] [ADDONS_JSON] [MAX_PLAYERS] [GAMEMODE] [WHITELIST] [DIFFICULTY] [WORLD_TYPE] [WHITELIST_PLAYERS_JSON]
 
 if [ "$#" -lt 8 ]; then
-  echo "Usage: $0 SERVER_ID DISPLAY_NAME SLUG TYPE VERSION GAME_PORT RCON_PORT MEMORY_MB [SEED] [OPS_JSON] [ADDONS_JSON] [MAX_PLAYERS] [GAMEMODE] [WHITELIST] [DIFFICULTY] [WORLD_TYPE]"
+  echo "Usage: $0 SERVER_ID DISPLAY_NAME SLUG TYPE VERSION GAME_PORT RCON_PORT MEMORY_MB [SEED] [OPS_JSON] [ADDONS_JSON] [MAX_PLAYERS] [GAMEMODE] [WHITELIST] [DIFFICULTY] [WORLD_TYPE] [WHITELIST_PLAYERS_JSON]"
   exit 1
 fi
 
@@ -24,6 +24,7 @@ GAMEMODE="${13:-survival}"
 WHITELIST="${14:-false}"
 DIFFICULTY="${15:-normal}"
 WORLD_TYPE_RAW="${16:-default}"
+WHITELIST_PLAYERS="${17:-[]}"
 
 # Map UI world types to Minecraft 1.18+ level-type values
 case "$WORLD_TYPE_RAW" in
@@ -154,6 +155,15 @@ proxies:
     online-mode: true
     secret: '${FORWARDING_SECRET}'
 PAPERCONF
+
+# Generate whitelist.json if whitelist players provided
+if [ -n "$WHITELIST_PLAYERS" ] && [ "$WHITELIST_PLAYERS" != "[]" ]; then
+  node -e "
+    const names = JSON.parse(process.argv[1]);
+    const entries = names.map(function(n){ return {uuid:'',name:n}; });
+    require('fs').writeFileSync(process.argv[2], JSON.stringify(entries, null, 2));
+  " "$WHITELIST_PLAYERS" "$SERVER_DIR/whitelist.json" && echo "[$(date)] whitelist.json written" || echo "[$(date)] Warning: could not write whitelist.json"
+fi
 
 # Generate ops.json if ops provided
 if [ -n "$OPS" ] && [ "$OPS" != "[]" ]; then

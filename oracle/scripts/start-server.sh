@@ -33,8 +33,8 @@ fi
 if [ -f "$PID_FILE" ]; then
   PID=$(cat "$PID_FILE")
   if kill -0 "$PID" 2>/dev/null; then
-    echo "[$(date)] Server $SERVER_ID is already running (PID $PID)."
-    exit 1
+    echo "[$(date)] Server $SERVER_ID is already running (PID $PID). Nothing to do."
+    exit 0
   else
     echo "[$(date)] Stale PID file found. Removing."
     rm -f "$PID_FILE"

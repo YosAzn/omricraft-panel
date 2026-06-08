@@ -150,6 +150,7 @@ app.post('/create-server', async function(req, res) {
   const addons = body.addons;
   const icon = body.icon;
   const isPrivate = body.isPrivate === true;
+  const whitelistPlayers = body.whitelistPlayers;
 
   if (!validateId(serverId, res)) return;
   if (!validateId(slug, res)) return;
@@ -169,7 +170,8 @@ app.post('/create-server', async function(req, res) {
       String(gamemode || 'survival'),
       isPrivate ? 'true' : 'false',
       String(difficulty),
-      String(worldType)
+      String(worldType),
+      JSON.stringify(Array.isArray(whitelistPlayers) ? whitelistPlayers : [])
     ]);
 
     if (icon && icon.length > 0) {

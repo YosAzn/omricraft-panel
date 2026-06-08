@@ -647,7 +647,8 @@ export default function App() {
         seed: String(finalSeed || ''),
         addons: resolvedAddons,
         icon: smallIcon,
-        isPrivate: data.isPrivate === true
+        isPrivate: data.isPrivate === true,
+        whitelistPlayers: Array.isArray(data.whitelistPlayers) ? data.whitelistPlayers : []
       });
 
       if (!result.data?.success) {
