@@ -42,12 +42,21 @@ if [ -f "$PID_FILE" ]; then
 fi
 
 cd "$SERVER_DIR"
-nohup java -Xms${MEMORY_MB}M -Xmx${MEMORY_MB}M \
-  -XX:+UseG1GC \
-  -XX:+ParallelRefProcEnabled \
-  -XX:MaxGCPauseMillis=200 \
-  -jar server.jar --nogui \
-  >> "$LOG_FILE" 2>&1 &
+
+# For modern Forge (1.17+), run.sh is the entry point rather than a jar
+if [ -f "$SERVER_DIR/run.sh" ] && [ ! -s "$SERVER_DIR/server.jar" ]; then
+  chmod +x "$SERVER_DIR/run.sh"
+  nohup bash "$SERVER_DIR/run.sh" --nogui \
+    >> "$LOG_FILE" 2>&1 &
+else
+  # Paper, Purpur, Fabric (fabric-server-launch.jar copied to server.jar during create)
+  nohup java -Xms${MEMORY_MB}M -Xmx${MEMORY_MB}M \
+    -XX:+UseG1GC \
+    -XX:+ParallelRefProcEnabled \
+    -XX:MaxGCPauseMillis=200 \
+    -jar server.jar --nogui \
+    >> "$LOG_FILE" 2>&1 &
+fi
 
 SERVER_PID=$!
 echo "$SERVER_PID" > "$PID_FILE"

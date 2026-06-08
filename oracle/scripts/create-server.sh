@@ -62,16 +62,78 @@ FORWARDING_SECRET=$(cat "$FORWARDING_SECRET_FILE")
 
 mkdir -p "$SERVER_DIR/logs" "$SERVER_DIR/plugins" "$SERVER_DIR/mods" "$SERVER_DIR/config"
 
-# Version-aware jar selection with auto-download
-VERSION_JAR="$BASE/templates/paper/paper-${VERSION}.jar"
-if [ ! -f "$VERSION_JAR" ]; then
-  echo "[$(date)] Downloading Paper $VERSION..."
-  DOWNLOADED=false
+# Fabric/Forge: install mod loader instead of Paper
+if [ "$TYPE" = "fabric" ]; then
+  echo "[$(date)] Installing Fabric $VERSION..."
+  FABRIC_INSTALLER_VER="0.16.14"
+  FABRIC_INSTALLER="/tmp/fabric-installer-$SERVER_ID.jar"
+  wget -q -L "https://maven.fabricmc.net/net/fabricmc/fabric-installer/${FABRIC_INSTALLER_VER}/fabric-installer-${FABRIC_INSTALLER_VER}.jar" \
+    -O "$FABRIC_INSTALLER"
+  if [ ! -s "$FABRIC_INSTALLER" ]; then
+    echo "[$(date)] ERROR: Could not download Fabric installer"
+    exit 1
+  fi
+  java -jar "$FABRIC_INSTALLER" server -mcversion "$VERSION" -dir "$SERVER_DIR" -downloadMinecraft
+  rm -f "$FABRIC_INSTALLER"
+  # Fabric generates fabric-server-launch.jar; copy to server.jar for uniform start-server.sh
+  if [ -f "$SERVER_DIR/fabric-server-launch.jar" ]; then
+    cp "$SERVER_DIR/fabric-server-launch.jar" "$SERVER_DIR/server.jar"
+    echo "[$(date)] Fabric $VERSION installed successfully"
+  else
+    echo "[$(date)] ERROR: fabric-server-launch.jar not found after install"
+    exit 1
+  fi
 
-  # 26.x versions use new PaperMC download system (fill-data.papermc.io)
-  if echo "$VERSION" | grep -qE '^[2-9][0-9]\.' ; then
-    echo "[$(date)] Using new PaperMC download system for $VERSION..."
-    DL_URL=$(python3 -c "
+elif [ "$TYPE" = "forge" ]; then
+  echo "[$(date)] Installing Forge $VERSION..."
+  FORGE_META=$(curl -sf "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json" 2>/dev/null || echo "{}")
+  FORGE_BUILD=$(echo "$FORGE_META" | node -e "
+    process.stdin.resume(); let d=''; process.stdin.on('data',c=>d+=c);
+    process.stdin.on('end',()=>{
+      try { const o=JSON.parse(d); const k='${VERSION}-recommended'; const k2='${VERSION}-latest';
+        console.log(o.promos[k]||o.promos[k2]||''); } catch(e){console.log('');}
+    });
+  " 2>/dev/null || echo "")
+  if [ -z "$FORGE_BUILD" ]; then
+    echo "[$(date)] ERROR: No Forge build found for MC $VERSION"
+    exit 1
+  fi
+  FORGE_INSTALLER="/tmp/forge-installer-$SERVER_ID.jar"
+  FORGE_URL="https://files.minecraftforge.net/net/minecraftforge/forge/${VERSION}-${FORGE_BUILD}/forge-${VERSION}-${FORGE_BUILD}-installer.jar"
+  wget -q -L "$FORGE_URL" -O "$FORGE_INSTALLER"
+  if [ ! -s "$FORGE_INSTALLER" ]; then
+    echo "[$(date)] ERROR: Could not download Forge installer"
+    exit 1
+  fi
+  java -jar "$FORGE_INSTALLER" --installServer "$SERVER_DIR"
+  rm -f "$FORGE_INSTALLER"
+  # Find forge unix_args.txt / run.sh (modern Forge) or forge-*.jar (legacy)
+  if [ -f "$SERVER_DIR/run.sh" ]; then
+    # Modern Forge (1.17+) uses run.sh
+    cp "$SERVER_DIR/run.sh" "$SERVER_DIR/server.jar" 2>/dev/null || true
+    echo "[$(date)] Forge ${VERSION}-${FORGE_BUILD} installed (modern, run.sh)"
+  else
+    FORGE_JAR=$(ls "$SERVER_DIR"/forge-*.jar 2>/dev/null | grep -v installer | head -1)
+    if [ -n "$FORGE_JAR" ]; then
+      cp "$FORGE_JAR" "$SERVER_DIR/server.jar"
+      echo "[$(date)] Forge ${VERSION}-${FORGE_BUILD} installed (legacy jar)"
+    else
+      echo "[$(date)] ERROR: No Forge jar found after install"
+      exit 1
+    fi
+  fi
+
+else
+  # Paper (default) — version-aware jar selection with auto-download
+  VERSION_JAR="$BASE/templates/paper/paper-${VERSION}.jar"
+  if [ ! -f "$VERSION_JAR" ]; then
+    echo "[$(date)] Downloading Paper $VERSION..."
+    DOWNLOADED=false
+
+    # 26.x versions use new PaperMC download system (fill-data.papermc.io)
+    if echo "$VERSION" | grep -qE '^[2-9][0-9]\.' ; then
+      echo "[$(date)] Using new PaperMC download system for $VERSION..."
+      DL_URL=$(python3 -c "
 import re, urllib.request
 try:
     req = urllib.request.Request('https://papermc.io/downloads/paper', headers={'User-Agent': 'curl/7.88'})
@@ -82,42 +144,46 @@ try:
 except Exception as e:
     print('')
 " 2>/dev/null || echo "")
-    if [ -n "$DL_URL" ]; then
-      wget -q --timeout=120 -L "$DL_URL" -O "$VERSION_JAR" \
-        && echo "[$(date)] Downloaded Paper $VERSION from $DL_URL" && DOWNLOADED=true
+      if [ -n "$DL_URL" ]; then
+        wget -q --timeout=120 -L "$DL_URL" -O "$VERSION_JAR" \
+          && echo "[$(date)] Downloaded Paper $VERSION from $DL_URL" && DOWNLOADED=true
+      fi
+
+    else
+      # 1.x.x versions use old PaperMC API
+      BUILD=$(curl -sf "https://api.papermc.io/v2/projects/paper/versions/${VERSION}/builds" | \
+        node -e "process.stdin.resume(); let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{try{const o=JSON.parse(d); console.log(o.builds[o.builds.length-1].build);}catch(e){process.exit(1);}})" 2>/dev/null || echo "")
+      if [ -n "$BUILD" ]; then
+        wget -q "https://api.papermc.io/v2/projects/paper/versions/${VERSION}/builds/${BUILD}/downloads/paper-${VERSION}-${BUILD}.jar" \
+          -O "$VERSION_JAR" && echo "[$(date)] Downloaded Paper $VERSION build $BUILD" && DOWNLOADED=true
+      fi
     fi
 
-  else
-    # 1.x.x versions use old PaperMC API
-    BUILD=$(curl -sf "https://api.papermc.io/v2/projects/paper/versions/${VERSION}/builds" | \
-      node -e "process.stdin.resume(); let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{try{const o=JSON.parse(d); console.log(o.builds[o.builds.length-1].build);}catch(e){process.exit(1);}})" 2>/dev/null || echo "")
-    if [ -n "$BUILD" ]; then
-      wget -q "https://api.papermc.io/v2/projects/paper/versions/${VERSION}/builds/${BUILD}/downloads/paper-${VERSION}-${BUILD}.jar" \
-        -O "$VERSION_JAR" && echo "[$(date)] Downloaded Paper $VERSION build $BUILD" && DOWNLOADED=true
+    if [ "$DOWNLOADED" != "true" ]; then
+      echo "[$(date)] WARNING: Could not download Paper $VERSION, using template jar"
+      VERSION_JAR="$TEMPLATE_JAR"
     fi
   fi
 
-  if [ "$DOWNLOADED" != "true" ]; then
-    echo "[$(date)] WARNING: Could not download Paper $VERSION, using template jar"
-    VERSION_JAR="$TEMPLATE_JAR"
+  if [ ! -f "$VERSION_JAR" ]; then
+    if [ -f "$TEMPLATE_JAR" ]; then
+      echo "[$(date)] Version jar not found, falling back to template jar"
+      VERSION_JAR="$TEMPLATE_JAR"
+    else
+      echo "[$(date)] ERROR: No jar available"
+      exit 1
+    fi
   fi
+
+  cp "$VERSION_JAR" "$SERVER_DIR/server.jar"
 fi
 
-if [ ! -f "$VERSION_JAR" ]; then
-  if [ -f "$TEMPLATE_JAR" ]; then
-    echo "[$(date)] Version jar not found, falling back to template jar"
-    VERSION_JAR="$TEMPLATE_JAR"
-  else
-    echo "[$(date)] ERROR: No jar available"
-    exit 1
+# Copy default plugins only for Paper/Purpur (not for mod loaders)
+if [ "$TYPE" != "fabric" ] && [ "$TYPE" != "forge" ]; then
+  if [ -d "$BASE/templates/plugins" ]; then
+    cp "$BASE/templates/plugins"/*.jar "$SERVER_DIR/plugins/" 2>/dev/null || true
+    echo "[$(date)] Default plugins copied."
   fi
-fi
-
-cp "$VERSION_JAR" "$SERVER_DIR/server.jar"
-
-if [ -d "$BASE/templates/plugins" ]; then
-  cp "$BASE/templates/plugins"/*.jar "$SERVER_DIR/plugins/" 2>/dev/null || true
-  echo "[$(date)] Default plugins copied."
 fi
 
 echo "eula=true" > "$SERVER_DIR/eula.txt"
@@ -178,6 +244,58 @@ if [ "$WHITELIST" = "true" ]; then
   " "$OPS" "$WHITELIST_PLAYERS" "$SERVER_DIR/whitelist.json" || echo "[$(date)] Warning: could not write whitelist.json"
 fi
 
+# Download mods if TYPE=fabric or forge
+declare -A MOD_URLS_FABRIC
+# Fabric 1.21.1 mod URLs (Modrinth CDN — pinned versions, update periodically)
+# TODO: Data — pin these to Fabric API-compatible builds; verify after each MC version bump
+MOD_URLS_FABRIC["m1"]="https://cdn.modrinth.com/data/AANobbMI/versions/uheoPKxU/sodium-fabric-0.8.12-alpha.4%2Bmc1.21.1.jar"
+MOD_URLS_FABRIC["m2"]="https://cdn.modrinth.com/data/YL57xq9U/versions/zsoi0dso/iris-fabric-1.8.8%2Bmc1.21.1.jar"
+# m3 (Create) — no stable Fabric 1.21.1 release; skip
+MOD_URLS_FABRIC["m4"]="https://cdn.modrinth.com/data/bEpr0Arc/versions/aEvrmYqW/litematica-fabric-1.21-0.19.60.jar"
+MOD_URLS_FABRIC["m5"]="https://cdn.modrinth.com/data/uCdwusMi/versions/oYXIfeus/DistantHorizons-3.0.3-b-1.21.1-fabric-neoforge.jar"
+MOD_URLS_FABRIC["m6"]="https://cdn.modrinth.com/data/9eGKb6K1/versions/RMvAyxuK/voicechat-fabric-1.21.1-2.6.18.jar"
+MOD_URLS_FABRIC["m7"]="https://cdn.modrinth.com/data/u6dRKJwZ/versions/TvqzuFwN/jei-1.21.1-fabric-19.27.0.340.jar"
+# Fabric API dependency — required by most mods
+MOD_URLS_FABRIC["fabric-api"]="https://cdn.modrinth.com/data/P7dR8mSH/versions/mKvS7E55/fabric-api-0.110.0%2B1.21.1.jar"
+
+declare -A MOD_URLS_FORGE
+# Forge 1.20.1 mod URLs (most stable Forge ecosystem)
+MOD_URLS_FORGE["m3"]="https://cdn.modrinth.com/data/LNytGWDc/versions/8amzvn9x/create-1.20.1-6.0.8.jar"
+MOD_URLS_FORGE["m6"]="https://cdn.modrinth.com/data/9eGKb6K1/versions/oKIABpv4/voicechat-forge-1.20.1-2.6.18.jar"
+MOD_URLS_FORGE["m7"]="https://cdn.modrinth.com/data/u6dRKJwZ/versions/TvqzuFwN/jei-1.21.1-forge-19.27.0.340.jar"
+
+if [ "$TYPE" = "fabric" ] || [ "$TYPE" = "forge" ]; then
+  if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
+    echo "[$(date)] Installing mods..."
+    # Install Fabric API automatically when installing any Fabric mod
+    if [ "$TYPE" = "fabric" ] && [ -n "${MOD_URLS_FABRIC[fabric-api]:-}" ]; then
+      wget -q -L --timeout=60 "${MOD_URLS_FABRIC[fabric-api]}" -O "$SERVER_DIR/mods/fabric-api.jar"
+      [ -s "$SERVER_DIR/mods/fabric-api.jar" ] && echo "[$(date)] OK: fabric-api" || rm -f "$SERVER_DIR/mods/fabric-api.jar"
+    fi
+    while IFS= read -r addonId; do
+      [ -z "$addonId" ] && continue
+      if [ "$TYPE" = "fabric" ]; then
+        url="${MOD_URLS_FABRIC[$addonId]:-}"
+      else
+        url="${MOD_URLS_FORGE[$addonId]:-}"
+      fi
+      if [ -n "$url" ]; then
+        filename=$(basename "$url" | sed 's/\?.*$//' | python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.stdin.read().strip()))" 2>/dev/null || basename "$url")
+        echo "[$(date)] Downloading mod $addonId: $filename"
+        wget -q -L --timeout=60 "$url" -O "$SERVER_DIR/mods/$filename"
+        if [ ! -s "$SERVER_DIR/mods/$filename" ]; then
+          rm -f "$SERVER_DIR/mods/$filename"
+          echo "[$(date)] FAILED (0 bytes): mod $addonId"
+        else
+          echo "[$(date)] OK mod: $addonId ($filename)"
+        fi
+      else
+        echo "[$(date)] No mod URL for $addonId on $TYPE (skipping)"
+      fi
+    done < <(node -e "const ids=JSON.parse(process.argv[1]); ids.forEach(function(i){console.log(i);})" "$ADDONS")
+  fi
+fi
+
 # Download plugins if addons provided
 declare -A PLUGIN_URLS
 # --- Plugins with direct download URLs ---
@@ -214,8 +332,8 @@ declare -A PLUGIN_FILENAMES
 PLUGIN_FILENAMES["p2"]="Geyser-Spigot.jar"
 PLUGIN_FILENAMES["p33"]="TAB.jar"
 
-if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
-  echo "[$(date)] Installing addons..."
+if [ "$TYPE" != "fabric" ] && [ "$TYPE" != "forge" ] && [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
+  echo "[$(date)] Installing plugins..."
   while IFS= read -r addonId; do
     [ -z "$addonId" ] && continue
     url="${PLUGIN_URLS[$addonId]:-}"
