@@ -156,22 +156,26 @@ proxies:
     secret: '${FORWARDING_SECRET}'
 PAPERCONF
 
-# Generate whitelist.json if whitelist players provided
-if [ -n "$WHITELIST_PLAYERS" ] && [ "$WHITELIST_PLAYERS" != "[]" ]; then
-  node -e "
-    const names = JSON.parse(process.argv[1]);
-    const entries = names.map(function(n){ return {uuid:'',name:n}; });
-    require('fs').writeFileSync(process.argv[2], JSON.stringify(entries, null, 2));
-  " "$WHITELIST_PLAYERS" "$SERVER_DIR/whitelist.json" && echo "[$(date)] whitelist.json written" || echo "[$(date)] Warning: could not write whitelist.json"
-fi
-
 # Generate ops.json if ops provided
 if [ -n "$OPS" ] && [ "$OPS" != "[]" ]; then
   node -e "
     const names = JSON.parse(process.argv[1]);
     const ops = names.map(function(n){ return {uuid:'',name:n,level:4,bypassesPlayerLimit:false}; });
     require('fs').writeFileSync(process.argv[2], JSON.stringify(ops, null, 2));
-  " "$OPS" "$SERVER_DIR/ops.json" && echo "[$(date)] ops.json written with $(echo "$OPS" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); console.log(d.length);") operators" || echo "[$(date)] Warning: could not write ops.json"
+  " "$OPS" "$SERVER_DIR/ops.json" && echo "[$(date)] ops.json written" || echo "[$(date)] Warning: could not write ops.json"
+fi
+
+# Generate whitelist.json for private servers:
+# always include ops (server owners) + any explicit whitelistPlayers
+if [ "$WHITELIST" = "true" ]; then
+  node -e "
+    const ops = JSON.parse(process.argv[1] || '[]');
+    const wl  = JSON.parse(process.argv[2] || '[]');
+    const all = [...new Set([...ops, ...wl])].filter(Boolean);
+    const entries = all.map(function(n){ return {uuid:'',name:n}; });
+    require('fs').writeFileSync(process.argv[3], JSON.stringify(entries, null, 2));
+    console.log('whitelist.json: ' + all.join(', ') + ' (' + all.length + ' players)');
+  " "$OPS" "$WHITELIST_PLAYERS" "$SERVER_DIR/whitelist.json" || echo "[$(date)] Warning: could not write whitelist.json"
 fi
 
 # Download plugins if addons provided
