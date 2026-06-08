@@ -299,6 +299,51 @@ app.post('/send-command', async function(req, res) {
   }
 });
 
+// GET /players — player count for all running servers via RCON
+app.get('/players', async function(req, res) {
+  let servers = [];
+  try {
+    const raw = fs.readFileSync(SERVERS_JSON, 'utf8');
+    servers = JSON.parse(raw);
+    if (!Array.isArray(servers)) servers = servers.servers || [];
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not read servers.json' });
+  }
+
+  const results = {};
+  await Promise.all(servers.map(async function(srv) {
+    const serverId = srv.id;
+    const propsPath = path.join(SERVERS_DIR, serverId, 'server.properties');
+    let rconPort = srv.rconPort || 25575;
+    let rconPass = '';
+    try {
+      const props = fs.readFileSync(propsPath, 'utf8');
+      const passMatch = props.match(/^rcon\.password=(.*)$/m);
+      const portMatch = props.match(/^rcon\.port=(\d+)/m);
+      if (passMatch) rconPass = passMatch[1].trim();
+      if (portMatch) rconPort = parseInt(portMatch[1]);
+    } catch (e) {
+      results[serverId] = { online: false, count: 0, max: 0, players: [] };
+      return;
+    }
+    if (!rconPass) {
+      results[serverId] = { online: false, count: 0, max: 0, players: [] };
+      return;
+    }
+    try {
+      const out = await rconConnect('127.0.0.1', rconPort, rconPass, 'list', 5000);
+      const m = out.match(/(\d+)\s+out of.*?(\d+)/);
+      const count = m ? parseInt(m[1]) : 0;
+      const max = m ? parseInt(m[2]) : 0;
+      results[serverId] = { online: true, count, max, players: [] };
+    } catch (e) {
+      results[serverId] = { online: false, count: 0, max: 0, players: [] };
+    }
+  }));
+
+  return res.json({ success: true, servers: results });
+});
+
 app.post('/set-whitelist', async function(req, res) {
   const serverId = req.body.serverId;
   const enabled = req.body.enabled === true;
