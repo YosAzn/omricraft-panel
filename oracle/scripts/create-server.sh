@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: ./create-server.sh SERVER_ID DISPLAY_NAME SLUG TYPE VERSION GAME_PORT RCON_PORT MEMORY_MB [SEED] [OPS_JSON] [ADDONS_JSON] [MAX_PLAYERS] [GAMEMODE] [WHITELIST]
+# Usage: ./create-server.sh SERVER_ID DISPLAY_NAME SLUG TYPE VERSION GAME_PORT RCON_PORT MEMORY_MB [SEED] [OPS_JSON] [ADDONS_JSON] [MAX_PLAYERS] [GAMEMODE] [WHITELIST] [DIFFICULTY] [WORLD_TYPE]
 
 if [ "$#" -lt 8 ]; then
-  echo "Usage: $0 SERVER_ID DISPLAY_NAME SLUG TYPE VERSION GAME_PORT RCON_PORT MEMORY_MB [SEED] [OPS_JSON] [ADDONS_JSON] [MAX_PLAYERS] [GAMEMODE] [WHITELIST]"
+  echo "Usage: $0 SERVER_ID DISPLAY_NAME SLUG TYPE VERSION GAME_PORT RCON_PORT MEMORY_MB [SEED] [OPS_JSON] [ADDONS_JSON] [MAX_PLAYERS] [GAMEMODE] [WHITELIST] [DIFFICULTY] [WORLD_TYPE]"
   exit 1
 fi
 
@@ -22,6 +22,16 @@ ADDONS="${11:-[]}"
 MAX_PLAYERS="${12:-20}"
 GAMEMODE="${13:-survival}"
 WHITELIST="${14:-false}"
+DIFFICULTY="${15:-normal}"
+WORLD_TYPE_RAW="${16:-default}"
+
+# Map UI world types to Minecraft 1.18+ level-type values
+case "$WORLD_TYPE_RAW" in
+  flat)       LEVEL_TYPE="minecraft:flat" ;;
+  large_biomes) LEVEL_TYPE="minecraft:large_biomes" ;;
+  amplified)  LEVEL_TYPE="minecraft:amplified" ;;
+  *)          LEVEL_TYPE="minecraft:normal" ;;
+esac
 
 BASE="/home/ubuntu/omricraft"
 SERVERS_DIR="$BASE/servers"
@@ -123,9 +133,10 @@ rcon.password=${RCON_PASS}
 online-mode=false
 level-name=world
 level-seed=${SEED}
+level-type=${LEVEL_TYPE}
 motd=${DISPLAY_NAME}
 max-players=${MAX_PLAYERS}
-difficulty=normal
+difficulty=${DIFFICULTY}
 gamemode=${GAMEMODE}
 white-list=${WHITELIST}
 spawn-protection=16
@@ -156,33 +167,39 @@ fi
 # Download plugins if addons provided
 declare -A PLUGIN_URLS
 # --- Plugins with direct download URLs ---
-PLUGIN_URLS["p1"]="https://github.com/EssentialsX/Essentials/releases/download/2.21.2/EssentialsX-2.21.2.jar"
+PLUGIN_URLS["p1"]="https://github.com/EssentialsX/Essentials/releases/download/2.22.0/EssentialsX-2.22.0.jar"
 PLUGIN_URLS["p2"]="https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/spigot"
 PLUGIN_URLS["p3"]="https://github.com/PlayPro/CoreProtect/releases/download/v22.4/CoreProtect-22.4.jar"
 PLUGIN_URLS["p4"]="https://cdn.modrinth.com/data/Vebnzrzj/versions/MBSY8toc/LuckPerms-Bukkit-5.5.53.jar"
 PLUGIN_URLS["p5"]="https://github.com/MilkBowl/Vault/releases/download/1.7.3/Vault.jar"
 PLUGIN_URLS["p6"]="https://cdn.modrinth.com/data/1u6JkXh5/versions/ecqqLKUO/worldedit-bukkit-7.3.8.jar"
-PLUGIN_URLS["p9"]="https://cdn.modrinth.com/data/swbUV1cr/versions/latest/BlueMap-Paper.jar"
-PLUGIN_URLS["p10"]="https://cdn.modrinth.com/data/Mcalive/versions/latest/FastLeafDecay.jar"
-PLUGIN_URLS["p11"]="https://cdn.modrinth.com/data/oY2B1pjg/versions/latest/GSit.jar"
-PLUGIN_URLS["p12"]="https://dev.bukkit.org/projects/multiverse-core/files/latest"
+PLUGIN_URLS["p9"]="https://github.com/BlueMap-Minecraft/BlueMap/releases/latest/download/BlueMap-Paper.jar"
+PLUGIN_URLS["p10"]="https://github.com/Gecolay/GSit/releases/latest/download/GSit.jar"
+PLUGIN_URLS["p11"]="https://github.com/Gecolay/GSit/releases/latest/download/GSit.jar"
+PLUGIN_URLS["p12"]="https://github.com/Multiverse/Multiverse-Core/releases/latest/download/multiverse-core.jar"
 PLUGIN_URLS["p14"]="https://github.com/PlaceholderAPI/PlaceholderAPI/releases/download/2.11.6/PlaceholderAPI-2.11.6.jar"
-PLUGIN_URLS["p16"]="https://www.spigotmc.org/resources/chatcontrol-the-ultimate-chat-plugin-bungeecord-velocity-support.271/download?version=latest"
-PLUGIN_URLS["p17"]="https://cdn.modrinth.com/data/jP3RJxYe/versions/latest/Towny.jar"
-PLUGIN_URLS["p19"]="https://cdn.modrinth.com/data/jdQ7AFqJ/versions/latest/AuraSkills-Paper.jar"
-PLUGIN_URLS["p20"]="https://github.com/Kaktushose/AuctionHouse/releases/latest/download/AuctionHouse.jar"
-PLUGIN_URLS["p22"]="https://cdn.modrinth.com/data/2o5JaElC/versions/latest/BetterRTP.jar"
-PLUGIN_URLS["p23"]="https://cdn.modrinth.com/data/l6ZpMe3o/versions/latest/spark-paper.jar"
+PLUGIN_URLS["p16"]="https://github.com/kangarko/ChatControl-Free/releases/download/v8.0.4/ChatControl-8.0.4.jar"
+PLUGIN_URLS["p17"]="https://github.com/TownyAdvanced/Towny/releases/latest/download/Towny.jar"
+PLUGIN_URLS["p19"]="https://github.com/Archy-X/AureliumSkills/releases/latest/download/AuraSkills.jar"
+PLUGIN_URLS["p20"]="https://github.com/Bazalbuilder/AuctionHouse/releases/latest/download/AuctionHouse.jar"
+PLUGIN_URLS["p22"]="https://github.com/BadBoy-ultimate/BetterRTP/releases/latest/download/BetterRTP.jar"
+PLUGIN_URLS["p23"]="https://github.com/lucko/spark/releases/latest/download/spark-paper.jar"
 PLUGIN_URLS["p25"]="https://cdn.modrinth.com/data/QufNAmjx/versions/uFIoBZOK/ExcellentEnchants-5.4.1.jar"
-PLUGIN_URLS["p29"]="https://cdn.modrinth.com/data/pReHPcIz/versions/latest/GrimAC.jar"
-PLUGIN_URLS["p30"]="https://hangar.papermc.io/api/v1/projects/ViaVersion/versions/5.9.2-SNAPSHOT%2B1000/PAPER/download"
-PLUGIN_URLS["p32"]="https://cdn.modrinth.com/data/fALzjamp/versions/latest/Chunky-1.4.28.jar"
-PLUGIN_URLS["p33"]="https://cdn.modrinth.com/data/mC4QyMY3/versions/latest/TAB.jar"
-PLUGIN_URLS["p35"]="https://dev.bukkit.org/projects/clearlag/files/latest"
+PLUGIN_URLS["p29"]="https://github.com/GrimAnticheat/Grim/releases/latest/download/Grim.jar"
+PLUGIN_URLS["p30"]="https://hangar.papermc.io/api/v1/projects/ViaVersion/versions/latest/PAPER/download"
+PLUGIN_URLS["p32"]="https://github.com/pop4959/Chunky/releases/latest/download/Chunky-Paper.jar"
+PLUGIN_URLS["p33"]="https://github.com/NEZNAMY/TAB/releases/latest/download/TAB.v4.1.13.jar"
+PLUGIN_URLS["p35"]="https://github.com/jchristopher327/ClearLagg/releases/latest/download/ClearLagg.jar"
 PLUGIN_URLS["p-chatfmt"]="https://github.com/bergerch/ChatFormatter/releases/latest/download/ChatFormatter.jar"
 PLUGIN_URLS["p-axiom"]="https://cdn.modrinth.com/data/B1GP5Esg/versions/vBbWYVRp/Axiom-Paper-5.1.jar"
 # ViaVersion is auto-included from templates/plugins (already installed)
-PLUGIN_URLS["p-viaversion"]="https://hangar.papermc.io/api/v1/projects/ViaVersion/versions/5.9.2-SNAPSHOT%2B1000/PAPER/download"
+PLUGIN_URLS["p-viaversion"]="https://hangar.papermc.io/api/v1/projects/ViaVersion/versions/latest/PAPER/download"
+
+# Explicit filenames for URLs that don't end in .jar (API redirects, no extension in URL)
+declare -A PLUGIN_FILENAMES
+PLUGIN_FILENAMES["p2"]="Geyser-Spigot.jar"
+PLUGIN_FILENAMES["p30"]="ViaVersion.jar"
+PLUGIN_FILENAMES["p-viaversion"]="ViaVersion.jar"
 
 if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
   echo "[$(date)] Installing addons..."
@@ -190,7 +207,11 @@ if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
     [ -z "$addonId" ] && continue
     url="${PLUGIN_URLS[$addonId]:-}"
     if [ -n "$url" ]; then
-      filename=$(basename "$url" | sed 's/\?.*$//')
+      if [[ -n "${PLUGIN_FILENAMES[$addonId]:-}" ]]; then
+        filename="${PLUGIN_FILENAMES[$addonId]}"
+      else
+        filename=$(basename "$url" | sed 's/\?.*$//')
+      fi
       echo "[$(date)] Downloading $addonId: $filename"
       wget -q -L --timeout=60 "$url" -O "$SERVER_DIR/plugins/$filename" && echo "[$(date)] OK: $addonId" || { rm -f "$SERVER_DIR/plugins/$filename"; echo "[$(date)] Failed to download $addonId"; }
     else

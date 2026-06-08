@@ -88,7 +88,7 @@ exports.createServer = onCall(
     timeoutSeconds: 120,
   },
   async (request) => {
-    const { displayName, version, memoryMb, gamemode, ops, maxPlayers, seed, addons, icon, isPrivate } = request.data || {};
+    const { displayName, version, memoryMb, gamemode, difficulty, worldType, ops, maxPlayers, seed, addons, icon, isPrivate } = request.data || {};
 
     if (!displayName || typeof displayName !== 'string' || !displayName.trim()) {
       return { success: false, error: 'displayName is required' };
@@ -135,6 +135,8 @@ exports.createServer = onCall(
       rconPort,
       memoryMb: memoryMb || 2048,
       gamemode: gamemode || 'survival',
+      difficulty: difficulty || 'normal',
+      worldType: worldType || 'default',
       maxPlayers: maxPlayers || 20,
       seed: seed || '',
       ops: Array.isArray(ops) ? ops : [],
@@ -493,6 +495,35 @@ exports.updateServerOps = onCall(
     const API_KEY  = managerApiKey.value().trim();
     try {
       const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/update-ops', { serverId, ops });
+      return result;
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// changeDifficulty — updates server.properties + sends RCON /difficulty
+// ---------------------------------------------------------------------------
+exports.changeDifficulty = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 30,
+  },
+  async (request) => {
+    const { serverId, difficulty } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    const VALID = ['peaceful', 'easy', 'normal', 'hard'];
+    if (!VALID.includes(difficulty)) {
+      return { success: false, error: 'Invalid difficulty. Must be peaceful|easy|normal|hard' };
+    }
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/change-difficulty', { serverId, difficulty });
       return result;
     } catch (error) {
       return { success: false, error: error?.message || String(error) };

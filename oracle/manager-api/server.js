@@ -142,6 +142,8 @@ app.post('/create-server', async function(req, res) {
   const rconPort = body.rconPort;
   const memoryMb = body.memoryMb;
   const gamemode = body.gamemode;
+  const difficulty = body.difficulty || 'normal';
+  const worldType = body.worldType || 'default';
   const maxPlayers = body.maxPlayers;
   const seed = body.seed;
   const ops = body.ops;
@@ -165,7 +167,9 @@ app.post('/create-server', async function(req, res) {
       JSON.stringify(Array.isArray(addons) ? addons : []),
       String(maxPlayers || 20),
       String(gamemode || 'survival'),
-      isPrivate ? 'true' : 'false'
+      isPrivate ? 'true' : 'false',
+      String(difficulty),
+      String(worldType)
     ]);
 
     if (icon && icon.length > 0) {
@@ -422,6 +426,45 @@ app.post('/remove-plugin', function(req, res) {
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
+});
+
+app.post('/change-difficulty', async function(req, res) {
+  const serverId = req.body.serverId;
+  const difficulty = req.body.difficulty;
+  if (!validateId(serverId, res)) return;
+  const VALID_DIFF = ['peaceful', 'easy', 'normal', 'hard'];
+  if (!VALID_DIFF.includes(difficulty)) {
+    return res.status(400).json({ success: false, error: 'Invalid difficulty' });
+  }
+
+  // Update server.properties
+  const propsPath = path.join(SERVERS_DIR, serverId, 'server.properties');
+  try {
+    let props = fs.readFileSync(propsPath, 'utf8');
+    if (/^difficulty=/m.test(props)) {
+      props = props.replace(/^difficulty=.*/m, 'difficulty=' + difficulty);
+    } else {
+      props += '\ndifficulty=' + difficulty;
+    }
+    fs.writeFileSync(propsPath, props);
+  } catch (err) {
+    return res.status(500).json({ success: false, error: 'Could not update server.properties: ' + err.message });
+  }
+
+  // Send RCON /difficulty command if server is running
+  try {
+    const propsContent = fs.readFileSync(propsPath, 'utf8');
+    const passMatch = propsContent.match(/^rcon\.password=(.*)$/m);
+    const portMatch = propsContent.match(/^rcon\.port=(\d+)/m);
+    const rconPass = passMatch ? passMatch[1].trim() : '';
+    const rconPort = portMatch ? parseInt(portMatch[1]) : 25575;
+    if (rconPass) {
+      await rconConnect('127.0.0.1', rconPort, rconPass, 'difficulty ' + difficulty, 5000).catch(() => {});
+    }
+  } catch (e) { /* server might not be running */ }
+
+  console.log('[' + new Date().toISOString() + '] Difficulty set to ' + difficulty + ' for ' + serverId);
+  return res.json({ success: true });
 });
 
 app.post('/update-ops', async function(req, res) {

@@ -41,6 +41,7 @@ const stopServerFn = httpsCallable(functionsInstance, 'stopServer');
 const getPaperVersionsFn = httpsCallable(functionsInstance, 'getPaperVersions');
 const updateServerOpsFn = httpsCallable(functionsInstance, 'updateServerOps');
 const installPluginFn = httpsCallable(functionsInstance, 'installPlugin');
+const changeDifficultyFn = httpsCallable(functionsInstance, 'changeDifficulty');
 const getPlayersOnlineFn = httpsCallable(functionsInstance, 'getPlayersOnline');
 const listFilesFn = httpsCallable(functionsInstance, 'listFiles');
 const readFileFn = httpsCallable(functionsInstance, 'readFile');
@@ -82,6 +83,8 @@ const DICT = {
     worldType: "סוג עולם",
     worldDefault: "רגיל (Default)",
     worldFlat: "שטוח (Flat)",
+    worldAmplified: "מוגבר (Amplified)",
+    worldLargeBiomes: "ביומות גדולות (Large Biomes)",
     opPlayers: "שחקני OP (מנהלים)",
     opPlayersDesc: "הכנס שמות משתמש מופרדים בפסיק (לדוגמה: Omri,Notch)",
     difficulty: "רמת קושי",
@@ -175,6 +178,8 @@ const DICT = {
     worldType: "World Type",
     worldDefault: "Default",
     worldFlat: "Flat",
+    worldAmplified: "Amplified",
+    worldLargeBiomes: "Large Biomes",
     opPlayers: "OP Players (Admins)",
     opPlayersDesc: "Comma separated usernames (e.g., Omri,Notch)",
     difficulty: "Difficulty",
@@ -826,12 +831,16 @@ export default function App() {
 
   const restartServer = async (id) => {
     if (userRole !== 'admin') return;
-    
     if (db && authUser) {
       await updateDoc(doc(db, getServersPath(), id), { status: 'starting', players: 0, needsRestart: false });
-      setTimeout(async () => {
-        await updateDoc(doc(db, getServersPath(), id), { status: 'online' });
-      }, 4000);
+    }
+    try {
+      await stopServerFn({ serverId: id });
+      await startServerFn({ serverId: id });
+      if (db && authUser) await updateDoc(doc(db, getServersPath(), id), { status: 'online' });
+    } catch (e) {
+      console.error('Restart failed', e);
+      if (db && authUser) await updateDoc(doc(db, getServersPath(), id), { status: 'online' }); // best-effort
     }
   }
 
@@ -1279,6 +1288,8 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-all">
                 <option value="default">{t('worldDefault')}</option>
                 <option value="flat">{t('worldFlat')}</option>
+                <option value="amplified">{t('worldAmplified')}</option>
+                <option value="large_biomes">{t('worldLargeBiomes')}</option>
               </select>
             </div>
             <div>
@@ -2445,6 +2456,58 @@ function OpsEditor({ server, updateServer }) {
   );
 }
 
+function DifficultyControl({ server, updateServer, t }) {
+  const [saving, setSaving] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+
+  const handleChange = async (newDifficulty) => {
+    setSaving(true); setSaved(false);
+    updateServer({ difficulty: newDifficulty });
+    try {
+      await changeDifficultyFn({ serverId: server.id, difficulty: newDifficulty });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      console.error('changeDifficulty error', e);
+    }
+    setSaving(false);
+  };
+
+  const current = server.difficulty || 'normal';
+  const options = [
+    { value: 'peaceful', color: 'bg-green-500/20 border-green-500 text-green-400' },
+    { value: 'easy',     color: 'bg-blue-500/20 border-blue-500 text-blue-400' },
+    { value: 'normal',   color: 'bg-yellow-500/20 border-yellow-500 text-yellow-400' },
+    { value: 'hard',     color: 'bg-red-500/20 border-red-500 text-red-400' },
+  ];
+
+  return (
+    <div>
+      <label className="block text-sm text-zinc-400 mb-2 flex items-center gap-2">
+        {t('difficulty')}
+        {saving && <span className="text-xs text-zinc-500 animate-pulse">שומר...</span>}
+        {saved && <span className="text-xs text-green-400">✓ נשמר</span>}
+      </label>
+      <div className="flex gap-2 flex-wrap">
+        {options.map(opt => (
+          <button
+            key={opt.value}
+            type="button"
+            disabled={saving}
+            onClick={() => handleChange(opt.value)}
+            className={`px-4 py-2 rounded-lg border font-bold text-sm transition-all disabled:opacity-50 ${
+              current === opt.value ? opt.color : 'bg-zinc-950 border-zinc-700 text-zinc-400 hover:border-zinc-500'
+            }`}
+          >
+            {t(opt.value)}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-zinc-500 mt-1">מעדכן את server.properties ושולח פקודה RCON לשרת פעיל</p>
+    </div>
+  );
+}
+
 function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
   return (
     <div className="space-y-8 animate-in fade-in max-w-2xl">
@@ -2496,9 +2559,12 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
               <select value={server.worldType} onChange={(e) => updateServer({ worldType: e.target.value })} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600">
                 <option value="default">{t('worldDefault')}</option>
                 <option value="flat">{t('worldFlat')}</option>
+                <option value="amplified">{t('worldAmplified')}</option>
+                <option value="large_biomes">{t('worldLargeBiomes')}</option>
               </select>
             </div>
           </div>
+          <DifficultyControl server={server} updateServer={updateServer} t={t} />
           {/* Privacy toggle */}
           <div
             onClick={async () => {
