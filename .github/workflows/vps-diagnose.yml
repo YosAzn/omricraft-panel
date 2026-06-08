@@ -1,0 +1,79 @@
+name: VPS Diagnose & Fix
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.ORACLE_SSH_KEY }}" > ~/.ssh/oracle.pem
+          chmod 600 ~/.ssh/oracle.pem
+          ssh-keyscan -H ${{ secrets.ORACLE_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Run full diagnostics
+        run: |
+          ssh -i ~/.ssh/oracle.pem ubuntu@${{ secrets.ORACLE_HOST }} bash << 'ENDSSH'
+          echo "========== JAVA =========="
+          java -version 2>&1 || echo "NO JAVA"
+
+          echo ""
+          echo "========== VELOCITY =========="
+          systemctl status velocity 2>&1 | head -20 || echo "velocity service not found"
+          ls /home/ubuntu/omricraft/velocity/ 2>/dev/null | head -20 || echo "velocity dir missing"
+
+          echo ""
+          echo "========== SERVERS JSON =========="
+          cat /home/ubuntu/omricraft/manager/servers.json 2>/dev/null || echo "servers.json missing"
+
+          echo ""
+          echo "========== SERVERS DIR =========="
+          ls /home/ubuntu/omricraft/servers/ 2>/dev/null || echo "servers dir empty or missing"
+
+          echo ""
+          echo "========== MANAGER API =========="
+          systemctl status omricraft-manager 2>&1 | head -10 || echo "no systemd service"
+          ps aux | grep "node server.js" | grep -v grep || echo "manager API not running"
+
+          echo ""
+          echo "========== MANAGER API HEALTH =========="
+          curl -s http://localhost:3001/servers -H "Authorization: Bearer $(cat /home/ubuntu/omricraft/manager/.env 2>/dev/null | grep MANAGER_API_KEY | cut -d= -f2)" 2>/dev/null || echo "manager API not responding"
+
+          echo ""
+          echo "========== VELOCITY TOML =========="
+          cat /home/ubuntu/omricraft/velocity/velocity.toml 2>/dev/null | head -60 || echo "velocity.toml missing"
+
+          echo ""
+          echo "========== PORTS LISTENING =========="
+          ss -tlnp 2>/dev/null | grep -E '25565|3001|25566|25567' || netstat -tlnp 2>/dev/null | grep -E '25565|3001|25566|25567' || echo "no relevant ports"
+
+          echo ""
+          echo "========== FIREWALL =========="
+          sudo iptables -L INPUT -n --line-numbers 2>/dev/null | head -30 || echo "iptables not available"
+
+          echo ""
+          echo "========== DISK SPACE =========="
+          df -h /home/ubuntu 2>/dev/null
+
+          echo ""
+          echo "========== RAM =========="
+          free -m
+
+          echo ""
+          echo "========== TEMPLATES =========="
+          ls /home/ubuntu/omricraft/templates/ 2>/dev/null || echo "templates dir missing"
+          ls /home/ubuntu/omricraft/templates/paper/ 2>/dev/null || echo "templates/paper dir missing"
+          ls /home/ubuntu/omricraft/templates/plugins/ 2>/dev/null || echo "templates/plugins dir missing"
+
+          echo ""
+          echo "========== FORWARDING SECRET =========="
+          cat /home/ubuntu/omricraft/velocity/forwarding.secret 2>/dev/null | wc -c || echo "forwarding.secret missing"
+
+          echo ""
+          echo "========== ENV FILE =========="
+          cat /home/ubuntu/omricraft/manager/.env 2>/dev/null | sed 's/=.*/=HIDDEN/' || echo ".env missing"
+
+          ENDSSH

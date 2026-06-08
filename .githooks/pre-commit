@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Secret-leak guard. Blocks commits whose STAGED added lines look like real
+# credentials, while allowing obvious placeholders. Pattern-based only — this
+# hook contains NO real secret values.
+#
+# Override (only if you are CERTAIN the match is safe):  git commit --no-verify
+
+set -euo pipefail
+
+# Placeholder tokens (case-insensitive). Lines matching any of these are SKIPPED.
+placeholder_re='change_me|<[^>]*>|redacted|placeholder|example|xxxx'
+
+# Credential-looking patterns. Lines matching these (and not a placeholder) FLAG.
+cred_re='(rcon\.password|password|passwd|secret|token|api[_-]?key|forwarding-secret)[[:space:]]*[=:][[:space:]]*"?[^"[:space:]]{8,}'
+pkey_re='BEGIN [A-Z ]*PRIVATE KEY'
+
+flagged=0
+current_file=""
+
+while IFS= read -r line; do
+  # Track which file the hunk belongs to.
+  case "$line" in
+    '+++ '*)
+      current_file="${line#+++ }"
+      current_file="${current_file#b/}"
+      continue
+      ;;
+    '+'*) ;;          # an added line — fall through to inspect
+    *) continue ;;    # context / removed / header line — ignore
+  esac
+
+  added="${line#+}"
+
+  # Skip placeholders.
+  if printf '%s' "$added" | grep -Eiq "$placeholder_re"; then
+    continue
+  fi
+
+  # Flag credential-looking values or private keys.
+  if printf '%s' "$added" | grep -Eiq "$cred_re" \
+     || printf '%s' "$added" | grep -Eq "$pkey_re"; then
+    if [ "$flagged" -eq 0 ]; then
+      echo "pre-commit: possible secret in staged changes" >&2
+      echo "----------------------------------------------" >&2
+    fi
+    flagged=1
+    echo "  file: $current_file" >&2
+    echo "  line: $added" >&2
+  fi
+done < <(git diff --cached -U0)
+
+if [ "$flagged" -ne 0 ]; then
+  echo "----------------------------------------------" >&2
+  echo "Commit blocked: the above lines look like real credentials." >&2
+  echo "Use a placeholder like <READ_FROM_server.properties> instead." >&2
+  echo "Override with --no-verify only if you are certain it is safe." >&2
+  exit 1
+fi
+
+exit 0

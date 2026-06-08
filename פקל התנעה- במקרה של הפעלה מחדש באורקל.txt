@@ -25,4 +25,4 @@ java -Xmx16G -Xms16G -jar server.jar nogui
 לוחצים במקלדת Ctrl+A ואז מיד Ctrl+D. סוגרים את החלון.
 
 
-rcon.password=Yosi&TheWeb
+rcon.password=(read from the server's server.properties — never store the literal)

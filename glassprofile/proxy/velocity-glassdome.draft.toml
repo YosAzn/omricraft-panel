@@ -1,0 +1,76 @@
+# =============================================================================
+# DRAFT — not deployed; do not overwrite the live velocity.toml.
+# =============================================================================
+# This is a SEPARATE draft Velocity config for the Glass Dome proxy entry.
+# It is NOT the live proxy. The live OmriCraft Velocity runs from
+#   /home/ubuntu/omricraft/velocity/velocity.toml  (bind :25565)
+# and routes bbb/fffff/trial.omricraft.com to the live Paper servers.
+# DO NOT copy this over that file. DO NOT touch the live proxy.
+#
+# Purpose: show the routing shape for Glass Dome (publicHost -> backend GPS)
+# as a reviewable artifact. Ports, hosts and the player-info-forwarding secret
+# below are PLACEHOLDERS / PROVISIONAL and must be confirmed before any deploy.
+#
+# Open decisions that block deploy (see proxy/ROUTING.md):
+#   - public domain: spec uses *.omricraft.net, live system uses *.omricraft.com
+#   - whether Glass Dome shares the live Velocity or runs a second proxy
+# =============================================================================
+
+# Config version expected by Velocity (matches the 3.x line).
+config-version = "2.7"
+
+# PROVISIONAL bind port. The live proxy already owns 25565, and 25566 is a Paper
+# game port. 25575 is picked here only as an UNUSED placeholder for a SEPARATE
+# draft proxy so the two never collide. Final port TBD with the domain decision
+# (if Glass Dome ends up sharing the live proxy, this whole bind line is dropped).
+bind = "0.0.0.0:25575"
+
+motd = "<#33aaff>Glass Dome (DRAFT proxy — not live)"
+show-max-players = 100
+online-mode = true
+
+# Glass Dome backends are all loopback on the VPS; only the proxy is public.
+player-info-forwarding-mode = "modern"
+# PLACEHOLDER — generate a real secret on the VPS at deploy time; never commit one.
+forwarding-secret = "CHANGE_ME_GENERATE_ON_VPS"
+
+# -----------------------------------------------------------------------------
+# [servers] — backend GlassProfile Servers (GPS).
+# Placeholder entry mapping the sample host's dome to its backend.
+# gps-001 listens on 127.0.0.1:25566 (per DECISIONS.md servers.json example).
+# This loopback backend port is SEPARATE from the proxy bind port above.
+# -----------------------------------------------------------------------------
+[servers]
+gps-001 = "127.0.0.1:25566"
+# gps-002 = "127.0.0.1:25567"   # add real backends as servers come online
+
+# try = order Velocity uses when a player connects without a matched forced-host.
+# For Glass Dome there is no shared lobby yet; first backend is the placeholder.
+try = ["gps-001"]
+
+# -----------------------------------------------------------------------------
+# [forced-hosts] — host -> backend mapping (the static Route Resolver, v1).
+# Each publicHost maps to the GPS backend that runs that dome.
+# The GlassProfile plugin on the backend then routes the player to the dome's
+# targetWorld on join (host -> domeId -> targetWorld; see proxy/ROUTING.md).
+#
+# Host below is a PLACEHOLDER. The real subdomain pattern depends on the domain
+# OPEN DECISION (ROUTING.md). Examples for each option are shown commented out.
+# -----------------------------------------------------------------------------
+[forced-hosts]
+# Sample dome (shahar / dome-1001) -> gps-001 backend.
+# Spec form (provisional — domain not yet decided):
+"shahar.omricraft.net" = ["gps-001"]
+
+# Option (a) — reuse a subdomain on the existing .com (RECOMMENDED, no new cost):
+# "shahar.play.omricraft.com" = ["gps-001"]
+# "dome-shahar.omricraft.com" = ["gps-001"]
+
+[advanced]
+# Loopback-only backends; standard timeouts. Tune at deploy.
+connection-timeout = 5000
+read-timeout = 30000
+proxy-protocol = false
+
+[query]
+enabled = false

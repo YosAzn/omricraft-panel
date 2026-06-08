@@ -1,0 +1,56 @@
+{
+  "clusters": [
+    {
+      "id": "vanilla-like-paper",
+      "displayName": "Vanilla",
+      "runtime": "paper",
+      "userFacing": true,
+      "gameplayMods": false,
+      "glassProfileSupported": true,
+      "userCanInstallPlugins": false,
+      "coreAddons": ["glassprofile", "luckperms", "multiverse-core"],
+      "notes": "Shown as Vanilla on the website; implemented on Paper for management and routing."
+    },
+    {
+      "id": "paper",
+      "displayName": "Paper",
+      "runtime": "paper",
+      "userFacing": true,
+      "glassProfileSupported": true,
+      "userCanInstallPlugins": "catalog_only"
+    },
+    {
+      "id": "purpur",
+      "displayName": "Purpur",
+      "runtime": "purpur",
+      "userFacing": true,
+      "glassProfileSupported": true,
+      "userCanInstallPlugins": "catalog_only"
+    },
+    {
+      "id": "fabric",
+      "displayName": "Fabric",
+      "runtime": "fabric",
+      "userFacing": true,
+      "glassProfileSupported": false,
+      "defaultPlacementPolicy": "sealed_or_dedicated"
+    },
+    {
+      "id": "forge",
+      "displayName": "Forge",
+      "runtime": "forge",
+      "userFacing": true,
+      "glassProfileSupported": false,
+      "defaultPlacementPolicy": "sealed_or_dedicated"
+    },
+    {
+      "id": "true-vanilla",
+      "displayName": "True Vanilla",
+      "runtime": "vanilla",
+      "userFacing": false,
+      "glassProfileSupported": false,
+      "defaultPlacementPolicy": "dedicated_required",
+      "notes": "Mojang vanilla server with no plugins and no GlassProfile Plugin. Not MVP for shared Domes; single-dome/dedicated only."
+    }
+  ]
+}
