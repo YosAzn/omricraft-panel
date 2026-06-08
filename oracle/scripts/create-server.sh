@@ -84,6 +84,33 @@ if [ "$TYPE" = "fabric" ]; then
     exit 1
   fi
 
+elif [ "$TYPE" = "folia" ]; then
+  echo "[$(date)] Installing Folia $VERSION..."
+  FOLIA_BUILD=$(curl -sf "https://api.papermc.io/v2/projects/folia/versions/${VERSION}/builds" | python3 -c "import sys,json; builds=json.load(sys.stdin)['builds']; print(builds[-1]['build'])" 2>/dev/null || echo "")
+  if [ -z "$FOLIA_BUILD" ]; then echo "[$(date)] ERROR: cannot find Folia build for $VERSION"; exit 1; fi
+  wget -q -L "https://api.papermc.io/v2/projects/folia/versions/${VERSION}/builds/${FOLIA_BUILD}/downloads/folia-${VERSION}-${FOLIA_BUILD}.jar" -O "$SERVER_DIR/server.jar"
+  if [ ! -s "$SERVER_DIR/server.jar" ]; then echo "[$(date)] ERROR: Folia jar 0 bytes"; exit 1; fi
+  echo "[$(date)] Folia $VERSION build $FOLIA_BUILD installed"
+
+elif [ "$TYPE" = "neoforge" ]; then
+  echo "[$(date)] Installing NeoForge $VERSION..."
+  MC_SHORT="${VERSION#1.}"
+  NEO_VER=$(curl -sf "https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge" | python3 -c "import sys,json; vs=[v for v in json.load(sys.stdin)['versions'] if v.startswith('${VERSION#1.}.')]; print(sorted(vs)[-1])" 2>/dev/null || echo "")
+  if [ -z "$NEO_VER" ]; then echo "[$(date)] ERROR: cannot find NeoForge for $VERSION"; exit 1; fi
+  wget -q -L "https://maven.neoforged.net/releases/net/neoforged/neoforge/${NEO_VER}/neoforge-${NEO_VER}-installer.jar" -O "$SERVER_DIR/neoforge-installer.jar"
+  if [ ! -s "$SERVER_DIR/neoforge-installer.jar" ]; then echo "[$(date)] ERROR: NeoForge installer 0 bytes"; exit 1; fi
+  java -jar "$SERVER_DIR/neoforge-installer.jar" --installServer "$SERVER_DIR" 2>&1
+  rm -f "$SERVER_DIR/neoforge-installer.jar"
+  echo "[$(date)] NeoForge $NEO_VER installed"
+
+elif [ "$TYPE" = "mohist" ]; then
+  echo "[$(date)] Installing Mohist $VERSION..."
+  MOHIST_BUILD=$(curl -sf "https://mohistmc.com/api/v2/projects/mohist/${VERSION}/builds" | python3 -c "import sys,json; builds=json.load(sys.stdin).get('builds',[]); print(builds[-1]['number'] if builds else '')" 2>/dev/null || echo "")
+  if [ -z "$MOHIST_BUILD" ]; then echo "[$(date)] ERROR: cannot find Mohist for $VERSION"; exit 1; fi
+  wget -q -L "https://mohistmc.com/api/v2/projects/mohist/${VERSION}/builds/${MOHIST_BUILD}/download" -O "$SERVER_DIR/server.jar"
+  if [ ! -s "$SERVER_DIR/server.jar" ]; then echo "[$(date)] ERROR: Mohist jar 0 bytes"; exit 1; fi
+  echo "[$(date)] Mohist $VERSION build $MOHIST_BUILD installed"
+
 elif [ "$TYPE" = "purpur" ]; then
   echo "[$(date)] Installing Purpur $VERSION..."
   PURPUR_URL="https://api.purpurmc.org/v2/purpur/${VERSION}/latest/download"
@@ -222,8 +249,8 @@ except Exception as e:
   cp "$VERSION_JAR" "$SERVER_DIR/server.jar"
 fi
 
-# Copy default plugins only for Paper/Purpur (not for mod loaders)
-if [ "$TYPE" != "fabric" ] && [ "$TYPE" != "forge" ]; then
+# Copy default plugins only for Paper/Purpur/Folia/Mohist (not for mod loaders)
+if [ "$TYPE" != "fabric" ] && [ "$TYPE" != "forge" ] && [ "$TYPE" != "neoforge" ]; then
   if [ -d "$BASE/templates/plugins" ]; then
     cp "$BASE/templates/plugins"/*.jar "$SERVER_DIR/plugins/" 2>/dev/null || true
     echo "[$(date)] Default plugins copied."
@@ -350,6 +377,7 @@ PLUGIN_URLS["p4"]="https://cdn.modrinth.com/data/Vebnzrzj/versions/MBSY8toc/Luck
 PLUGIN_URLS["p5"]="https://github.com/MilkBowl/Vault/releases/download/1.7.3/Vault.jar"
 PLUGIN_URLS["p6"]="https://cdn.modrinth.com/data/1u6JkXh5/versions/ecqqLKUO/worldedit-bukkit-7.3.8.jar"
 PLUGIN_URLS["p9"]="https://github.com/BlueMap-Minecraft/BlueMap/releases/download/v5.20/bluemap-5.20-paper.jar"
+# TODO: Data — M5: blueMapPort not wired end-to-end. Need: App.jsx expose port field → functions pass BLUEMAP_PORT param → write to BlueMap config after plugin install
 PLUGIN_URLS["p10"]="https://cdn.modrinth.com/data/FnE6S0Zk/versions/TyzRB3KW/FastLeafDecay-1.0.6.jar"
 PLUGIN_URLS["p11"]="https://github.com/gecolay/GSit/releases/download/3.4.2/GSit-3.4.2.jar"
 PLUGIN_URLS["p12"]="https://github.com/Multiverse/Multiverse-Core/releases/download/5.7.0/multiverse-core-5.7.0.jar"
@@ -376,7 +404,7 @@ declare -A PLUGIN_FILENAMES
 PLUGIN_FILENAMES["p2"]="Geyser-Spigot.jar"
 PLUGIN_FILENAMES["p33"]="TAB.jar"
 
-if [ "$TYPE" != "fabric" ] && [ "$TYPE" != "forge" ] && [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
+if [ "$TYPE" != "fabric" ] && [ "$TYPE" != "forge" ] && [ "$TYPE" != "neoforge" ] && [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
   echo "[$(date)] Installing plugins..."
   while IFS= read -r addonId; do
     [ -z "$addonId" ] && continue

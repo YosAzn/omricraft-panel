@@ -255,11 +255,14 @@ const TYPE_COLORS = {
 };
 
 const SOFTWARE_TYPES = [
-  { id: 'vanilla', name: 'Vanilla', type: 'official' },
-  { id: 'paper', name: 'Paper', type: 'plugins' },
-  { id: 'purpur', name: 'Purpur', type: 'plugins' },
-  { id: 'fabric', name: 'Fabric', type: 'mods' },
-  { id: 'forge', name: 'Forge', type: 'mods' }
+  { id: 'vanilla',   name: 'Vanilla',   type: 'official', desc: 'שרת Mojang רשמי — קשה, נקי' },
+  { id: 'paper',     name: 'Paper',     type: 'plugins',  desc: 'הכי נפוץ — ביצועים + plugins' },
+  { id: 'purpur',    name: 'Purpur',    type: 'plugins',  desc: 'כמו ונילה רק מהיר יותר — מומלץ!' },
+  { id: 'folia',     name: 'Folia',     type: 'plugins',  desc: 'Paper עם multi-threading לשרתים גדולים' },
+  { id: 'fabric',    name: 'Fabric',    type: 'mods',     desc: 'Mods קלים — עדכניים' },
+  { id: 'forge',     name: 'Forge',     type: 'mods',     desc: 'Mods קלאסיים — ספריית ה-mods הגדולה' },
+  { id: 'neoforge',  name: 'NeoForge',  type: 'mods',     desc: 'Forge המודרני — מתחזק יותר' },
+  { id: 'mohist',    name: 'Mohist',    type: 'hybrid',   desc: 'Forge + Bukkit plugins יחד' },
 ];
 
 const DEFAULT_ADDONS = [
@@ -1262,6 +1265,7 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
                     ${software === sw.id ? 'bg-green-500/10 border-green-500 text-green-400 shadow-md' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200'}`}>
                   <div className="font-bold">{sw.name}</div>
                   <div className="text-[10px] uppercase opacity-70">{sw.type}</div>
+                  {sw.desc && <div className="text-[9px] opacity-50 leading-tight mt-0.5">{sw.desc}</div>}
                 </div>
               ))}
             </div>

@@ -458,15 +458,24 @@ exports.getPlayersOnline = onCall(
     const API_KEY  = managerApiKey.value().trim();
     try {
       const result = await callManagerApi(BASE_URL, API_KEY, 'GET', '/players', null);
-      // Sync server status to Firestore based on RCON reachability
+      // Sync server status to Firestore — only write if value changed (L3 fix)
       if (result?.success && result.servers) {
         const batch = db.batch();
-        for (const [serverId, info] of Object.entries(result.servers)) {
+        let hasWrites = false;
+        await Promise.all(Object.entries(result.servers).map(async ([serverId, info]) => {
           const ref = db.collection('omricraft/main/servers').doc(serverId);
           const newStatus = info.online ? 'online' : 'offline';
-          batch.update(ref, { status: newStatus, players: info.count || 0 });
-        }
-        await batch.commit().catch(() => {}); // silent — don't fail the request
+          const newPlayers = info.count || 0;
+          try {
+            const snap = await ref.get();
+            const existing = snap.data() || {};
+            if (existing.status !== newStatus || existing.players !== newPlayers) {
+              batch.update(ref, { status: newStatus, players: newPlayers });
+              hasWrites = true;
+            }
+          } catch { /* doc may not exist yet — skip */ }
+        }));
+        if (hasWrites) await batch.commit().catch(() => {}); // silent — don't fail the request
       }
       return result;
     } catch (error) {

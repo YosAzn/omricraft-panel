@@ -43,10 +43,10 @@ fi
 
 cd "$SERVER_DIR"
 
-# For modern Forge (1.17+), run.sh is the entry point rather than a jar
-if [ -f "$SERVER_DIR/run.sh" ] && [ ! -s "$SERVER_DIR/server.jar" ]; then
+# For modern Forge (1.17+) and NeoForge, run.sh is the entry point rather than a jar
+if [ -f "$SERVER_DIR/run.sh" ] && ([ ! -s "$SERVER_DIR/server.jar" ] || grep -q "neoforge" "$SERVER_DIR/run.sh" 2>/dev/null); then
   chmod +x "$SERVER_DIR/run.sh"
-  nohup bash "$SERVER_DIR/run.sh" --nogui \
+  nohup bash "$SERVER_DIR/run.sh" nogui \
     >> "$LOG_FILE" 2>&1 &
 else
   # Paper, Purpur, Fabric (fabric-server-launch.jar copied to server.jar during create)
