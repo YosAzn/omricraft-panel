@@ -2550,7 +2550,7 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
            </div>
            <div className="flex-1">
               <label className="block text-sm text-zinc-400 mb-1">{t('serverName')}</label>
-              <input type="text" value={server.name} onChange={(e) => updateServer({ name: e.target.value })} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600" />
+              <input type="text" value={server.name} onChange={(e) => updateServer({ name: e.target.value })} onFocus={(e) => e.target.select()} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600" />
            </div>
         </div>
 
