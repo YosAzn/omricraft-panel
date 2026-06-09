@@ -2565,8 +2565,12 @@ function DifficultyControl({ server, updateServer, t }) {
 function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
   const applyServerProperty = async (field, value) => {
     try {
-      await updateServerPropertiesFn({ serverId: server.id, properties: { [field]: value } });
-    } catch(e) { console.error('updateServerProperties error:', e); }
+      const res = await updateServerPropertiesFn({ serverId: server.id, properties: { [field]: value } });
+      if (!res.data?.success) throw new Error(res.data?.error || 'שגיאה לא ידועה');
+    } catch(e) {
+      console.error('updateServerProperties error:', e);
+      alert(`שגיאה בעדכון הגדרות: ${e.message}`);
+    }
   };
 
   return (
