@@ -612,7 +612,7 @@ app.post('/update-icon', function(req, res) {
 // File manager — list / read / write inside a server's own directory only
 // ---------------------------------------------------------------------------
 var TEXT_EXT = /\.(properties|ya?ml|yaml|json|txt|conf|cfg|toml|ini|log|sh|md|csv)$/i;
-var MAX_READ_BYTES = 1024 * 1024; // 1 MB
+var MAX_READ_BYTES = 5 * 1024 * 1024; // 5 MB
 
 // Resolve a path relative to the server dir; returns null if it escapes the dir.
 function resolveServerPath(serverId, relPath) {

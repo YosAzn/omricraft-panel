@@ -327,13 +327,13 @@ MOD_URLS_FABRIC["m5"]="https://cdn.modrinth.com/data/uCdwusMi/versions/oYXIfeus/
 MOD_URLS_FABRIC["m6"]="https://cdn.modrinth.com/data/9eGKb6K1/versions/RMvAyxuK/voicechat-fabric-1.21.1-2.6.18.jar"
 MOD_URLS_FABRIC["m7"]="https://cdn.modrinth.com/data/u6dRKJwZ/versions/TvqzuFwN/jei-1.21.1-fabric-19.27.0.340.jar"
 # Fabric API dependency — required by most mods
-MOD_URLS_FABRIC["fabric-api"]="https://cdn.modrinth.com/data/P7dR8mSH/versions/mKvS7E55/fabric-api-0.110.0%2B1.21.1.jar"
+MOD_URLS_FABRIC["fabric-api"]="https://cdn.modrinth.com/data/P7dR8mSH/versions/Lwt6YYHL/fabric-api-0.116.12%2B1.21.1.jar"
 
 declare -A MOD_URLS_FORGE
 # Forge 1.20.1 mod URLs (most stable Forge ecosystem)
 MOD_URLS_FORGE["m3"]="https://cdn.modrinth.com/data/LNytGWDc/versions/8amzvn9x/create-1.20.1-6.0.8.jar"
-MOD_URLS_FORGE["m6"]="https://cdn.modrinth.com/data/9eGKb6K1/versions/oKIABpv4/voicechat-forge-1.20.1-2.6.18.jar"
-MOD_URLS_FORGE["m7"]="https://cdn.modrinth.com/data/u6dRKJwZ/versions/TvqzuFwN/jei-1.21.1-forge-19.27.0.340.jar"
+MOD_URLS_FORGE["m6"]="https://cdn.modrinth.com/data/9eGKb6K1/versions/8jZe6s12/voicechat-forge-1.20.1-2.6.18.jar"
+MOD_URLS_FORGE["m7"]="https://cdn.modrinth.com/data/u6dRKJwZ/versions/RTFeXsvE/jei-1.20.1-forge-15.20.0.130.jar"
 
 if [ "$TYPE" = "fabric" ] || [ "$TYPE" = "forge" ]; then
   if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
