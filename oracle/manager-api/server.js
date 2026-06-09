@@ -815,13 +815,21 @@ app.post('/update-server-properties', async function(req, res) {
       }
     }
     fs.writeFileSync(propsPath, props);
-    // Live max-players via RCON
+    // Live RCON updates for properties that support hot-reload
     try {
       const passMatch = props.match(/^rcon\.password=(.*)$/m);
       const portMatch = props.match(/^rcon\.port=(\d+)/m);
-      if (passMatch && portMatch && properties.maxPlayers) {
-        await rconConnect('127.0.0.1', parseInt(portMatch[1]), passMatch[1].trim(),
-          'setmaxplayers ' + properties.maxPlayers, 5000).catch(function() {});
+      if (passMatch && portMatch) {
+        const rconPass = passMatch[1].trim();
+        const rconPort = parseInt(portMatch[1]);
+        if (properties.maxPlayers) {
+          await rconConnect('127.0.0.1', rconPort, rconPass,
+            'setmaxplayers ' + properties.maxPlayers, 5000).catch(function() {});
+        }
+        if (properties.gamemode) {
+          await rconConnect('127.0.0.1', rconPort, rconPass,
+            'defaultgamemode ' + properties.gamemode, 5000).catch(function() {});
+        }
       }
     } catch(_) {}
     console.log('[' + new Date().toISOString() + '] Updated server.properties for ' + serverId + ': ' + Object.keys(properties).join(','));
