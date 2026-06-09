@@ -599,6 +599,25 @@ exports.restartServer = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// getServerStats — real RAM/CPU from VPS /proc via Manager API
+// ---------------------------------------------------------------------------
+exports.getServerStats = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 15 },
+  async (request) => {
+    const { serverId } = request.data || {};
+    if (!serverId || !/^[a-z0-9_-]+$/.test(serverId)) return { success: false, running: false, ram: 0, cpu: 0 };
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'GET', `/server-stats/${serverId}`, null);
+      return result;
+    } catch (e) {
+      return { success: false, running: false, ram: 0, cpu: 0 };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // getPaperVersions — fetches Paper versions server-side (bypasses CORS)
 // ---------------------------------------------------------------------------
 exports.getPaperVersions = onCall(

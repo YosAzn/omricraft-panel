@@ -46,6 +46,7 @@ const getPlayersOnlineFn = httpsCallable(functionsInstance, 'getPlayersOnline');
 const getServerLogFn = httpsCallable(functionsInstance, 'getServerLog');
 const updateServerPropertiesFn = httpsCallable(functionsInstance, 'updateServerProperties');
 const restartServerFn = httpsCallable(functionsInstance, 'restartServer');
+const getServerStatsFn = httpsCallable(functionsInstance, 'getServerStats');
 const listFilesFn = httpsCallable(functionsInstance, 'listFiles');
 const readFileFn = httpsCallable(functionsInstance, 'readFile');
 const writeFileFn = httpsCallable(functionsInstance, 'writeFile');
@@ -1837,6 +1838,20 @@ function TabBtn({ icon, label, active, onClick, badge }) {
 
 function OverviewTab({ server, t, playersLive }) {
   const [copiedDomain, setCopiedDomain] = useState(false);
+  const [liveStats, setLiveStats] = useState({ ram: null, cpu: null });
+
+  useEffect(() => {
+    if (!server?.id || server.status !== 'online') { setLiveStats({ ram: null, cpu: null }); return; }
+    const fetchStats = async () => {
+      try {
+        const res = await getServerStatsFn({ serverId: server.id });
+        if (res.data?.success) setLiveStats({ ram: res.data.ram, cpu: res.data.cpu });
+      } catch (e) { /* silent — show 0 on failure */ }
+    };
+    fetchStats();
+    const interval = setInterval(fetchStats, 15000);
+    return () => clearInterval(interval);
+  }, [server?.id, server?.status]);
 
   const slug =
     server?.serverSlug ||
@@ -1923,11 +1938,17 @@ function OverviewTab({ server, t, playersLive }) {
         </div>
         <div className="bg-zinc-950 border border-zinc-800 p-5 rounded-xl">
           <div className="text-zinc-400 text-sm mb-1">{t('ram')}</div>
-          <div className="text-3xl font-bold">{server.status === 'online' ? '1.8' : '0'} <span className="text-base text-zinc-500 font-normal">GB / 4 GB</span></div>
+          <div className="text-3xl font-bold">
+            {liveStats.ram !== null ? (liveStats.ram / 1024).toFixed(1) : (server.status === 'online' ? '…' : '0')}
+            <span className="text-base text-zinc-500 font-normal"> GB / {((server.memoryMb || 2048) / 1024).toFixed(0)} GB</span>
+          </div>
         </div>
         <div className="bg-zinc-950 border border-zinc-800 p-5 rounded-xl">
           <div className="text-zinc-400 text-sm mb-1">{t('cpu')}</div>
-          <div className="text-3xl font-bold">{server.status === 'online' ? '12' : '0'} <span className="text-base text-zinc-500 font-normal">%</span></div>
+          <div className="text-3xl font-bold">
+            {liveStats.cpu !== null ? liveStats.cpu : (server.status === 'online' ? '…' : '0')}
+            <span className="text-base text-zinc-500 font-normal"> %</span>
+          </div>
         </div>
       </div>
     </div>
@@ -2642,8 +2663,8 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
           )}
 
           <div>
-            <label className="block text-sm text-zinc-400 mb-1 flex items-center gap-1"><img src="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png" className="w-4 h-3 object-contain"/> {t('discordWebhook')}</label>
-            <input type="text" placeholder="https://discord.com/api/webhooks/..." value={server.discordWebhook || ''} onChange={(e) => updateServer({ discordWebhook: e.target.value })} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600 text-sm" />
+            <label className="block text-sm text-zinc-400 mb-1 flex items-center gap-2"><img src="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png" className="w-4 h-3 object-contain"/> {t('discordWebhook')} <span className="text-xs bg-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">בקרוב</span></label>
+            <input type="text" disabled placeholder="https://discord.com/api/webhooks/..." value={server.discordWebhook || ''} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-500 outline-none text-sm cursor-not-allowed" />
           </div>
         </div>
       </div>

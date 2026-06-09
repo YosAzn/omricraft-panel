@@ -831,6 +831,45 @@ app.post('/update-server-properties', async function(req, res) {
   }
 });
 
+// GET /server-stats/:id — real RAM/CPU usage from /proc
+app.get('/server-stats/:id', function(req, res) {
+  var id = req.params.id;
+  if (!SAFE_ID.test(id)) return res.status(400).json({ success: false, error: 'Invalid id' });
+  var servers = [];
+  try {
+    var raw = fs.readFileSync(SERVERS_JSON, 'utf8');
+    servers = JSON.parse(raw);
+    if (!Array.isArray(servers)) servers = servers.servers || [];
+  } catch (e) {}
+  var server = servers.find(function(s) { return s.id === id; });
+  if (!server) return res.json({ success: false, error: 'not found' });
+
+  var { execSync } = require('child_process');
+  try {
+    var screenOut = '';
+    try { screenOut = execSync('screen -ls mc-' + id + ' 2>/dev/null || echo ""', { timeout: 5000 }).toString(); } catch(_) {}
+    var pidMatch = screenOut.match(/(\d+)\.mc-/);
+    if (!pidMatch) {
+      return res.json({ success: true, running: false, ram: 0, cpu: 0, players: server.players || 0 });
+    }
+    var screenPid = pidMatch[1];
+    var javaPid = '';
+    try { javaPid = execSync('pgrep -P ' + screenPid + ' java 2>/dev/null || echo ""', { timeout: 5000 }).toString().trim(); } catch(_) {}
+    if (!javaPid) {
+      return res.json({ success: true, running: true, ram: 0, cpu: 0, players: server.players || 0 });
+    }
+    var ramKb = '0';
+    try { ramKb = execSync('grep VmRSS /proc/' + javaPid + '/status 2>/dev/null | awk \'{print $2}\'', { timeout: 5000 }).toString().trim(); } catch(_) {}
+    var ramMb = Math.round(parseInt(ramKb || '0') / 1024);
+    var cpuLine = '0';
+    try { cpuLine = execSync('ps -p ' + javaPid + ' -o %cpu --no-headers 2>/dev/null || echo "0"', { timeout: 5000 }).toString().trim(); } catch(_) {}
+    var cpu = Math.round(parseFloat(cpuLine) || 0);
+    return res.json({ success: true, running: true, ram: ramMb, cpu: cpu, players: server.players || 0 });
+  } catch (e) {
+    return res.json({ success: true, running: false, ram: 0, cpu: 0, players: 0, error: e.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', function() {
   console.log('[' + new Date().toISOString() + '] OmriCraft Manager API listening on 0.0.0.0:' + PORT);
 });

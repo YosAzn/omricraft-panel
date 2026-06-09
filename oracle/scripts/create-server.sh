@@ -493,6 +493,24 @@ fi
 
 mv "$TMP_JSON" "$SERVERS_JSON"
 
+# BlueMap config — set web port based on server port (e.g. 25566 -> 26566)
+BLUEMAP_PORT=$((GAME_PORT + 1000))
+mkdir -p "$SERVER_DIR/plugins/BlueMap"
+cat > "$SERVER_DIR/plugins/BlueMap/core.conf" << 'BLUECORE'
+accept-download: true
+data: "bluemap"
+render-thread-count: -2
+metrics: false
+BLUECORE
+cat > "$SERVER_DIR/plugins/BlueMap/webserver.conf" << BLUEEOF
+enabled: true
+webroot: "bluemap/web"
+port: ${BLUEMAP_PORT}
+ip: "0.0.0.0"
+max-connections-per-second: 2.0
+BLUEEOF
+echo "[$(date)] BlueMap config written (port ${BLUEMAP_PORT})"
+
 echo "[$(date)] Server $SERVER_ID created at $SERVER_DIR"
 echo "[$(date)] Address: ${SLUG}.omricraft.com"
 echo "[$(date)] Backend: 127.0.0.1:${GAME_PORT}"
