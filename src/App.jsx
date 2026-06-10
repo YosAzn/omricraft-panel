@@ -51,6 +51,7 @@ const listFilesFn = httpsCallable(functionsInstance, 'listFiles');
 const readFileFn = httpsCallable(functionsInstance, 'readFile');
 const writeFileFn = httpsCallable(functionsInstance, 'writeFile');
 const deleteFileFn = httpsCallable(functionsInstance, 'deleteFile');
+const reloadPluginFn = httpsCallable(functionsInstance, 'reloadPlugin');
 
 
 // --- מילון שפות ---
@@ -2086,9 +2087,49 @@ function ConsoleTab({ server, t, userRole }) {
 }
 
 function AddonsTab({ server, toggleAddon, t, allAddons, userRole }) {
-  const [filter, setFilter] = useState('all'); 
+  const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [warning, setWarning] = useState(null); 
+  const [warning, setWarning] = useState(null);
+  const [installedPlugins, setInstalledPlugins] = useState([]);
+  const [pluginsLoading, setPluginsLoading] = useState(false);
+  const [reloading, setReloading] = useState(false);
+
+  const loadInstalledPlugins = () => {
+    if (!server?.id) return;
+    setPluginsLoading(true);
+    listFilesFn({ serverId: server.id, path: 'plugins' })
+      .then(res => {
+        const d = res.data || res;
+        if (d.success) {
+          const jars = (d.entries || [])
+            .filter(f => f.type === 'file' && f.name.endsWith('.jar'))
+            .map(f => ({ name: f.name.replace(/\.jar$/i, ''), size: f.size, file: f.name }));
+          setInstalledPlugins(jars);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setPluginsLoading(false));
+  };
+
+  useEffect(() => {
+    loadInstalledPlugins();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [server?.id]);
+
+  const handleReloadPlugins = async () => {
+    setReloading(true);
+    try {
+      const res = await reloadPluginFn({ serverId: server.id });
+      const d = res.data || res;
+      if (!d.success) throw new Error(d.error || 'שגיאה');
+      loadInstalledPlugins();
+      alert('Plugins נטענו מחדש בהצלחה');
+    } catch (e) {
+      alert(`שגיאה בטעינת Plugins: ${e.message}`);
+    } finally {
+      setReloading(false);
+    }
+  };
 
   const relevantAddons = allAddons.filter(a => {
     if (a.type === 'textures') return true; 
@@ -2136,6 +2177,8 @@ function AddonsTab({ server, toggleAddon, t, allAddons, userRole }) {
       }
     }
     toggleAddon(item);
+    // Refresh VPS jar list after a short delay to pick up the newly installed/removed plugin
+    setTimeout(loadInstalledPlugins, 8000);
   };
 
   return (
@@ -2146,6 +2189,51 @@ function AddonsTab({ server, toggleAddon, t, allAddons, userRole }) {
           <button onClick={()=>setWarning(null)} className="p-1 hover:bg-black/20 rounded"><X size={16}/></button>
         </div>
       )}
+
+      {/* VPS Installed Plugins — real .jar files from server */}
+      <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Package size={16} className="text-green-500" />
+            <span className="font-bold text-sm">מותקן על השרת ({installedPlugins.length})</span>
+            {pluginsLoading && <RefreshCw size={14} className="animate-spin text-zinc-500" />}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={loadInstalledPlugins}
+              disabled={pluginsLoading}
+              className="p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
+              title="רענן רשימה"
+            >
+              <RefreshCw size={14} className={pluginsLoading ? 'animate-spin' : ''} />
+            </button>
+            {userRole === 'admin' && (
+              <button
+                onClick={handleReloadPlugins}
+                disabled={reloading || server.status !== 'online'}
+                title={server.status !== 'online' ? 'השרת לא פעיל' : 'Reload Plugins (reload confirm)'}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed text-sm rounded-lg transition-colors"
+              >
+                <RefreshCcw size={14} className={reloading ? 'animate-spin' : ''} />
+                {reloading ? 'טוען...' : 'Reload Plugins'}
+              </button>
+            )}
+          </div>
+        </div>
+        {installedPlugins.length === 0 && !pluginsLoading ? (
+          <p className="text-zinc-600 text-sm">לא נמצאו קבצי .jar בתיקיית plugins</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {installedPlugins.map(p => (
+              <span key={p.file} className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-700 text-zinc-300 text-xs px-2.5 py-1 rounded-full">
+                <Package size={11} className="text-green-500" />
+                {p.name}
+                {p.size > 0 && <span className="text-zinc-600">({(p.size / 1024).toFixed(0)}kb)</span>}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
         <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800 overflow-x-auto">

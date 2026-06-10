@@ -445,6 +445,34 @@ exports.writeFile  = fileFn('/write-file');
 exports.deleteFile = fileFn('/delete-file');
 
 // ---------------------------------------------------------------------------
+// reloadPlugin — sends RCON "reload confirm" to reload all plugins live
+// ---------------------------------------------------------------------------
+exports.reloadPlugin = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 20,
+  },
+  async (request) => {
+    const { serverId } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/send-command', {
+        serverId,
+        command: 'reload confirm',
+      });
+      return result;
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // getPlayersOnline — real-time player count for all servers via Manager API
 // ---------------------------------------------------------------------------
 exports.getPlayersOnline = onCall(
