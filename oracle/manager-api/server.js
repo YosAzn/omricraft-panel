@@ -475,6 +475,28 @@ app.post('/remove-plugin', function(req, res) {
   }
 });
 
+// Remove a single .jar by exact filename (VPS reality, any plugin incl. non-catalog like TAB)
+app.post('/remove-plugin-jar/:id', function(req, res) {
+  var id = req.params.id;
+  var file = req.body.file;
+  if (!validateId(id, res)) return;
+  if (!file || typeof file !== 'string' || file.includes('/') || file.includes('..') || !file.endsWith('.jar')) {
+    return res.json({ success: false, error: 'invalid file' });
+  }
+  var pluginsDir = path.join(SERVERS_DIR, id, 'plugins');
+  var jarPath = path.join(pluginsDir, file);
+  if (!jarPath.startsWith(pluginsDir + path.sep)) {
+    return res.json({ success: false, error: 'blocked' });
+  }
+  try {
+    fs.unlinkSync(jarPath);
+    console.log('[' + new Date().toISOString() + '] Removed jar ' + file + ' from ' + id);
+    return res.json({ success: true });
+  } catch (err) {
+    return res.json({ success: false, error: err.message });
+  }
+});
+
 app.post('/change-difficulty', async function(req, res) {
   const serverId = req.body.serverId;
   const difficulty = req.body.difficulty;

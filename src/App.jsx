@@ -52,6 +52,7 @@ const readFileFn = httpsCallable(functionsInstance, 'readFile');
 const writeFileFn = httpsCallable(functionsInstance, 'writeFile');
 const deleteFileFn = httpsCallable(functionsInstance, 'deleteFile');
 const reloadPluginFn = httpsCallable(functionsInstance, 'reloadPlugin');
+const removePluginJarFn = httpsCallable(functionsInstance, 'removePluginJar');
 
 
 // --- מילון שפות ---
@@ -877,9 +878,22 @@ export default function App() {
       });
     }
 
-    // Actually install/remove the plugin on VPS (fire-and-forget, don't block UI)
-    installPluginFn({ serverId, pluginId: addon.id, install: !isInstalled })
-      .catch(() => {}); // silent fail — Firestore already updated
+    // Actually install/remove the plugin on VPS, with rollback on failure
+    try {
+      const res = await installPluginFn({ serverId, pluginId: addon.id, install: !isInstalled });
+      const d = res.data || res;
+      if (!d.success && d.note === undefined) throw new Error(d.error || 'VPS install failed');
+    } catch (e) {
+      console.error('toggleAddon VPS install/remove failed:', e);
+      // rollback Firestore to previous addon list
+      if (db && authUser) {
+        await updateDoc(doc(db, getServersPath(), serverId), {
+          installedAddons: currentServer.installedAddons,
+          needsRestart: currentServer.needsRestart || false,
+        });
+      }
+      alert(`שגיאה בהתקנת/הסרת הפלאגין: ${e.message}`);
+    }
   };
 
   const updateServer = async (serverId, newData) => {
@@ -2107,8 +2121,23 @@ function AddonsTab({ server, toggleAddon, t, allAddons, userRole }) {
           setInstalledPlugins(jars);
         }
       })
-      .catch(() => {})
+      .catch((e) => { console.error('loadInstalledPlugins failed:', e); })
       .finally(() => setPluginsLoading(false));
+  };
+
+  const handleRemoveJar = async (jarFile) => {
+    if (userRole !== 'admin') return;
+    if (!window.confirm(`להסיר את ${jarFile}? השרת יצטרך הפעלה מחדש.`)) return;
+    try {
+      const res = await removePluginJarFn({ serverId: server.id, file: jarFile });
+      const d = res.data || res;
+      if (!d.success) throw new Error(d.error || 'שגיאה');
+      loadInstalledPlugins();
+      alert('הוסר. הפעל מחדש את השרת כדי שייכנס לתוקף.');
+    } catch (e) {
+      console.error('handleRemoveJar failed:', e);
+      alert(`שגיאה: ${e.message}`);
+    }
   };
 
   useEffect(() => {
@@ -2229,6 +2258,11 @@ function AddonsTab({ server, toggleAddon, t, allAddons, userRole }) {
                 <Package size={11} className="text-green-500" />
                 {p.name}
                 {p.size > 0 && <span className="text-zinc-600">({(p.size / 1024).toFixed(0)}kb)</span>}
+                {userRole === 'admin' && (
+                  <button onClick={() => handleRemoveJar(p.file)} className="text-zinc-500 hover:text-red-400 ml-1" title="הסר">
+                    <X size={11} />
+                  </button>
+                )}
               </span>
             ))}
           </div>

@@ -415,6 +415,33 @@ exports.installPlugin = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// removePluginJar — deletes a single .jar from a server's plugins dir (VPS truth)
+// ---------------------------------------------------------------------------
+exports.removePluginJar = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 20,
+  },
+  async (request) => {
+    const { serverId, file } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    if (!file || typeof file !== 'string' || file.includes('/') || file.includes('..') || !file.endsWith('.jar')) {
+      return { success: false, error: 'invalid file' };
+    }
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      return await callManagerApi(BASE_URL, API_KEY, 'POST', `/remove-plugin-jar/${serverId}`, { file });
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // File manager — list / read / write files inside a server's directory
 // ---------------------------------------------------------------------------
 function fileFn(endpoint, timeoutSeconds) {
