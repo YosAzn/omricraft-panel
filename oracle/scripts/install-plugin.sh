@@ -11,6 +11,9 @@ fi
 SERVER_ID="$1"
 PLUGIN_ID="$2"
 
+# Shared jar validation helper (B-8)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/jar-utils.sh"
+
 BASE="/home/ubuntu/omricraft"
 SERVERS_DIR="$BASE/servers"
 SERVER_DIR="$SERVERS_DIR/$SERVER_ID"
@@ -102,12 +105,12 @@ fi
 DEST="$PLUGINS_DIR/$FILENAME"
 
 echo "[$(date)] Installing $PLUGIN_ID -> $FILENAME"
-wget -q --timeout=60 -L "$URL" -O "$DEST"
+wget -q --timeout=60 -L "$URL" -O "$DEST" || true
 
-if [ $? -eq 0 ] && [ -s "$DEST" ]; then
+# B-8: real jar validation (ZIP magic + size floor), not just 0-byte.
+if validate_jar_or_fail "$DEST" "$PLUGIN_ID"; then
   echo "[$(date)] OK: $PLUGIN_ID installed at $DEST"
 else
-  rm -f "$DEST"
-  echo "ERROR: Download failed for $PLUGIN_ID"
+  echo "ERROR: Download failed / corrupt jar for $PLUGIN_ID"
   exit 1
 fi

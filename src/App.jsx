@@ -55,6 +55,7 @@ const deleteFileFn = httpsCallable(functionsInstance, 'deleteFile');
 const reloadPluginFn = httpsCallable(functionsInstance, 'reloadPlugin');
 const removePluginJarFn = httpsCallable(functionsInstance, 'removePluginJar');
 const changeServerVersionFn = httpsCallable(functionsInstance, 'changeServerVersion');
+const changeServerTypeFn = httpsCallable(functionsInstance, 'changeServerType');
 const updateServerMemoryFn = httpsCallable(functionsInstance, 'updateServerMemory');
 
 
@@ -2765,6 +2766,57 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions, versionMat
   };
 
   const [versionSaving, setVersionSaving] = React.useState(false);
+  const [typeSaving, setTypeSaving] = React.useState(false);
+
+  // Software types the user may switch TO from Settings. forge/neoforge/vanilla
+  // are intentionally excluded — the manager-api rejects them (no reliable
+  // Velocity modern-forwarding mod → unjoinable server).
+  const CHANGEABLE_TYPES = ['paper', 'purpur', 'folia', 'mohist', 'fabric'];
+  const changeableSoftware = SOFTWARE_TYPES.filter(sw => CHANGEABLE_TYPES.includes(sw.id));
+  const BUKKIT_FAMILY = ['paper', 'purpur', 'folia', 'mohist'];
+  const isCrossFamily = (a, b) =>
+    (BUKKIT_FAMILY.includes(a) && b === 'fabric') ||
+    (a === 'fabric' && BUKKIT_FAMILY.includes(b));
+
+  // Real software/type change: swaps the jar AND rewrites the Velocity
+  // forwarding config for the target family on the VPS, then restarts.
+  const handleTypeChange = async (newType) => {
+    const prevType = server.software;
+    const prevVersion = server.version;
+    if (!newType || newType === prevType) return;
+
+    // Pick a version valid for the target type (newest from the matrix).
+    const targetList = (versionMatrix[newType] && versionMatrix[newType].length)
+      ? versionMatrix[newType]
+      : (mcVersions || []);
+    const newVersion = (targetList.includes(prevVersion)) ? prevVersion : (targetList[0] || prevVersion);
+
+    const newName = (SOFTWARE_TYPES.find(s => s.id === newType) || {}).name || newType;
+    let warn = `שינוי סוג השרת ל-${newName} יבצע את הפעולות הבאות:\n` +
+      `• השרת יופעל מחדש (downtime קצר).\n` +
+      `• גרסת השרת תיקבע ל-${newVersion}.\n`;
+    if (isCrossFamily(prevType, newType)) {
+      warn += `• ⚠️ הפלאגינים/מודים הקיימים לא יעברו! מעבר בין Bukkit (paper/purpur/folia/mohist) ל-Fabric (מודים) הוא מעבר משפחה — תצטרך להתקין מחדש את התוספות המתאימות לסוג החדש.\n`;
+    }
+    if (newType === 'fabric') {
+      warn += `• יותקן אוטומטית FabricProxy-Lite (נדרש כדי שהשחקנים יוכלו להתחבר דרך הפרוקסי שלנו).\n`;
+    }
+    warn += `\nהעולם (world) לא ייפגע. להמשיך?`;
+    if (!window.confirm(warn)) return;
+
+    setTypeSaving(true);
+    updateServer({ software: newType, version: newVersion }); // optimistic
+    try {
+      const res = await changeServerTypeFn({ serverId: server.id, type: newType, version: newVersion });
+      if (!res.data?.success) throw new Error(res.data?.error || 'שינוי סוג השרת נכשל');
+    } catch (e) {
+      console.error('changeServerType error:', e);
+      updateServer({ software: prevType, version: prevVersion }); // rollback
+      alert(`שגיאה בשינוי סוג השרת: ${e.message}`);
+    } finally {
+      setTypeSaving(false);
+    }
+  };
 
   // Real version change: swaps the jar on the VPS and restarts the server.
   const handleVersionChange = async (newVersion) => {
@@ -2825,6 +2877,30 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions, versionMat
         </div>
 
         <div className="space-y-4">
+          {/* Server software (type) — editable post-creation. Reuses the same
+              software cards as the create form. */}
+          <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4">
+            <label className="block text-sm text-zinc-400 mb-2 flex items-center gap-2">
+              {t('software')}
+              {typeSaving && <span className="text-xs text-zinc-500 animate-pulse">מחליף סוג שרת...</span>}
+            </label>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              {changeableSoftware.map(sw => (
+                <div key={sw.id}
+                  onClick={() => { if (!typeSaving) handleTypeChange(sw.id); }}
+                  className={`cursor-pointer border rounded-lg p-2 text-center transition-all flex flex-col items-center gap-0.5
+                    ${typeSaving ? 'opacity-50 pointer-events-none' : ''}
+                    ${server.software === sw.id ? 'bg-green-500/10 border-green-500 text-green-400 shadow-md' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200'}`}>
+                  <div className="font-bold text-sm">{sw.name}</div>
+                  <div className="text-[10px] uppercase opacity-70">{sw.type}</div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-zinc-500 mt-2">
+              שינוי הסוג מפעיל מחדש את השרת. מעבר בין Bukkit (paper/purpur/folia/mohist) ל-Fabric לא מעביר את הפלאגינים/מודים.
+            </p>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-zinc-400 mb-1 flex items-center gap-2">

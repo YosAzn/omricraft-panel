@@ -34,6 +34,9 @@ case "$WORLD_TYPE_RAW" in
   *)          LEVEL_TYPE="minecraft:normal" ;;
 esac
 
+# Shared jar validation helper (B-8)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/jar-utils.sh"
+
 BASE="/home/ubuntu/omricraft"
 SERVERS_DIR="$BASE/servers"
 SERVER_DIR="$SERVERS_DIR/$SERVER_ID"
@@ -160,8 +163,8 @@ if [ "$TYPE" = "fabric" ] || [ "$TYPE" = "forge" ]; then
     echo "[$(date)] Installing mods..."
     # Install Fabric API automatically when installing any Fabric mod
     if [ "$TYPE" = "fabric" ] && [ -n "${MOD_URLS_FABRIC[fabric-api]:-}" ]; then
-      wget -q -L --timeout=60 "${MOD_URLS_FABRIC[fabric-api]}" -O "$SERVER_DIR/mods/fabric-api.jar"
-      [ -s "$SERVER_DIR/mods/fabric-api.jar" ] && echo "[$(date)] OK: fabric-api" || rm -f "$SERVER_DIR/mods/fabric-api.jar"
+      wget -q -L --timeout=60 "${MOD_URLS_FABRIC[fabric-api]}" -O "$SERVER_DIR/mods/fabric-api.jar" || true
+      validate_jar_or_fail "$SERVER_DIR/mods/fabric-api.jar" "fabric-api" && echo "[$(date)] OK: fabric-api" || true
     fi
     while IFS= read -r addonId; do
       [ -z "$addonId" ] && continue
@@ -173,12 +176,11 @@ if [ "$TYPE" = "fabric" ] || [ "$TYPE" = "forge" ]; then
       if [ -n "$url" ]; then
         filename=$(basename "$url" | sed 's/\?.*$//' | python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.stdin.read().strip()))" 2>/dev/null || basename "$url")
         echo "[$(date)] Downloading mod $addonId: $filename"
-        wget -q -L --timeout=60 "$url" -O "$SERVER_DIR/mods/$filename"
-        if [ ! -s "$SERVER_DIR/mods/$filename" ]; then
-          rm -f "$SERVER_DIR/mods/$filename"
-          echo "[$(date)] FAILED (0 bytes): mod $addonId"
-        else
+        wget -q -L --timeout=60 "$url" -O "$SERVER_DIR/mods/$filename" || true
+        if validate_jar_or_fail "$SERVER_DIR/mods/$filename" "mod $addonId"; then
           echo "[$(date)] OK mod: $addonId ($filename)"
+        else
+          echo "[$(date)] FAILED (invalid jar): mod $addonId"
         fi
       else
         echo "[$(date)] No mod URL for $addonId on $TYPE (skipping)"
@@ -236,12 +238,11 @@ if [ "$TYPE" != "fabric" ] && [ "$TYPE" != "forge" ] && [ "$TYPE" != "neoforge" 
         filename=$(basename "$url" | sed 's/\?.*$//')
       fi
       echo "[$(date)] Downloading $addonId: $filename"
-      wget -q -L --timeout=60 "$url" -O "$SERVER_DIR/plugins/$filename"
-      if [ ! -s "$SERVER_DIR/plugins/$filename" ]; then
-        rm -f "$SERVER_DIR/plugins/$filename"
-        echo "[$(date)] FAILED (0 bytes): $addonId ($filename)"
-      else
+      wget -q -L --timeout=60 "$url" -O "$SERVER_DIR/plugins/$filename" || true
+      if validate_jar_or_fail "$SERVER_DIR/plugins/$filename" "$addonId ($filename)"; then
         echo "[$(date)] OK: $addonId ($filename)"
+      else
+        echo "[$(date)] FAILED (invalid jar): $addonId ($filename)"
       fi
     else
       echo "[$(date)] No URL mapped for addon: $addonId (skipping)"
@@ -264,12 +265,12 @@ if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
     if [ -n "$url" ]; then
       filename=$(basename "$url" | sed 's/\?.*$//')
       echo "[$(date)] Downloading datapack $addonId: $filename"
-      wget -q -L --timeout=60 "$url" -O "$SERVER_DIR/datapacks-pending/$filename"
-      if [ ! -s "$SERVER_DIR/datapacks-pending/$filename" ]; then
-        rm -f "$SERVER_DIR/datapacks-pending/$filename"
-        echo "[$(date)] FAILED (0 bytes): datapack $addonId"
-      else
+      wget -q -L --timeout=60 "$url" -O "$SERVER_DIR/datapacks-pending/$filename" || true
+      # Datapacks are .jar/.zip archives → same ZIP-magic validation applies.
+      if validate_jar_or_fail "$SERVER_DIR/datapacks-pending/$filename" "datapack $addonId"; then
         echo "[$(date)] OK datapack: $addonId ($filename)"
+      else
+        echo "[$(date)] FAILED (invalid archive): datapack $addonId"
       fi
     fi
   done < <(node -e "const ids=JSON.parse(process.argv[1]); ids.forEach(function(i){console.log(i);})" "$ADDONS")

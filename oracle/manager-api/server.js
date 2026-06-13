@@ -952,6 +952,18 @@ app.post('/change-version', async function(req, res) {
   if (!srv) return res.status(404).json({ success: false, error: 'Server not found' });
 
   const type = (req.body.type && typeof req.body.type === 'string') ? req.body.type : (srv.type || 'paper');
+  const prevType = srv.type || 'paper';
+  const typeChanged = type !== prevType;
+
+  // Reject type changes to families that cannot do Velocity modern forwarding
+  // BEFORE touching the jar — never create an unjoinable server.
+  if (typeChanged && (type === 'forge' || type === 'neoforge' || type === 'vanilla')) {
+    return res.status(400).json({
+      success: false,
+      error: 'סוג שרת "' + type + '" לא נתמך מאחורי הפרוקסי (Velocity) — אין מוד forwarding אמין לכל הגרסאות. בחר Paper/Purpur/Folia/Mohist או Fabric.'
+    });
+  }
+
   const serverDir = path.join(SERVERS_DIR, serverId);
   const jarPath = path.join(serverDir, 'server.jar');
   const bakPath = jarPath + '.bak';
@@ -994,6 +1006,32 @@ app.post('/change-version', async function(req, res) {
     }
     console.error('change-version download failed for ' + serverId + ':', e);
     return res.status(500).json({ success: false, error: 'Jar download failed: ' + e.message + ' (server.jar restored to ' + prevVersion + ')' });
+  }
+
+  // 3b. When the TYPE changes, write the correct Velocity modern-forwarding
+  // config for the target family (paper-global.yml for Bukkit families,
+  // FabricProxy-Lite mod+config for fabric). Without this the player simply
+  // cannot connect — the recurring "created server won't connect" bug. On
+  // failure: restore the backup jar and FAIL LOUD (never leave an unjoinable
+  // server). For same-type changes the existing config already works, skip.
+  if (typeChanged) {
+    try {
+      await runScript('apply-forwarding-config.sh', [serverDir, type, version], 120000);
+    } catch (e) {
+      // Restore the previous jar — do NOT leave a broken/unjoinable server.
+      try {
+        if (fs.existsSync(bakPath)) fs.copyFileSync(bakPath, jarPath);
+      } catch (re) {
+        console.error('change-version: restore after forwarding failure failed for ' + serverId + ':', re);
+      }
+      if (wasRunning) {
+        runScript('start-server.sh', [serverId, String(srv.memoryMb || 2048)]).catch(function(se) {
+          console.error('change-version: restart after forwarding failure failed for ' + serverId + ':', se);
+        });
+      }
+      console.error('change-version forwarding-config failed for ' + serverId + ':', e);
+      return res.status(500).json({ success: false, error: 'Forwarding config failed: ' + e.message + ' (server.jar restored to ' + prevType + ' ' + prevVersion + ')' });
+    }
   }
 
   // 4. Update servers.json version field

@@ -23,6 +23,9 @@ SERVER_DIR="$1"
 TYPE="$2"
 VERSION="$3"
 
+# Shared jar validation helper (B-8)
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/jar-utils.sh"
+
 if [ ! -d "$SERVER_DIR" ]; then
   echo "[$(date)] ERROR: SERVER_DIR '$SERVER_DIR' does not exist"
   exit 1
@@ -225,5 +228,19 @@ if [ ! -s "$SERVER_DIR/server.jar" ]; then
   echo "[$(date)] ERROR: server.jar missing or 0 bytes after install for TYPE=$TYPE VERSION=$VERSION"
   exit 1
 fi
+
+# B-8: ZIP-magic jar validation for real jar artifacts. Forge/NeoForge "modern"
+# loaders copy a run.sh shell-launcher to server.jar (NOT a zip), so skip those.
+case "$TYPE" in
+  forge|neoforge)
+    : # server.jar may be a run.sh launcher — size check above is sufficient
+    ;;
+  *)
+    if ! is_valid_jar "$SERVER_DIR/server.jar"; then
+      echo "[$(date)] ERROR: server.jar for TYPE=$TYPE VERSION=$VERSION is not a valid jar (ZIP magic check failed — likely an HTML error page). Refusing to install a corrupt jar."
+      exit 1
+    fi
+    ;;
+esac
 
 echo "[$(date)] download-server-jar OK: $TYPE $VERSION -> $SERVER_DIR/server.jar"
