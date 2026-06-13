@@ -678,8 +678,11 @@ exports.getServerStats = onCall(
 exports.getPaperVersions = onCall(
   { region: "us-central1", timeoutSeconds: 15 },
   async () => {
-    // 26.x versions use new PaperMC versioning scheme (not in old v2 API)
-    const knownNew = ['26.2', '26.1.2', '26.1.1', '26.1'];
+    // Only offer versions Paper ACTUALLY builds. Never inject phantom versions
+    // (e.g. 26.x) — Paper/Velocity max out at the API's latest, and offering a
+    // version the backend can't download makes create-server silently fall back
+    // to a different jar under a false label, and Velocity then rejects clients.
+    const SAFE_FALLBACK = ['1.21.11', '1.21.10', '1.21.9', '1.21.8', '1.21.7', '1.21.6', '1.21.5', '1.21.4'];
 
     return new Promise((resolve) => {
       const req = https.get(
@@ -694,15 +697,15 @@ exports.getPaperVersions = onCall(
               const stable = (parsed.versions || [])
                 .filter(v => !v.includes('-pre') && !v.includes('-rc') && !v.includes('-alpha') && !v.includes('-beta'))
                 .reverse();
-              resolve({ success: true, versions: [...knownNew, ...stable] });
+              resolve({ success: true, versions: stable.length ? stable : SAFE_FALLBACK });
             } catch {
-              resolve({ success: true, versions: knownNew });
+              resolve({ success: true, versions: SAFE_FALLBACK });
             }
           });
         }
       );
-      req.on('error', () => resolve({ success: true, versions: knownNew }));
-      req.setTimeout(10000, () => { req.destroy(); resolve({ success: true, versions: knownNew }); });
+      req.on('error', () => resolve({ success: true, versions: SAFE_FALLBACK }));
+      req.setTimeout(10000, () => { req.destroy(); resolve({ success: true, versions: SAFE_FALLBACK }); });
     });
   }
 );

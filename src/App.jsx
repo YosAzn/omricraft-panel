@@ -360,9 +360,10 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [activeServerId, setActiveServerId] = useState(null);
   
-  // Verified Paper versions (no fake versions like 26.1 or 1.21.2)
+  // Verified Paper versions ONLY. Never list versions Paper can't build (e.g. 26.x):
+  // create-server would silently fall back to a different jar under a false label,
+  // and Velocity would then reject the matching client. Max real version = 1.21.11.
   const FALLBACK_VERSIONS = [
-    '26.2','26.1.2','26.1.1','26.1',
     '1.21.11','1.21.10','1.21.9','1.21.8','1.21.7','1.21.6','1.21.5','1.21.4',
     '1.21.3','1.21.1','1.21',
     '1.20.6','1.20.5','1.20.4','1.20.2','1.20.1','1.20',
@@ -379,24 +380,23 @@ export default function App() {
   const [mcVersions, setMcVersions] = useState(FALLBACK_VERSIONS);
 
   // Load versions via Firebase Function (avoids PaperMC CORS restriction), cache 6h
-  // v2 cache key — forces refresh after 26.x versions were added
+  // v3 cache key — forces refresh to evict the phantom 26.x versions
   useEffect(() => {
-    localStorage.removeItem('mc-versions');
-    localStorage.removeItem('mc-versions-ts');
-    const cached = localStorage.getItem('mc-versions-v2');
-    const ts = parseInt(localStorage.getItem('mc-versions-v2-ts') || '0');
+    ['mc-versions','mc-versions-ts','mc-versions-v2','mc-versions-v2-ts'].forEach(k => localStorage.removeItem(k));
+    const cached = localStorage.getItem('mc-versions-v3');
+    const ts = parseInt(localStorage.getItem('mc-versions-v3-ts') || '0');
     if (cached && Date.now() - ts < 21600000) {
       try { setMcVersions(JSON.parse(cached)); return; } catch(e) {}
     }
-    localStorage.removeItem('mc-versions-v2');
-    localStorage.removeItem('mc-versions-v2-ts');
+    localStorage.removeItem('mc-versions-v3');
+    localStorage.removeItem('mc-versions-v3-ts');
     getPaperVersionsFn()
       .then(res => {
         const versions = res.data?.versions;
         if (Array.isArray(versions) && versions.length > 0) {
           setMcVersions(versions);
-          localStorage.setItem('mc-versions-v2', JSON.stringify(versions));
-          localStorage.setItem('mc-versions-v2-ts', String(Date.now()));
+          localStorage.setItem('mc-versions-v3', JSON.stringify(versions));
+          localStorage.setItem('mc-versions-v3-ts', String(Date.now()));
         }
       })
       .catch(() => {}); // keep fallback on error

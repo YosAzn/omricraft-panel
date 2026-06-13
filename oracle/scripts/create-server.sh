@@ -231,19 +231,17 @@ except Exception as e:
     fi
 
     if [ "$DOWNLOADED" != "true" ]; then
-      echo "[$(date)] WARNING: Could not download Paper $VERSION, using template jar"
-      VERSION_JAR="$TEMPLATE_JAR"
+      # NEVER silently fall back to the template jar (1.21.1) under the requested
+      # label — that is the "server says 26.1.2 but really runs 1.21.1, client
+      # can't connect" bug. Fail loudly so the panel reports a real error.
+      echo "[$(date)] ERROR: Could not download Paper $VERSION. Paper does not build this version (max is the PaperMC API latest, e.g. 1.21.11). Refusing to install a different version under a false label. Pick a real Paper version."
+      exit 1
     fi
   fi
 
   if [ ! -f "$VERSION_JAR" ]; then
-    if [ -f "$TEMPLATE_JAR" ]; then
-      echo "[$(date)] Version jar not found, falling back to template jar"
-      VERSION_JAR="$TEMPLATE_JAR"
-    else
-      echo "[$(date)] ERROR: No jar available"
-      exit 1
-    fi
+    echo "[$(date)] ERROR: Paper $VERSION jar not found after download. Aborting instead of installing a mislabeled jar."
+    exit 1
   fi
 
   cp "$VERSION_JAR" "$SERVER_DIR/server.jar"
