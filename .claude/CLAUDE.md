@@ -77,6 +77,38 @@ try {
 כל יצירת שרת חדשה → בדוק סך הזיכרון המוקצה ב-servers.json לפני הרצת create-server.sh.
 מקסימום: 12,000MB (משאיר 4GB ל-OS + Velocity + Manager).
 
+## 🛑 פרוטוקול אנטי-רגרסיה — חובה לכל סוכן/session (נוצר 2026-06-13)
+
+נוצר אחרי חקירת שורש: הדפוס של "עובדים שוב ושוב על אותו דבר" נגרם מ-4 שורשים מבניים
+(rsync בלי --delete + CRLF, ל-VPS אין git, שכתוב קבצים שלם שמוחק endpoints, URLs נרקבים).
+הכללים האלה עוקפים את הדפוס. **אסור לעבור עליהם.**
+
+### 1. READ-BEFORE-EDIT (תמיד)
+אסור לערוך שום קובץ — ריפו או VPS — בלי לקרוא את הגרסה המלאה הנוכחית קודם.
+אסור לשחזר/לכתוב מהזיכרון. קודם Read, אז Edit.
+
+### 2. מקור-אמת יחיד = הריפו. אסור לערוך runtime ידנית על ה-VPS
+- כל שינוי קוד (`server.js`, סקריפטים) → דרך git → `git push` (oracle/** ⇒ workflow Deploy to Oracle).
+- אם חייבים hotfix דחוף ישירות על ה-VPS → **commit מיידי של אותו שינוי לריפו באותו session**, אחרת ה-deploy הבא ידרוס אותו.
+- קבצי runtime-state בלבד (`velocity.toml`, `servers.json`) חיים על ה-VPS — אותם לא מסנכרנים, אבל **מגבים** (ראה כלל 5).
+
+### 3. אסור לשכתב server.js כקובץ שלם
+עורכים נקודתית (Edit על בלוק ספציפי), אף פעם לא כותבים מחדש את כל הקובץ.
+שכתוב מלא = endpoint יכול להיעלם בלי שורת `-` אדומה ב-diff. זה מה שהרג את `/players`.
+gate-tests.sh כעת בודק נוכחות של כל route קריטי — אם מחקת endpoint, ה-deploy ייכשל.
+
+### 4. VERIFY-AFTER-CHANGE
+אחרי כל שינוי שנגע ב-VPS/Velocity/שרתים — הרץ smoke test ותוודא שלא נסוג כלום:
+- MC ping מקצה-לקצה: חיבור ל-`<slug>.omricraft.com:25565` מחזיר את השרת הנכון.
+- `gate-tests.sh` עובר (כולל Gate 6 — endpoint presence).
+
+### 5. גיבוי runtime-state
+`velocity.toml` + `servers.json` הם state ייחודי שחי רק על ה-VPS. אם ה-VPS נמחק — אבד כל הניתוב.
+יש cron גיבוי (`backup-worlds.sh` + גיבוי config). לא לגעת בלי לוודא שהגיבוי רץ.
+
+### 6. אסור hardcode של URLs להורדת פלאגינים בלי 0-byte check
+URLs נרקבים. כל הורדה → בדוק שהקובץ > 0 bytes (קיים ב-create-server.sh / install-plugin.sh).
+
 ## Backlog פתוח
 - #8 File Manager (endpoints קיימים, UI עדיין mock)
 - #9 Console live log

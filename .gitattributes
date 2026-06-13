@@ -1,0 +1,9 @@
+# Shell scripts run on the Linux VPS — MUST be LF, never CRLF.
+# Without this, Windows commits them with \r and bash fails with
+# "bad interpreter" / "command not found" on the VPS. (Root cause #1)
+*.sh            text eol=lf
+oracle/**       text eol=lf
+*.toml          text eol=lf
+
+# Normalize everything else, let git decide
+*               text=auto

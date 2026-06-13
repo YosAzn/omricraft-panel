@@ -99,6 +99,32 @@ else
   check "servers.json exists" "not found (will be created on first server)"
 fi
 
+# Gate 6: Endpoint presence in server.js (catches wholesale-rewrite drops — root cause #3)
+# A full rewrite of server.js can silently drop a route with NO red diff line.
+# This is what made /players vanish (commit 2929e91) and stuck servers on "starting".
+# If any core route string is missing from the deployed server.js, FAIL the deploy.
+echo ""
+echo "[ Endpoint presence ]"
+SRV="$BASE/manager/manager-api/server.js"
+REQUIRED_ROUTES=(
+  "/server-status/" "/create-server" "/delete-server" "/servers"
+  "/start-server" "/stop-server" "/restart-server" "/send-command"
+  "/players" "/set-whitelist" "/install-plugin" "/remove-plugin"
+  "/change-difficulty" "/update-ops" "/update-server-properties"
+  "/list-files" "/read-file" "/write-file" "/install-datapack" "/read-log"
+)
+if [ -f "$SRV" ]; then
+  for route in "${REQUIRED_ROUTES[@]}"; do
+    if grep -qF "'$route" "$SRV" || grep -qF "\"$route" "$SRV"; then
+      check "route $route" "ok"
+    else
+      check "route $route" "MISSING from server.js — regression!"
+    fi
+  done
+else
+  check "server.js readable for route check" "file not found"
+fi
+
 # Summary
 echo ""
 echo "═══════════════════════════════════"
