@@ -3,13 +3,14 @@ set -euo pipefail
 
 BASE="/home/ubuntu/omricraft"
 VEL_DIR="$BASE/velocity"
-VELOCITY_VERSION="3.3.0-SNAPSHOT"
-VELOCITY_BUILD="436"
+VELOCITY_VERSION="3.4.0-SNAPSHOT"
+# Resolve the latest build dynamically so a fresh install matches the live proxy
+VELOCITY_BUILD=$(curl -sf "https://api.papermc.io/v2/projects/velocity/versions/${VELOCITY_VERSION}" | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const o=JSON.parse(d);console.log(o.builds[o.builds.length-1]);}catch(e){process.exit(1);}})" 2>/dev/null || echo "559")
 VELOCITY_JAR_URL="https://api.papermc.io/v2/projects/velocity/versions/${VELOCITY_VERSION}/builds/${VELOCITY_BUILD}/downloads/velocity-${VELOCITY_VERSION}-${VELOCITY_BUILD}.jar"
 
 echo "[$(date)] Installing Velocity..."
 
-mkdir -p "$VEL_DIR/logs"
+mkdir -p "$VEL_DIR/logs" "$VEL_DIR/plugins"
 
 # Download Velocity jar if missing
 if [ ! -f "$VEL_DIR/velocity.jar" ]; then
@@ -28,6 +29,21 @@ if [ ! -f "$VEL_DIR/forwarding.secret" ]; then
 else
   echo "[$(date)] forwarding.secret already exists."
 fi
+
+# Install ViaVersion + ViaBackwards so clients NEWER than the proxy's native max
+# (e.g. a 26.x client on a 1.21.x backend) can still connect — Via translates the
+# protocol. Fetch the latest velocity-compatible build from Modrinth, 0-byte check.
+install_via_plugin() {
+  local project="$1" out="$2"
+  local url
+  url=$(curl -sf "https://api.modrinth.com/v2/project/${project}/version" | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const a=JSON.parse(d);const v=a.find(x=>x.loaders.includes('velocity'))||a[0];console.log(v.files[0].url);}catch(e){process.exit(1);}})" 2>/dev/null || echo "")
+  if [ -z "$url" ]; then echo "[$(date)] WARNING: could not resolve $project download URL"; return; fi
+  wget -q -L "$url" -O "$VEL_DIR/plugins/${out}"
+  if [ ! -s "$VEL_DIR/plugins/${out}" ]; then echo "[$(date)] ERROR: $project download was 0 bytes"; rm -f "$VEL_DIR/plugins/${out}"; return; fi
+  echo "[$(date)] Installed $project -> plugins/${out} ($(stat -c%s "$VEL_DIR/plugins/${out}") bytes)"
+}
+install_via_plugin viaversion  ViaVersion.jar
+install_via_plugin viabackwards ViaBackwards.jar
 
 FORWARDING_SECRET=$(cat "$VEL_DIR/forwarding.secret")
 
