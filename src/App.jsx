@@ -1349,8 +1349,13 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-all">
                 {typeVersions.map(v => <option key={v} value={v}>{v}{v === '1.21.4' ? ' (מומלץ)' : ''}</option>)}
               </select>
+              <p className="text-xs text-blue-400 mt-2">
+                💡 ViaVersion מותקן אצלנו אוטומטית — שחקנים מ<b>כל</b> גרסת מיינקראפט (כולל 26.x) יכולים להיכנס לשרת הזה, בלי קשר לגרסת השרת.
+              </p>
               {isViaVersion(version) && (
-                <p className="text-xs text-blue-400 mt-2">ℹ️ גרסה חדשה — שחקנים מתחברים דרך ViaVersion</p>
+                <p className="text-xs text-zinc-500 mt-1">
+                  שים לב: זו גרסה חדשה יותר ממה ש-Paper בנה. כאן תקבל את <b>התוכן</b> המלא של {version}. (Paper מוגבל ל-1.21.11; לתוכן 26.x בחר Purpur/Fabric.)
+                </p>
               )}
             </div>
             <div>
@@ -2788,8 +2793,13 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions, versionMat
               <select value={server.version} onChange={(e) => updateServer({ version: e.target.value })} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600">
                 {typeVersions.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
+              <p className="text-xs text-blue-400 mt-1">
+                💡 ViaVersion מותקן אצלנו — שחקנים מ<b>כל</b> גרסה (כולל 26.x) מתחברים לשרת הזה.
+              </p>
               {isViaVersion(server.version) && (
-                <p className="text-xs text-blue-400 mt-1">ℹ️ גרסה חדשה — שחקנים מתחברים דרך ViaVersion</p>
+                <p className="text-xs text-zinc-500 mt-1">
+                  זו גרסה חדשה מ-Paper — כאן יש תוכן {server.version} מלא (לתוכן 26.x בחר Purpur/Fabric).
+                </p>
               )}
             </div>
             <div>
