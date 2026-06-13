@@ -39,6 +39,7 @@ const getServerStatusFn = httpsCallable(functionsInstance, 'getServerStatus');
 const startServerFn = httpsCallable(functionsInstance, 'startServer');
 const stopServerFn = httpsCallable(functionsInstance, 'stopServer');
 const getPaperVersionsFn = httpsCallable(functionsInstance, 'getPaperVersions');
+const getVersionMatrixFn = httpsCallable(functionsInstance, 'getVersionMatrix');
 const updateServerOpsFn = httpsCallable(functionsInstance, 'updateServerOps');
 const installPluginFn = httpsCallable(functionsInstance, 'installPlugin');
 const changeDifficultyFn = httpsCallable(functionsInstance, 'changeDifficulty');
@@ -400,6 +401,28 @@ export default function App() {
         }
       })
       .catch(() => {}); // keep fallback on error
+  }, []);
+
+  // Per-server-type version matrix. Paper tops out at 1.21.x, but Purpur/Fabric/
+  // Vanilla already ship the real 26.x releases — so the version list shown in the
+  // create form is driven by the SELECTED type, not one global list. Cached 6h.
+  const [versionMatrix, setVersionMatrix] = useState({});
+  useEffect(() => {
+    const cached = localStorage.getItem('mc-version-matrix-v1');
+    const ts = parseInt(localStorage.getItem('mc-version-matrix-v1-ts') || '0');
+    if (cached && Date.now() - ts < 21600000) {
+      try { setVersionMatrix(JSON.parse(cached)); return; } catch(e) {}
+    }
+    getVersionMatrixFn()
+      .then(res => {
+        const matrix = res.data?.matrix;
+        if (matrix && typeof matrix === 'object') {
+          setVersionMatrix(matrix);
+          localStorage.setItem('mc-version-matrix-v1', JSON.stringify(matrix));
+          localStorage.setItem('mc-version-matrix-v1-ts', String(Date.now()));
+        }
+      })
+      .catch(() => {}); // keep {} → falls back to mcVersions per-type in the form
   }, []);
 
   const [servers, setServers] = useState([]);
@@ -983,6 +1006,7 @@ export default function App() {
             allAddons={allAddons}
             userRole={userRole}
             mcVersions={mcVersions}
+            versionMatrix={versionMatrix}
             onCancel={() => setCurrentView('dashboard')}
             onCreate={handleCreateServer}
             isCreatingServer={isCreatingServer}
@@ -991,7 +1015,7 @@ export default function App() {
 
         {currentView === 'server' && activeServer && (
           <ServerPanel
-            server={activeServer} t={t} allAddons={allAddons} userRole={userRole} mcVersions={mcVersions}
+            server={activeServer} t={t} allAddons={allAddons} userRole={userRole} mcVersions={mcVersions} versionMatrix={versionMatrix}
             onBack={() => setCurrentView('dashboard')}
             toggleStatus={() => toggleServerStatus(activeServer.id)}
             restartServer={() => restartServer(activeServer.id)}
@@ -1198,7 +1222,23 @@ function Dashboard({ servers, onOpenServer, onCreateClick, toggleServerStatus, o
   );
 }
 
-function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersions, isCreatingServer = false }) {
+// Returns true if `version` is newer than the proxy's native max (1.21.11) and
+// therefore relies on ViaVersion on the Velocity proxy to bridge older clients.
+function isViaVersion(version) {
+  if (typeof version !== 'string') return false;
+  const m = version.match(/^1\.(\d+)(?:\.(\d+))?$/);
+  if (m) {
+    const minor = parseInt(m[1], 10);
+    const patch = parseInt(m[2] || '0', 10);
+    if (minor < 21) return false;
+    if (minor > 21) return true;
+    return patch > 11; // 1.21.x where x > 11
+  }
+  // Non 1.x scheme (e.g. 26.1.2) → definitely newer than 1.21.11.
+  return !version.startsWith('1.');
+}
+
+function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersions, versionMatrix = {}, isCreatingServer = false }) {
   if (userRole !== 'admin') return <div className="text-center p-12 text-zinc-500">{t('noPermission')}</div>;
 
   const [name, setName] = useState('My Awesome Server');
@@ -1245,6 +1285,21 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
 
   const toggleSelection = (id) => setSelectedAddons(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]);
 
+  // Version list is driven by the SELECTED software type. Each type's real API
+  // supports a different set (Paper ≤ 1.21.x, Purpur/Fabric/Vanilla ship 26.x).
+  // Fall back to the global Paper list if the matrix hasn't loaded for that type.
+  const typeVersions = (versionMatrix[software] && versionMatrix[software].length)
+    ? versionMatrix[software]
+    : mcVersions;
+
+  // When the type changes, if the current version isn't valid for it, snap to newest.
+  const handleSoftwareChange = (id) => {
+    setSoftware(id);
+    setSelectedAddons([]);
+    const list = (versionMatrix[id] && versionMatrix[id].length) ? versionMatrix[id] : mcVersions;
+    if (list.length && !list.includes(version)) setVersion(list[0]);
+  };
+
   return (
     <div className="max-w-3xl mx-auto animate-in fade-in duration-300 pb-10">
       <button onClick={onCancel} className="flex items-center gap-2 text-zinc-400 hover:text-white mb-6 transition-colors">
@@ -1276,7 +1331,7 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
             <label className="block text-sm font-bold text-zinc-400 mb-3">{t('software')}</label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {SOFTWARE_TYPES.map(sw => (
-                <div key={sw.id} onClick={() => { setSoftware(sw.id); setSelectedAddons([]); }}
+                <div key={sw.id} onClick={() => handleSoftwareChange(sw.id)}
                   className={`cursor-pointer border rounded-lg p-3 text-center transition-all flex flex-col items-center gap-1
                     ${software === sw.id ? 'bg-green-500/10 border-green-500 text-green-400 shadow-md' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200'}`}>
                   <div className="font-bold">{sw.name}</div>
@@ -1292,8 +1347,11 @@ function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersio
               <label className="block text-sm font-bold text-zinc-400 mb-2">{t('version')}</label>
               <select value={version} onChange={(e) => setVersion(e.target.value)}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-all">
-                {mcVersions.map(v => <option key={v} value={v}>{v}{v === '1.21.4' ? ' (מומלץ)' : ''}</option>)}
+                {typeVersions.map(v => <option key={v} value={v}>{v}{v === '1.21.4' ? ' (מומלץ)' : ''}</option>)}
               </select>
+              {isViaVersion(version) && (
+                <p className="text-xs text-blue-400 mt-2">ℹ️ גרסה חדשה — שחקנים מתחברים דרך ViaVersion</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-bold text-zinc-400 mb-2">{t('gamemode')}</label>
@@ -1737,7 +1795,7 @@ function GlobalRepository({ allAddons, customAddons, onAdd, onDelete, t, userRol
   );
 }
 
-function ServerPanel({ server, onBack, toggleStatus, restartServer, toggleAddon, onDelete, updateServer, t, allAddons, userRole, mcVersions, syncStatus, playersData }) {
+function ServerPanel({ server, onBack, toggleStatus, restartServer, toggleAddon, onDelete, updateServer, t, allAddons, userRole, mcVersions, versionMatrix = {}, syncStatus, playersData }) {
   const [activeTab, setActiveTab] = useState('overview');
   const hasMapPlugin = server.installedAddons.includes('p9');
 
@@ -1835,7 +1893,7 @@ function ServerPanel({ server, onBack, toggleStatus, restartServer, toggleAddon,
           {activeTab === 'console' && <ConsoleTab server={server} t={t} userRole={userRole} />}
           {activeTab === 'addons' && <AddonsTab server={server} toggleAddon={toggleAddon} t={t} allAddons={allAddons} userRole={userRole} />}
           {activeTab === 'files' && <FilesTab server={server} t={t} userRole={userRole} />}
-          {activeTab === 'settings' && userRole === 'admin' && <SettingsTab server={server} onDelete={onDelete} updateServer={updateServer} t={t} mcVersions={mcVersions} />}
+          {activeTab === 'settings' && userRole === 'admin' && <SettingsTab server={server} onDelete={onDelete} updateServer={updateServer} t={t} mcVersions={mcVersions} versionMatrix={versionMatrix} />}
         </div>
       </div>
     </div>
@@ -2684,7 +2742,11 @@ function DifficultyControl({ server, updateServer, t }) {
   );
 }
 
-function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
+function SettingsTab({ server, onDelete, updateServer, t, mcVersions, versionMatrix = {} }) {
+  // Version list filtered to what THIS server's software type actually supports.
+  const typeVersions = (versionMatrix[server.software] && versionMatrix[server.software].length)
+    ? versionMatrix[server.software]
+    : mcVersions;
   const applyServerProperty = async (field, value) => {
     try {
       const res = await updateServerPropertiesFn({ serverId: server.id, properties: { [field]: value } });
@@ -2724,8 +2786,11 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions }) {
             <div>
               <label className="block text-sm text-zinc-400 mb-1">{t('version')}</label>
               <select value={server.version} onChange={(e) => updateServer({ version: e.target.value })} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600">
-                {mcVersions.map(v => <option key={v} value={v}>{v}</option>)}
+                {typeVersions.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
+              {isViaVersion(server.version) && (
+                <p className="text-xs text-blue-400 mt-1">ℹ️ גרסה חדשה — שחקנים מתחברים דרך ViaVersion</p>
+              )}
             </div>
             <div>
               <label className="block text-sm text-zinc-400 mb-1">{t('maxPlayers')}</label>

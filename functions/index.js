@@ -709,3 +709,96 @@ exports.getPaperVersions = onCall(
     });
   }
 );
+
+// ---------------------------------------------------------------------------
+// getVersionMatrix — per-server-type supported MC versions (server-side, no CORS)
+// ---------------------------------------------------------------------------
+// Each server software supports a DIFFERENT set of MC versions. Paper currently
+// tops out at 1.21.x, while Purpur/Fabric/Vanilla already ship the real 26.x
+// releases. We fetch each project's own version source so the UI can show ONLY
+// versions that type can actually download — no phantom versions, no false
+// labels that make create-server fall back to a different jar.
+exports.getVersionMatrix = onCall(
+  { region: "us-central1", timeoutSeconds: 25 },
+  async () => {
+    // 1.21.x stable list — used as a sane fallback for any source that fails.
+    const FALLBACK_121 = ['1.21.11', '1.21.10', '1.21.9', '1.21.8', '1.21.7', '1.21.6', '1.21.5', '1.21.4', '1.21.3', '1.21.1', '1.21'];
+
+    // Reject pre-releases / snapshots / experimental builds.
+    const isStable = (v) => typeof v === 'string'
+      && !/-pre|-rc|-alpha|-beta|snapshot|-exp|w\d{2}[a-z]/i.test(v);
+
+    // Generic JSON GET that never throws — resolves to a fallback on any failure.
+    const fetchJson = (url, fallback) => new Promise((resolve) => {
+      const req = https.get(url, { headers: { 'User-Agent': 'OmriCraft-Panel/1.0' } }, (res) => {
+        let data = '';
+        res.on('data', chunk => { data += chunk; });
+        res.on('end', () => {
+          try { resolve(JSON.parse(data)); }
+          catch { resolve(fallback); }
+        });
+      });
+      req.on('error', () => resolve(fallback));
+      req.setTimeout(12000, () => { req.destroy(); resolve(fallback); });
+    });
+
+    // Each entry: fetch source, map to a newest-first stable string[] of MC versions.
+    const sources = {
+      // PaperMC: .versions[] oldest-first → reverse to newest-first.
+      paper: async () => {
+        const j = await fetchJson('https://api.papermc.io/v2/projects/paper', null);
+        const arr = j?.versions;
+        if (!Array.isArray(arr) || !arr.length) return FALLBACK_121;
+        return arr.filter(isStable).reverse();
+      },
+      // Folia: same PaperMC API shape.
+      folia: async () => {
+        const j = await fetchJson('https://api.papermc.io/v2/projects/folia', null);
+        const arr = j?.versions;
+        if (!Array.isArray(arr) || !arr.length) return FALLBACK_121;
+        return arr.filter(isStable).reverse();
+      },
+      // Purpur: .versions[] oldest-first → reverse. Already ships 26.x.
+      purpur: async () => {
+        const j = await fetchJson('https://api.purpurmc.org/v2/purpur', null);
+        const arr = j?.versions;
+        if (!Array.isArray(arr) || !arr.length) return FALLBACK_121;
+        return arr.filter(isStable).reverse();
+      },
+      // Fabric: array of { version, stable }. Already newest-first; keep stable releases.
+      fabric: async () => {
+        const j = await fetchJson('https://meta.fabricmc.net/v2/versions/game', null);
+        if (!Array.isArray(j) || !j.length) return FALLBACK_121;
+        return j.filter(g => g && g.stable && isStable(g.version)).map(g => g.version);
+      },
+      // Vanilla (Mojang): version_manifest_v2 .versions[] {id,type}; keep type==="release".
+      vanilla: async () => {
+        const j = await fetchJson('https://launchermeta.mojang.com/mc/game/version_manifest_v2.json', null);
+        const arr = j?.versions;
+        if (!Array.isArray(arr) || !arr.length) return FALLBACK_121;
+        // Manifest is newest-first already; keep releases only.
+        return arr.filter(v => v && v.type === 'release' && isStable(v.id)).map(v => v.id);
+      },
+      // NeoForge / Mohist: deriving a clean MC version from NeoForge's maven version
+      // string (e.g. 21.1.x → MC 1.21.1) and Mohist's per-MC builds is messy and
+      // error-prone. Until a reliable mapping exists, fall back to the Paper list so
+      // the UI never offers a version the backend can't resolve to a real jar.
+      neoforge: async () => sources.paper(),
+      mohist: async () => sources.paper(),
+    };
+
+    const keys = Object.keys(sources);
+    const results = await Promise.all(keys.map(async (k) => {
+      try {
+        const list = await sources[k]();
+        return [k, (Array.isArray(list) && list.length) ? list : FALLBACK_121];
+      } catch (e) {
+        console.error(`getVersionMatrix source failed: ${k}`, e);
+        return [k, FALLBACK_121];
+      }
+    }));
+
+    const matrix = Object.fromEntries(results);
+    return { success: true, matrix };
+  }
+);
