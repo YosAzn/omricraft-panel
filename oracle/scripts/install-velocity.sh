@@ -44,6 +44,18 @@ install_via_plugin() {
 }
 install_via_plugin viaversion  ViaVersion.jar
 install_via_plugin viabackwards ViaBackwards.jar
+install_via_plugin plasmo-voice PlasmoVoice.jar
+
+# ServerWaker is a CUSTOM plugin (auto-start backends on join) with no public
+# download — the jar is committed to the repo and rsynced alongside this script,
+# so a fresh VPS rebuild restores it instead of silently losing auto-start.
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SELF_DIR/serverwaker-1.0.0.jar" ]; then
+  cp "$SELF_DIR/serverwaker-1.0.0.jar" "$VEL_DIR/plugins/serverwaker-1.0.0.jar"
+  echo "[$(date)] Installed serverwaker (from repo) -> plugins/serverwaker-1.0.0.jar"
+else
+  echo "[$(date)] WARNING: serverwaker-1.0.0.jar not found next to this script — auto-start will be missing."
+fi
 
 FORWARDING_SECRET=$(cat "$VEL_DIR/forwarding.secret")
 
