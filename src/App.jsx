@@ -54,6 +54,8 @@ const writeFileFn = httpsCallable(functionsInstance, 'writeFile');
 const deleteFileFn = httpsCallable(functionsInstance, 'deleteFile');
 const reloadPluginFn = httpsCallable(functionsInstance, 'reloadPlugin');
 const removePluginJarFn = httpsCallable(functionsInstance, 'removePluginJar');
+const changeServerVersionFn = httpsCallable(functionsInstance, 'changeServerVersion');
+const updateServerMemoryFn = httpsCallable(functionsInstance, 'updateServerMemory');
 
 
 // --- מילון שפות ---
@@ -2762,6 +2764,42 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions, versionMat
     }
   };
 
+  const [versionSaving, setVersionSaving] = React.useState(false);
+
+  // Real version change: swaps the jar on the VPS and restarts the server.
+  const handleVersionChange = async (newVersion) => {
+    const prevVersion = server.version;
+    if (!newVersion || newVersion === prevVersion) return;
+    if (!window.confirm('שינוי גרסה יוריד גרסה חדשה ויפעיל מחדש את השרת. להמשיך?')) return;
+    setVersionSaving(true);
+    updateServer({ version: newVersion }); // optimistic
+    try {
+      const res = await changeServerVersionFn({ serverId: server.id, version: newVersion, type: server.software });
+      if (!res.data?.success) throw new Error(res.data?.error || 'שינוי הגרסה נכשל');
+    } catch (e) {
+      console.error('changeServerVersion error:', e);
+      updateServer({ version: prevVersion }); // rollback
+      alert(`שגיאה בשינוי הגרסה: ${e.message}`);
+    } finally {
+      setVersionSaving(false);
+    }
+  };
+
+  // RAM editing: writes memoryMb to servers.json (effective on next restart).
+  const handleMemoryChange = async (newMemoryMb) => {
+    const prev = server.memoryMb || 2048;
+    if (!newMemoryMb || newMemoryMb === prev) return;
+    updateServer({ memoryMb: newMemoryMb }); // optimistic
+    try {
+      const res = await updateServerMemoryFn({ serverId: server.id, memoryMb: newMemoryMb });
+      if (!res.data?.success) throw new Error(res.data?.error || 'עדכון ה-RAM נכשל');
+    } catch (e) {
+      console.error('updateServerMemory error:', e);
+      updateServer({ memoryMb: prev }); // rollback
+      alert(`שגיאה בעדכון ה-RAM: ${e.message}`);
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in max-w-2xl">
       <div>
@@ -2789,8 +2827,11 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions, versionMat
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-zinc-400 mb-1">{t('version')}</label>
-              <select value={server.version} onChange={(e) => updateServer({ version: e.target.value })} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600">
+              <label className="block text-sm text-zinc-400 mb-1 flex items-center gap-2">
+                {t('version')}
+                {versionSaving && <span className="text-xs text-zinc-500 animate-pulse">מחליף גרסה...</span>}
+              </label>
+              <select value={server.version} disabled={versionSaving} onChange={(e) => handleVersionChange(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600 disabled:opacity-50">
                 {typeVersions.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
               <p className="text-xs text-blue-400 mt-1">
@@ -2805,6 +2846,15 @@ function SettingsTab({ server, onDelete, updateServer, t, mcVersions, versionMat
             <div>
               <label className="block text-sm text-zinc-400 mb-1">{t('maxPlayers')}</label>
               <input type="number" value={server.maxPlayers} onChange={(e) => updateServer({ maxPlayers: parseInt(e.target.value) || 20 })} onBlur={(e) => applyServerProperty('maxPlayers', parseInt(e.target.value) || 20)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600" />
+            </div>
+            <div>
+              <label className="block text-sm text-zinc-400 mb-1">{t('ram')}</label>
+              <select value={server.memoryMb || 2048} onChange={(e) => handleMemoryChange(parseInt(e.target.value, 10))} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600">
+                {[1024, 2048, 3072, 4096, 6144, 8192].map(mb => (
+                  <option key={mb} value={mb}>{(mb / 1024).toFixed(mb % 1024 === 0 ? 0 : 1)} GB ({mb} MB)</option>
+                ))}
+              </select>
+              <p className="text-xs text-zinc-500 mt-1">נכנס לתוקף בהפעלה הבאה (מקסימום כולל ~12000MB לכל השרתים)</p>
             </div>
             <div>
               <label className="block text-sm text-zinc-400 mb-1">{t('gamemode')}</label>

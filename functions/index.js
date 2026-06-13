@@ -673,6 +673,55 @@ exports.getServerStats = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// changeServerVersion — swaps the server jar on the VPS + restarts
+// ---------------------------------------------------------------------------
+exports.changeServerVersion = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 300 },
+  async (request) => {
+    const { serverId, version, type } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    if (!version || typeof version !== 'string' || !/^[0-9][0-9a-z.\-+]*$/i.test(version)) {
+      return { success: false, error: 'Invalid version' };
+    }
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    const body = { serverId, version };
+    if (type && typeof type === 'string') body.type = type;
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/change-version', body);
+      return result;
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// updateServerMemory — sets memoryMb in servers.json (effective on next restart)
+// ---------------------------------------------------------------------------
+exports.updateServerMemory = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 30 },
+  async (request) => {
+    const { serverId, memoryMb } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    const mem = parseInt(memoryMb, 10);
+    if (!Number.isFinite(mem)) return { success: false, error: 'Invalid memoryMb' };
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/update-memory', { serverId, memoryMb: mem });
+      return result;
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // getPaperVersions — fetches Paper versions server-side (bypasses CORS)
 // ---------------------------------------------------------------------------
 exports.getPaperVersions = onCall(

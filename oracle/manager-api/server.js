@@ -900,6 +900,182 @@ app.get('/server-stats/:id', function(req, res) {
   }
 });
 
+// Helper: read servers.json as an array (handles {servers:[]} shape too)
+function readServersArray() {
+  const raw = fs.readFileSync(SERVERS_JSON, 'utf8');
+  const data = JSON.parse(raw);
+  return Array.isArray(data) ? data : (data.servers || []);
+}
+
+// Helper: atomically write the servers array back to servers.json
+function writeServersArray(arr) {
+  const tmp = SERVERS_JSON + '.tmp.' + process.pid;
+  fs.writeFileSync(tmp, JSON.stringify(arr, null, 2));
+  fs.renameSync(tmp, SERVERS_JSON);
+}
+
+// Helper: is a server currently running (by PID file)?
+function isServerRunning(serverId) {
+  try {
+    const pid = fs.readFileSync(path.join(SERVERS_DIR, serverId, 'server.pid'), 'utf8').trim();
+    if (!pid) return false;
+    process.kill(parseInt(pid, 10), 0);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// /change-version — swaps the server jar for a new TYPE/VERSION and restarts.
+// Stops the server if running, backs up server.jar, re-downloads via the single
+// source of truth (download-server-jar.sh). On download failure → restore the
+// backup and report failure (NEVER leave a broken server). Worlds are never
+// touched. On success: update servers.json version, restart if it was running.
+// ---------------------------------------------------------------------------
+app.post('/change-version', async function(req, res) {
+  const serverId = req.body.serverId;
+  const version = req.body.version;
+  if (!validateId(serverId, res)) return;
+  if (!version || typeof version !== 'string' || !/^[0-9][0-9a-z.\-+]*$/i.test(version)) {
+    return res.status(400).json({ success: false, error: 'Invalid version' });
+  }
+
+  let arr;
+  let srv;
+  try {
+    arr = readServersArray();
+    srv = arr.find(function(s) { return s.id === serverId; });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not read servers.json: ' + e.message });
+  }
+  if (!srv) return res.status(404).json({ success: false, error: 'Server not found' });
+
+  const type = (req.body.type && typeof req.body.type === 'string') ? req.body.type : (srv.type || 'paper');
+  const serverDir = path.join(SERVERS_DIR, serverId);
+  const jarPath = path.join(serverDir, 'server.jar');
+  const bakPath = jarPath + '.bak';
+  const prevVersion = srv.version;
+  const wasRunning = isServerRunning(serverId);
+
+  console.log('[' + new Date().toISOString() + '] change-version ' + serverId + ': ' + prevVersion + ' -> ' + version + ' (type=' + type + ', wasRunning=' + wasRunning + ')');
+
+  // 1. Stop if running
+  if (wasRunning) {
+    try {
+      await runScript('stop-server.sh', [serverId]);
+    } catch (e) {
+      return res.status(500).json({ success: false, error: 'Could not stop server before version change: ' + e.message });
+    }
+  }
+
+  // 2. Back up current jar (if present)
+  try {
+    if (fs.existsSync(jarPath)) fs.copyFileSync(jarPath, bakPath);
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not back up server.jar: ' + e.message });
+  }
+
+  // 3. Download the new jar via the single source of truth
+  try {
+    await runScript('download-server-jar.sh', [serverDir, type, version], 300000);
+  } catch (e) {
+    // Restore backup — do NOT leave a broken server
+    try {
+      if (fs.existsSync(bakPath)) fs.copyFileSync(bakPath, jarPath);
+    } catch (re) {
+      console.error('change-version: restore failed for ' + serverId + ':', re);
+    }
+    // Bring the server back up if it was running before
+    if (wasRunning) {
+      runScript('start-server.sh', [serverId, String(srv.memoryMb || 2048)]).catch(function(se) {
+        console.error('change-version: restart after failed download failed for ' + serverId + ':', se);
+      });
+    }
+    console.error('change-version download failed for ' + serverId + ':', e);
+    return res.status(500).json({ success: false, error: 'Jar download failed: ' + e.message + ' (server.jar restored to ' + prevVersion + ')' });
+  }
+
+  // 4. Update servers.json version field
+  try {
+    srv.version = version;
+    if (req.body.type) srv.type = type;
+    writeServersArray(arr);
+  } catch (e) {
+    console.error('change-version: could not update servers.json for ' + serverId + ':', e);
+    // jar is already swapped; report but don't roll back the (working) jar
+    return res.status(500).json({ success: false, error: 'Jar swapped but servers.json update failed: ' + e.message });
+  }
+
+  // 5. Remove backup on success
+  try { if (fs.existsSync(bakPath)) fs.unlinkSync(bakPath); } catch (e) { /* non-fatal */ }
+
+  // 6. Restart if it was running
+  if (wasRunning) {
+    try {
+      await runScript('start-server.sh', [serverId, String(srv.memoryMb || 2048)]);
+    } catch (e) {
+      return res.status(500).json({ success: false, error: 'Version changed but server failed to restart: ' + e.message });
+    }
+  }
+
+  console.log('[' + new Date().toISOString() + '] change-version OK ' + serverId + ' now ' + version);
+  return res.json({ success: true, serverId: serverId, version: version, restarted: wasRunning });
+});
+
+// ---------------------------------------------------------------------------
+// /update-memory — sets memoryMb for a server in servers.json. Takes effect on
+// the next (re)start; does NOT force a restart. Clamped to a sane range, and
+// guarded against exceeding the global RAM cap across all servers.
+// ---------------------------------------------------------------------------
+const MEM_MIN_MB = 512;
+const MEM_MAX_MB = 8192;
+const MEM_TOTAL_CAP_MB = 12000; // total allocated across all servers (OS+Velocity headroom)
+
+app.post('/update-memory', function(req, res) {
+  const serverId = req.body.serverId;
+  let memoryMb = parseInt(req.body.memoryMb, 10);
+  if (!validateId(serverId, res)) return;
+  if (!Number.isFinite(memoryMb)) {
+    return res.status(400).json({ success: false, error: 'Invalid memoryMb' });
+  }
+  // Clamp to sane range
+  if (memoryMb < MEM_MIN_MB) memoryMb = MEM_MIN_MB;
+  if (memoryMb > MEM_MAX_MB) memoryMb = MEM_MAX_MB;
+
+  let arr;
+  let srv;
+  try {
+    arr = readServersArray();
+    srv = arr.find(function(s) { return s.id === serverId; });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not read servers.json: ' + e.message });
+  }
+  if (!srv) return res.status(404).json({ success: false, error: 'Server not found' });
+
+  // RAM guard: sum of all OTHER servers + the new value must stay under the cap
+  const otherTotal = arr.reduce(function(sum, s) {
+    if (s.id === serverId) return sum;
+    return sum + (parseInt(s.memoryMb, 10) || 0);
+  }, 0);
+  if (otherTotal + memoryMb > MEM_TOTAL_CAP_MB) {
+    return res.status(400).json({
+      success: false,
+      error: 'RAM cap exceeded: ' + (otherTotal + memoryMb) + 'MB requested, max ' + MEM_TOTAL_CAP_MB + 'MB. Other servers use ' + otherTotal + 'MB.'
+    });
+  }
+
+  try {
+    srv.memoryMb = memoryMb;
+    writeServersArray(arr);
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not write servers.json: ' + e.message });
+  }
+
+  console.log('[' + new Date().toISOString() + '] update-memory ' + serverId + ' -> ' + memoryMb + 'MB (effective on next restart)');
+  return res.json({ success: true, serverId: serverId, memoryMb: memoryMb, note: 'Takes effect on next (re)start' });
+});
+
 app.listen(PORT, '0.0.0.0', function() {
   console.log('[' + new Date().toISOString() + '] OmriCraft Manager API listening on 0.0.0.0:' + PORT);
 });
