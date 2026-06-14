@@ -10,6 +10,16 @@ set -euo pipefail
 # Placeholder tokens (case-insensitive). Lines matching any of these are SKIPPED.
 placeholder_re='change_me|<[^>]*>|redacted|placeholder|example|xxxx'
 
+# Safe NON-secret patterns — these can never leak a real literal, so SKIP them.
+# Prevents chronic false positives that train people to use --no-verify:
+#  .value()/defineSecret  → reading from a secret manager (no literal here)
+#  process.env/os.environ/getenv → reading from env (no literal)
+#  ${...}                  → shell/template var interpolation (value not in line)
+#  apiKey: "AIza..."       → Firebase/Google WEB client key — public by design
+#                            (ships in the browser bundle; secured by rules, not secrecy)
+#  pragma: allowlist secret → explicit per-line escape hatch
+safe_re='\.value\(\)|defineSecret\(|process\.env\.|os\.environ|getenv\(|\$\{[A-Za-z_]|apiKey[[:space:]]*[:=][[:space:]]*["'"'"'`]AIza|allowlist secret'
+
 # Credential-looking patterns. Lines matching these (and not a placeholder) FLAG.
 cred_re='(rcon\.password|password|passwd|secret|token|api[_-]?key|forwarding-secret)[[:space:]]*[=:][[:space:]]*"?[^"[:space:]]{8,}'
 pkey_re='BEGIN [A-Z ]*PRIVATE KEY'
@@ -33,6 +43,11 @@ while IFS= read -r line; do
 
   # Skip placeholders.
   if printf '%s' "$added" | grep -Eiq "$placeholder_re"; then
+    continue
+  fi
+
+  # Skip safe non-secret reads/interpolations/public-web-keys.
+  if printf '%s' "$added" | grep -Eiq "$safe_re"; then
     continue
   fi
 
