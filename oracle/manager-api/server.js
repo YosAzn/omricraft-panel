@@ -870,7 +870,7 @@ app.get('/server-stats/:id', function(req, res) {
     var raw = fs.readFileSync(SERVERS_JSON, 'utf8');
     servers = JSON.parse(raw);
     if (!Array.isArray(servers)) servers = servers.servers || [];
-  } catch (e) {}
+  } catch (e) { console.error('[server-stats] servers.json read/parse failed:', e.message); }
   var server = servers.find(function(s) { return s.id === id; });
   if (!server) return res.json({ success: false, error: 'not found' });
 

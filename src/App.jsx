@@ -55,7 +55,7 @@ export default function App() {
     const cached = localStorage.getItem('mc-versions-v3');
     const ts = parseInt(localStorage.getItem('mc-versions-v3-ts') || '0');
     if (cached && Date.now() - ts < 21600000) {
-      try { setMcVersions(JSON.parse(cached)); return; } catch(e) {}
+      try { setMcVersions(JSON.parse(cached)); return; } catch(e) { console.warn('mc-versions cache parse failed:', e); }
     }
     localStorage.removeItem('mc-versions-v3');
     localStorage.removeItem('mc-versions-v3-ts');
@@ -79,7 +79,7 @@ export default function App() {
     const cached = localStorage.getItem('mc-version-matrix-v1');
     const ts = parseInt(localStorage.getItem('mc-version-matrix-v1-ts') || '0');
     if (cached && Date.now() - ts < 21600000) {
-      try { setVersionMatrix(JSON.parse(cached)); return; } catch(e) {}
+      try { setVersionMatrix(JSON.parse(cached)); return; } catch(e) { console.warn('version-matrix cache parse failed:', e); }
     }
     getVersionMatrixFn()
       .then(res => {
@@ -506,7 +506,7 @@ export default function App() {
       const statusRes = await getServerStatusFn({ serverId: id });
       const running = statusRes.data?.running === true;
       await updateDoc(doc(db, getServersPath(), id), { status: running ? 'online' : 'offline' });
-    } catch(e) {}
+    } catch(e) { console.error('syncServerStatus failed for', id, e); }
   };
 
   // Auto-sync all server statuses when dashboard is shown
@@ -523,7 +523,7 @@ export default function App() {
           if (srv.status !== newStatus) {
             await updateDoc(doc(db, getServersPath(), srv.id), { status: newStatus });
           }
-        } catch(e) {}
+        } catch(e) { console.error('syncAll status fetch failed for', srv.id, e); }
       }
     };
     syncAll();

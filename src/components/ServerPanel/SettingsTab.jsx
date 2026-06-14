@@ -123,9 +123,17 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
              <ImageUploader
                iconUrl={server.icon}
                setIconUrl={async (newUrl) => {
+                 const prevIcon = server.icon;
                  updateServer({ icon: newUrl });
                  if (newUrl && server.id) {
-                   try { await updateServerIconFn({ serverId: server.id, icon: newUrl }); } catch(e) {}
+                   try {
+                     const res = await updateServerIconFn({ serverId: server.id, icon: newUrl });
+                     if (!res.data?.success) throw new Error(res.data?.error || 'Icon update failed');
+                   } catch(e) {
+                     console.error('updateServerIcon error:', e);
+                     updateServer({ icon: prevIcon }); // rollback — keep Firestore and VPS in sync
+                     alert(`שגיאה בעדכון הלוגו: ${e.message}`);
+                   }
                  }
                }}
                t={t} size="sm"

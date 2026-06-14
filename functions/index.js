@@ -221,7 +221,7 @@ exports.startServer = onCall(
       const list = await callManagerApi(BASE_URL, API_KEY, 'GET', '/servers', null);
       const srv = (list.servers || []).find(s => s.id === serverId);
       if (srv && srv.memoryMb) memoryMb = srv.memoryMb;
-    } catch(e) {}
+    } catch(e) { console.error('startServer memoryMb lookup failed, using default:', e.message); }
     return await callManagerApi(BASE_URL, API_KEY, 'POST', '/start-server', { serverId, memoryMb });
   }
 );
