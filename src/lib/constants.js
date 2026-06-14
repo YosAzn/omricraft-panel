@@ -10,7 +10,7 @@ export const TYPE_COLORS = {
 export const SOFTWARE_TYPES = [
   { id: 'vanilla',   name: 'Vanilla',   type: 'official', desc: 'שרת Mojang רשמי — קשה, נקי' },
   { id: 'paper',     name: 'Paper',     type: 'plugins',  desc: 'הכי נפוץ — ביצועים + plugins' },
-  { id: 'purpur',    name: 'Purpur',    type: 'plugins',  desc: 'כמו ונילה רק מהיר יותר — מומלץ!' },
+  { id: 'purpur',    name: 'Purpur',    type: 'plugins',  desc: 'Paper משופר — תומך plugins, מהיר + עוד הגדרות. מומלץ!' },
   { id: 'folia',     name: 'Folia',     type: 'plugins',  desc: 'Paper עם multi-threading לשרתים גדולים' },
   { id: 'fabric',    name: 'Fabric',    type: 'mods',     desc: 'Mods קלים — עדכניים' },
   { id: 'forge',     name: 'Forge',     type: 'mods',     desc: 'Mods קלאסיים — ספריית ה-mods הגדולה' },

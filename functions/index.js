@@ -117,6 +117,16 @@ exports.createServer = onCall(
       console.warn('Could not fetch existing servers for port allocation:', e.message);
     }
 
+    // Ensure the slug is UNIQUE — two servers with the same display name would
+    // otherwise collide on the same subdomain, leaving the newer one unroutable
+    // in Velocity (the "new server shows under an old server's name" bug).
+    const usedSlugs = new Set(existingServers.map(s => s.slug).filter(Boolean));
+    if (usedSlugs.has(slug)) {
+      let i = 2;
+      while (usedSlugs.has(`${slug}-${i}`)) i++;
+      slug = `${slug}-${i}`;
+    }
+
     const usedPorts = new Set(existingServers.map(s => s.gamePort).filter(Boolean));
     let gamePort = 25566;
     while (usedPorts.has(gamePort)) gamePort++;

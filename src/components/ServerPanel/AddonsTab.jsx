@@ -66,20 +66,24 @@ export default function AddonsTab({ server, toggleAddon, t, allAddons, userRole 
     }
   };
 
+  // Bukkit-family servers all support plugins (Paper/Purpur/Folia/Mohist).
+  // Mod-loaders use mods. Mohist is HYBRID → supports BOTH plugins and mods.
+  const PLUGIN_SERVERS = ['paper', 'purpur', 'folia', 'mohist'];
+  const MOD_SERVERS = ['fabric', 'forge', 'neoforge', 'mohist'];
   const relevantAddons = allAddons.filter(a => {
     if (a.type === 'textures') return true;
-    if (['fabric', 'forge'].includes(server.software) && ['mods', 'modpacks'].includes(a.type)) return true;
-    if (server.software === 'paper' && a.type === 'plugins') return true;
+    if (MOD_SERVERS.includes(server.software) && ['mods', 'modpacks'].includes(a.type)) return true;
+    if (PLUGIN_SERVERS.includes(server.software) && a.type === 'plugins') return true;
     if (a.type === 'datapacks') return true;
     return false;
   });
 
   const availableFilters = [{ id: 'all', name: t('all') || 'הכל' }];
-  if (['fabric', 'forge'].includes(server.software)) {
+  if (MOD_SERVERS.includes(server.software)) {
     availableFilters.push({ id: 'mods', name: t('mods') });
     availableFilters.push({ id: 'modpacks', name: t('modpacks') });
   }
-  if (server.software === 'paper') availableFilters.push({ id: 'plugins', name: t('plugins') });
+  if (PLUGIN_SERVERS.includes(server.software)) availableFilters.push({ id: 'plugins', name: t('plugins') });
   availableFilters.push({ id: 'datapacks', name: t('datapacks') });
   availableFilters.push({ id: 'textures', name: t('textures') });
 

@@ -8,7 +8,7 @@ import ImageUploader from './ImageUploader';
 export default function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersions, versionMatrix = {}, isCreatingServer = false }) {
   if (userRole !== 'admin') return <div className="text-center p-12 text-zinc-500">{t('noPermission')}</div>;
 
-  const [name, setName] = useState('My Awesome Server');
+  const [name, setName] = useState('');
   const [icon, setIcon] = useState(null);
   const [software, setSoftware] = useState('paper');
   const [version, setVersion] = useState('1.21.4');
@@ -89,7 +89,8 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, use
              <div className="flex-1 w-full">
                <label className="block text-sm font-bold text-zinc-400 mb-2">{t('serverName')}</label>
                <input type="text" value={name} onChange={(e) => setName(e.target.value)} required
-                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-4 text-white text-lg font-bold focus:outline-none focus:border-green-500 transition-all shadow-inner" />
+                 placeholder="My Awesome Server" autoFocus
+                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-4 text-white text-lg font-bold focus:outline-none focus:border-green-500 transition-all shadow-inner placeholder:text-zinc-600 placeholder:font-normal" />
                <p className="text-xs text-zinc-500 mt-2">זה השם שיופיע לשחקנים ברשימת השרתים בתוך המשחק.</p>
              </div>
           </div>
