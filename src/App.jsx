@@ -24,6 +24,7 @@ import {
 import { DICT } from './lib/i18n';
 import { TYPE_COLORS, SOFTWARE_TYPES, DEFAULT_ADDONS } from './lib/constants';
 import { isViaVersion } from './lib/utils';
+import { NavBtn, TabBtn } from './components/ui';
 
 export default function App() {
   const [authUser, setAuthUser] = useState(null);
@@ -717,17 +718,6 @@ export default function App() {
 // ==========================================
 // Sub-components
 // ==========================================
-
-function NavBtn({ active, onClick, icon, label }) {
-  return (
-    <button 
-      onClick={onClick}
-      className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all ${active ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'}`}
-    >
-      {icon} <span className="hidden md:inline">{label}</span>
-    </button>
-  );
-}
 
 function ImageUploader({ iconUrl, setIconUrl, t, size = 'lg' }) {
   const fileInputRef = useRef(null);
@@ -1561,15 +1551,6 @@ function ServerPanel({ server, onBack, toggleStatus, restartServer, toggleAddon,
         </div>
       </div>
     </div>
-  );
-}
-
-function TabBtn({ icon, label, active, onClick, badge }) {
-  return (
-    <button onClick={onClick} className={`flex items-center justify-between w-full p-3 rounded-lg font-medium transition-all whitespace-nowrap ${active ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'}`}>
-      <div className="flex items-center gap-3">{icon} <span>{label}</span></div>
-      {badge !== undefined && badge > 0 && <span className="bg-green-500/20 text-green-400 text-xs py-0.5 px-2 rounded-full font-bold">{badge}</span>}
-    </button>
   );
 }
 
