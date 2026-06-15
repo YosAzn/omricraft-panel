@@ -80,11 +80,13 @@ elif [ "$TYPE" = "neoforge" ]; then
 
 elif [ "$TYPE" = "mohist" ]; then
   echo "[$(date)] Installing Mohist $VERSION..."
-  MOHIST_BUILD=$(curl -sf "https://mohistmc.com/api/v2/projects/mohist/${VERSION}/builds" | python3 -c "import sys,json; builds=json.load(sys.stdin).get('builds',[]); print(builds[-1]['number'] if builds else '')" 2>/dev/null || echo "")
-  if [ -z "$MOHIST_BUILD" ]; then echo "[$(date)] ERROR: cannot find Mohist for $VERSION"; exit 1; fi
-  wget -q -L "https://mohistmc.com/api/v2/projects/mohist/${VERSION}/builds/${MOHIST_BUILD}/download" -O "$SERVER_DIR/server.jar"
+  # Use the newest build's own `url` field directly — the latest Mohist builds have
+  # no `number` (only a git-SHA), so building the URL from a build number breaks.
+  MOHIST_URL=$(curl -sf "https://mohistmc.com/api/v2/projects/mohist/${VERSION}/builds" | python3 -c "import sys,json; b=json.load(sys.stdin).get('builds',[]); print((b[-1].get('url') or '') if b else '')" 2>/dev/null || echo "")
+  if [ -z "$MOHIST_URL" ]; then echo "[$(date)] ERROR: cannot find Mohist build for $VERSION"; exit 1; fi
+  wget -q -L "$MOHIST_URL" -O "$SERVER_DIR/server.jar"
   if [ ! -s "$SERVER_DIR/server.jar" ]; then echo "[$(date)] ERROR: Mohist jar 0 bytes"; exit 1; fi
-  echo "[$(date)] Mohist $VERSION build $MOHIST_BUILD installed"
+  echo "[$(date)] Mohist $VERSION installed from $MOHIST_URL"
 
 elif [ "$TYPE" = "purpur" ]; then
   echo "[$(date)] Installing Purpur $VERSION..."
