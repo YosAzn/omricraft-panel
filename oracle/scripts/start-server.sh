@@ -14,6 +14,11 @@ MEMORY_MB="$2"
 BASE="/home/ubuntu/omricraft"
 SERVER_DIR="$BASE/servers/$SERVER_ID"
 PID_FILE="$SERVER_DIR/server.pid"
+
+# Java 25 (Temurin) is required for Minecraft 26.x; backward-compatible with 1.21.x.
+# Fall back to system java if the JDK 25 install is missing.
+JAVA_BIN="/home/ubuntu/jdk-25/bin/java"
+[ -x "$JAVA_BIN" ] || JAVA_BIN="java"
 LOG_FILE="$SERVER_DIR/logs/console.log"
 SERVERS_JSON="$BASE/manager/servers.json"
 
@@ -50,7 +55,7 @@ if [ -f "$SERVER_DIR/run.sh" ] && ([ ! -s "$SERVER_DIR/server.jar" ] || grep -q 
     >> "$LOG_FILE" 2>&1 &
 else
   # Paper, Purpur, Fabric (fabric-server-launch.jar copied to server.jar during create)
-  nohup java -Xms${MEMORY_MB}M -Xmx${MEMORY_MB}M \
+  nohup "$JAVA_BIN" -Xms${MEMORY_MB}M -Xmx${MEMORY_MB}M \
     -XX:+UseG1GC \
     -XX:+ParallelRefProcEnabled \
     -XX:MaxGCPauseMillis=200 \

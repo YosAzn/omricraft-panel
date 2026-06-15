@@ -6,6 +6,10 @@ VEL_DIR="$BASE/velocity"
 PID_FILE="$VEL_DIR/velocity.pid"
 LOG_FILE="$VEL_DIR/logs/console.log"
 
+# Java 25 (Temurin) — required for MC 26.x, backward-compatible with older. Fallback to system java.
+JAVA_BIN="/home/ubuntu/jdk-25/bin/java"
+[ -x "$JAVA_BIN" ] || JAVA_BIN="java"
+
 echo "[$(date)] Starting Velocity..."
 
 if [ ! -f "$VEL_DIR/velocity.jar" ]; then
@@ -26,7 +30,7 @@ if [ -f "$PID_FILE" ]; then
 fi
 
 cd "$VEL_DIR"
-nohup java -Xms512M -Xmx512M \
+nohup "$JAVA_BIN" -Xms512M -Xmx512M \
   -XX:+UseG1GC \
   -XX:G1HeapRegionSize=4M \
   -XX:+UnlockExperimentalVMOptions \
