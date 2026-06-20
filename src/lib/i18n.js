@@ -93,7 +93,9 @@ export const DICT = {
     selectModsForPack: "בחר תוספים שייכללו במודפאק החדש:",
     fileSaved: "הקובץ נשמר בהצלחה!",
     editingFile: "עורך קובץ:",
-    saveFile: "שמור שינויים"
+    saveFile: "שמור שינויים",
+    adminSignIn: "התחבר כאדמין (Google)",
+    adminSignOut: "התנתק"
   },
   en: {
     appTitle: "OmriCraft",
@@ -188,6 +190,8 @@ export const DICT = {
     selectModsForPack: "Select addons to include in this modpack:",
     fileSaved: "File saved successfully!",
     editingFile: "Editing:",
-    saveFile: "Save Changes"
+    saveFile: "Save Changes",
+    adminSignIn: "Sign in as Admin (Google)",
+    adminSignOut: "Sign out"
   }
 };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Server, Globe, Library, Shield, Users } from 'lucide-react';
 
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
 
 import { auth, db } from './lib/firebase';
@@ -19,6 +19,11 @@ import GlobalRepository from './components/GlobalRepository';
 import ServerPanel from './components/ServerPanel/ServerPanel';
 
 export default function App() {
+  // Stable admin identity is email-based (NOT the ephemeral anonymous UID).
+  // Anonymous auth gives every browser a fresh UID on storage/SW clear, which
+  // silently dropped admin rights. Google sign-in pins admin to a real account.
+  const ADMIN_EMAILS = ['yosijo@gmail.com'];
+
   const [authUser, setAuthUser] = useState(null);
   const [adminUid, setAdminUid] = useState(null);
   const [userRole, setUserRole] = useState('admin');
@@ -126,7 +131,9 @@ export default function App() {
             await setDoc(configRef, { adminUid: user.uid });
             setAdminUid(user.uid);
           }
-        } catch (e) { /* silent */ }
+        } catch (e) {
+          console.error('Failed to read/claim admin config (omricraft/main/config/admin):', e);
+        }
       } else {
         initAuth();
       }
@@ -172,7 +179,37 @@ export default function App() {
   }, []);
   // ----------------------------------------
 
-  const isAdmin = authUser && adminUid && authUser.uid === adminUid;
+  // Sign in as admin via Google (added ALONGSIDE anonymous — anonymous stays for kids/other devices)
+  const signInAsAdmin = async () => {
+    if (!auth) return;
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      // onAuthStateChanged updates authUser; isAdmin recomputes from the email
+    } catch (e) {
+      console.error('Google admin sign-in failed:', e);
+      alert(`התחברות Google נכשלה: ${e.message}`);
+    }
+  };
+
+  // Sign out of the Google account → drops back to a fresh anonymous session
+  const signOutAdmin = async () => {
+    if (!auth) return;
+    try {
+      await signOut(auth);
+      // onAuthStateChanged fires with null → initAuth() re-runs anonymous sign-in
+    } catch (e) {
+      console.error('Sign-out failed:', e);
+    }
+  };
+
+  const adminEmail = authUser?.email ? authUser.email.toLowerCase() : null;
+  // Email-based admin = stable across browser/storage clears (the root-cause fix).
+  // Legacy UID match kept as fallback so an already-claimed anonymous admin UID
+  // still works until it signs in with Google.
+  const isAdmin =
+    (!!adminEmail && ADMIN_EMAILS.includes(adminEmail)) ||
+    (!!authUser && !!adminUid && authUser.uid === adminUid);
 
   const visibleServers = useMemo(() => {
     if (isAdmin) return servers; // admin sees all
@@ -653,6 +690,19 @@ export default function App() {
             <button onClick={() => setLang(lang === 'he' ? 'en' : 'he')} className="text-zinc-400 hover:text-white transition-colors flex items-center gap-1 text-sm px-2 py-1.5 rounded-full" title={t('language')}>
               <Globe size={16} /> <span className="uppercase font-bold text-xs">{lang === 'he' ? 'EN' : 'HE'}</span>
             </button>
+
+            {isAdmin && adminEmail ? (
+              <div className="flex items-center gap-2">
+                <span className="hidden sm:inline text-xs text-emerald-400 font-bold max-w-[140px] truncate" title={adminEmail}>{adminEmail}</span>
+                <button onClick={signOutAdmin} className="text-zinc-400 hover:text-white transition-colors text-xs font-bold px-2 py-1.5 rounded-md bg-zinc-800" title={t('adminSignOut')}>
+                  {t('adminSignOut')}
+                </button>
+              </div>
+            ) : (
+              <button onClick={signInAsAdmin} className="text-emerald-400 hover:text-white transition-colors flex items-center gap-1 text-xs font-bold px-2 py-1.5 rounded-md bg-zinc-800 hover:bg-emerald-600" title={t('adminSignIn')}>
+                <Shield size={14} /> <span className="hidden sm:inline">{t('adminSignIn')}</span>
+              </button>
+            )}
           </div>
         </div>
       </nav>
