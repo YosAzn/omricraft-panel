@@ -22,7 +22,7 @@ export default function App() {
   // Stable admin identity is email-based (NOT the ephemeral anonymous UID).
   // Anonymous auth gives every browser a fresh UID on storage/SW clear, which
   // silently dropped admin rights. Google sign-in pins admin to a real account.
-  const ADMIN_EMAILS = ['yosijo@gmail.com'];
+  const ADMIN_EMAILS = ['yosijo@gmail.com', 'omri.sokolov@gmail.com'];
 
   const [authUser, setAuthUser] = useState(null);
   const [adminUid, setAdminUid] = useState(null);

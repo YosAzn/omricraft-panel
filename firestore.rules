@@ -2,9 +2,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // OmriCraft shared servers — כל משתמש מאומת (כולל אנונימי) יכול לקרוא ולכתוב
+    // OmriCraft servers — read: owner או אדמין; write: אדמין בלבד.
+    // ADMIN_EMAILS מסונכרן עם functions/index.js + src/App.jsx (3 עותקים — rules לא יכול import).
+    // הערה: legacy servers בלי ownerUid ייקראו רק ע"י אדמין (תקין — יוסף רואה הכל).
     match /omricraft/main/servers/{serverId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null
+        && (resource.data.ownerUid == request.auth.uid
+            || request.auth.token.email in ['yosijo@gmail.com', 'omri.sokolov@gmail.com']);
+      allow write: if request.auth != null
+        && request.auth.token.email in ['yosijo@gmail.com', 'omri.sokolov@gmail.com'];
     }
 
     // Custom addons
@@ -13,11 +19,12 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
-    // Admin config — כל משתמש מאומת יכול לקרוא; כתיבה רק ראשונה (אם לא קיים)
+    // Admin config — קריאה לכל מאומת; כתיבה חסומה לחלוטין (anti-admin-hijack).
+    // ה-doc כבר קיים (adminUid נקבע בכניסה הראשונה); אין צורך ב-create יותר,
+    // וחסימתו מונעת מתוקף אנונימי לחטוף אדמין. שינוי adminUid = ידנית בקונסולה.
     match /omricraft/main/config/admin {
       allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if false;
+      allow create, update, delete: if false;
     }
 
     // כל שאר הנתיבים — חסום

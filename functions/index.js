@@ -1,4 +1,4 @@
-const { onCall } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const http = require("http");
 const https = require("https");
@@ -8,6 +8,21 @@ const db = admin.firestore();
 
 const managerApiUrl = defineSecret("MANAGER_API_URL");
 const managerApiKey = defineSecret("MANAGER_API_KEY");
+
+// ---------------------------------------------------------------------------
+// Server-side admin gate. The React isAdmin check is cosmetic only — every
+// sensitive callable MUST verify the caller here. Keep this list in sync with
+// src/App.jsx (ADMIN_EMAILS) and firestore.rules — three copies on purpose,
+// since firestore.rules cannot import JS. Adding an admin = one string in all 3.
+// ---------------------------------------------------------------------------
+const ADMIN_EMAILS = ['yosijo@gmail.com', 'omri.sokolov@gmail.com']; // sync with App.jsx + firestore.rules
+function assertAdmin(request) {
+  const t = request.auth && request.auth.token;
+  if (!request.auth || !t || !t.email || !t.email_verified ||
+      !ADMIN_EMAILS.includes(String(t.email || '').toLowerCase())) {
+    throw new HttpsError('permission-denied', 'Admin only');
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Hebrew transliteration for slug generation
@@ -88,6 +103,7 @@ exports.createServer = onCall(
     timeoutSeconds: 120,
   },
   async (request) => {
+    assertAdmin(request);
     const { displayName, version, memoryMb, gamemode, difficulty, worldType, ops, maxPlayers, seed, addons, icon, isPrivate, whitelistPlayers, type } = request.data || {};
 
     if (!displayName || typeof displayName !== 'string' || !displayName.trim()) {
@@ -184,6 +200,7 @@ exports.deleteServer = onCall(
     timeoutSeconds: 120,
   },
   async (request) => {
+    assertAdmin(request);
     const { serverId } = request.data || {};
 
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
@@ -211,6 +228,7 @@ exports.deleteServer = onCall(
 exports.startServer = onCall(
   { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 30 },
   async (request) => {
+    assertAdmin(request);
     const { serverId } = request.data || {};
     if (!serverId || !/^[a-z0-9_-]+$/.test(serverId)) return { success: false, error: 'Invalid serverId' };
     const BASE_URL = managerApiUrl.value().trim();
@@ -229,6 +247,7 @@ exports.startServer = onCall(
 exports.stopServer = onCall(
   { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 30 },
   async (request) => {
+    assertAdmin(request);
     const { serverId } = request.data || {};
     if (!serverId || !/^[a-z0-9_-]+$/.test(serverId)) return { success: false, error: 'Invalid serverId' };
     const BASE_URL = managerApiUrl.value().trim();
@@ -247,6 +266,7 @@ exports.getServerStatus = onCall(
     timeoutSeconds: 15,
   },
   async (request) => {
+    assertAdmin(request);
     const { serverId } = request.data || {};
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
       return { success: false, error: 'Invalid serverId' };
@@ -272,6 +292,7 @@ exports.setServerPrivacy = onCall(
     timeoutSeconds: 30,
   },
   async (request) => {
+    assertAdmin(request);
     const { serverId, isPrivate } = request.data || {};
 
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
@@ -303,6 +324,7 @@ exports.updateWhitelistPlayers = onCall(
     timeoutSeconds: 30,
   },
   async (request) => {
+    assertAdmin(request);
     const { serverId, players } = request.data || {};
 
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
@@ -337,6 +359,7 @@ exports.updateServerIcon = onCall(
     timeoutSeconds: 30,
   },
   async (request) => {
+    assertAdmin(request);
     const { serverId, icon } = request.data || {};
 
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
@@ -371,6 +394,7 @@ exports.sendMcCommand = onCall(
     timeoutSeconds: 30,
   },
   async (request) => {
+    assertAdmin(request);
     const { serverId, command } = request.data || {};
 
     if (!command || typeof command !== 'string') {
@@ -405,6 +429,7 @@ exports.installPlugin = onCall(
     timeoutSeconds: 90,
   },
   async (request) => {
+    assertAdmin(request);
     const { serverId, pluginId, install } = request.data || {};
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
       return { success: false, error: 'Invalid serverId' };
@@ -434,6 +459,7 @@ exports.removePluginJar = onCall(
     timeoutSeconds: 20,
   },
   async (request) => {
+    assertAdmin(request);
     const { serverId, file } = request.data || {};
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
       return { success: false, error: 'Invalid serverId' };
@@ -458,6 +484,7 @@ function fileFn(endpoint, timeoutSeconds) {
   return onCall(
     { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: timeoutSeconds || 30 },
     async (request) => {
+      assertAdmin(request);
       const { serverId, path: relPath, content } = request.data || {};
       if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
         return { success: false, error: 'Invalid serverId' };
@@ -491,6 +518,7 @@ exports.reloadPlugin = onCall(
     timeoutSeconds: 20,
   },
   async (request) => {
+    assertAdmin(request);
     const { serverId } = request.data || {};
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
       return { success: false, error: 'Invalid serverId' };
@@ -519,6 +547,7 @@ exports.getPlayersOnline = onCall(
     timeoutSeconds: 20,
   },
   async (request) => {
+    assertAdmin(request);
     const BASE_URL = managerApiUrl.value().trim();
     const API_KEY  = managerApiKey.value().trim();
     try {
@@ -559,6 +588,7 @@ exports.updateServerOps = onCall(
     timeoutSeconds: 30,
   },
   async (request) => {
+    assertAdmin(request);
     const { serverId, ops } = request.data || {};
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
       return { success: false, error: 'Invalid serverId' };
@@ -587,6 +617,7 @@ exports.changeDifficulty = onCall(
     timeoutSeconds: 30,
   },
   async (request) => {
+    assertAdmin(request);
     const { serverId, difficulty } = request.data || {};
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
       return { success: false, error: 'Invalid serverId' };
@@ -612,6 +643,7 @@ exports.changeDifficulty = onCall(
 exports.getServerLog = onCall(
   { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 20 },
   async (request) => {
+    assertAdmin(request);
     const { serverId, lines = 100 } = request.data || {};
     if (!serverId || !/^[a-z0-9_-]+$/.test(serverId)) return { success: false, error: 'Invalid serverId' };
     const BASE_URL = managerApiUrl.value().trim();
@@ -631,6 +663,7 @@ exports.getServerLog = onCall(
 exports.updateServerProperties = onCall(
   { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 30 },
   async (request) => {
+    assertAdmin(request);
     const { serverId, properties } = request.data || {};
     if (!serverId) return { success: false, error: 'Missing serverId' };
     const BASE_URL = managerApiUrl.value().trim();
@@ -650,6 +683,7 @@ exports.updateServerProperties = onCall(
 exports.restartServer = onCall(
   { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 60 },
   async (request) => {
+    assertAdmin(request);
     const { serverId } = request.data || {};
     if (!serverId) return { success: false, error: 'Missing serverId' };
     const BASE_URL = managerApiUrl.value().trim();
@@ -669,6 +703,7 @@ exports.restartServer = onCall(
 exports.getServerStats = onCall(
   { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 15 },
   async (request) => {
+    assertAdmin(request);
     const { serverId } = request.data || {};
     if (!serverId || !/^[a-z0-9_-]+$/.test(serverId)) return { success: false, running: false, ram: 0, cpu: 0 };
     const BASE_URL = managerApiUrl.value().trim();
@@ -688,6 +723,7 @@ exports.getServerStats = onCall(
 exports.changeServerVersion = onCall(
   { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 300 },
   async (request) => {
+    assertAdmin(request);
     const { serverId, version, type } = request.data || {};
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
       return { success: false, error: 'Invalid serverId' };
@@ -720,6 +756,7 @@ const VALID_TYPES = ['paper', 'purpur', 'folia', 'mohist', 'fabric', 'forge', 'n
 exports.changeServerType = onCall(
   { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 300 },
   async (request) => {
+    assertAdmin(request);
     const { serverId, type, version } = request.data || {};
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
       return { success: false, error: 'Invalid serverId' };
@@ -748,6 +785,7 @@ exports.changeServerType = onCall(
 exports.updateServerMemory = onCall(
   { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 30 },
   async (request) => {
+    assertAdmin(request);
     const { serverId, memoryMb } = request.data || {};
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
       return { success: false, error: 'Invalid serverId' };
