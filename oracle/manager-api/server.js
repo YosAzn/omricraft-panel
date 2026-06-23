@@ -118,15 +118,23 @@ function rconConnect(host, port, password, command, timeout) {
   });
 }
 
-// Check real running status by PID file
+// Check real running status by whether the server's game port is actually listening.
+// (PID-file check was unreliable: start-server.sh stored the nohup PID, not the java PID.)
 app.get('/server-status/:serverId', function(req, res) {
   const serverId = req.params.serverId;
   if (!SAFE_ID.test(serverId)) return res.status(400).json({ success: false, error: 'Invalid id' });
-  const pidFile = path.join(SERVERS_DIR, serverId, 'server.pid');
   let running = false;
   try {
-    const pid = fs.readFileSync(pidFile, 'utf8').trim();
-    if (pid) { process.kill(parseInt(pid), 0); running = true; }
+    const propsPath = path.join(SERVERS_DIR, serverId, 'server.properties');
+    const props = fs.readFileSync(propsPath, 'utf8');
+    const portMatch = props.match(/^server-port=(\d+)/m);
+    if (portMatch) {
+      const port = parseInt(portMatch[1], 10);
+      const { execFileSync } = require('child_process');
+      // ss exits 0 always; we detect LISTEN lines for this exact port.
+      const out = execFileSync('ss', ['-ltn', 'sport = :' + port], { timeout: 5000 }).toString();
+      running = /LISTEN/.test(out);
+    }
   } catch (e) { running = false; }
   return res.json({ success: true, serverId, running });
 });
@@ -156,6 +164,27 @@ app.post('/create-server', async function(req, res) {
   if (!validateId(slug, res)) return;
   if (!displayName || !version || !gamePort || !rconPort || !memoryMb) {
     return res.status(400).json({ success: false, error: 'Missing required fields' });
+  }
+
+  // RAM guard (create): guard against memory of servers ACTUALLY RUNNING, not the
+  // sum of all allocations in servers.json. With sleep/wake (ServerWaker) most
+  // servers are stopped at any moment, so summing every server's allocated memoryMb
+  // would block creation forever once total allocation exceeds the cap — even
+  // though the box is mostly idle. We measure the live -Xmx of running java
+  // backends instead, and check (running + requested) against MEM_RUNNING_CAP_MB.
+  // A newly created server starts STOPPED, so it does not add to running RAM until
+  // the user starts it; ServerWaker handles waking within the same live budget.
+  try {
+    const _runningMb = runningGameServerMemoryMb();
+    const _reqMem = parseInt(memoryMb, 10) || 0;
+    if (_runningMb + _reqMem > MEM_RUNNING_CAP_MB) {
+      return res.status(400).json({
+        success: false,
+        error: 'RAM cap exceeded (create): ' + (_runningMb + _reqMem) + 'MB would be live, max ' + MEM_RUNNING_CAP_MB + 'MB. Running servers currently use ' + _runningMb + 'MB. Stop an idle server and retry.'
+      });
+    }
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not compute running RAM for guard: ' + e.message });
   }
 
   try {
@@ -332,9 +361,15 @@ app.get('/players', async function(req, res) {
     }
     try {
       const out = await rconConnect('127.0.0.1', rconPort, rconPass, 'list', 5000);
-      const m = out.match(/(\d+)\s+out of.*?(\d+)/);
-      const count = m ? parseInt(m[1]) : 0;
-      const max = m ? parseInt(m[2]) : 0;
+      // Strip Minecraft color codes (EssentialsX prefixes each number with U+00A7 + code) before parsing.
+      // Without stripping, /(\d+)\s+out of.../ matched the digit inside the color code (e.g. the 6 in the prefix)
+      // and reported a bogus non-zero count for empty servers, which disabled auto-stop.
+      const clean = out.replace(/\u00A7./g, "");
+      const m = clean.match(/There are\s+(\d+)\s+out of maximum\s+(\d+)/);
+      // fail-safe: if parsing fails, count stays null so auto-stop (online && count===0) skips this server
+      // instead of wrongly treating an unparseable server as empty and stopping it.
+      const count = m ? parseInt(m[1], 10) : null;
+      const max = m ? parseInt(m[2], 10) : null;
       results[serverId] = { online: true, count, max, players: [] };
     } catch (e) {
       results[serverId] = { online: false, count: 0, max: 0, players: [] };
@@ -907,6 +942,29 @@ function readServersArray() {
   return Array.isArray(data) ? data : (data.servers || []);
 }
 
+// Helper: total heap (MB) of Minecraft game-server java processes RUNNING NOW.
+// Parses -Xmx from each java process whose command line references a server.jar
+// backend (excludes the Velocity proxy, which runs velocity.jar). Used by the
+// create-server RAM guard so that the cap reflects live load, not allocation.
+// Fails LOUD: if ps cannot be read the caller's try/catch returns a 500.
+function runningGameServerMemoryMb() {
+  const { execSync } = require('child_process');
+  const out = execSync(
+    "ps -eo args | grep -E 'java .*-jar server.jar' | grep -v grep || true",
+    { timeout: 5000 }
+  ).toString();
+  let totalMb = 0;
+  out.split('\n').forEach(function(line) {
+    if (!line.trim()) return;
+    const m = line.match(/-Xmx(\d+)([MmGg])/);
+    if (!m) return;
+    const val = parseInt(m[1], 10);
+    if (!Number.isFinite(val)) return;
+    totalMb += (m[2].toUpperCase() === 'G') ? val * 1024 : val;
+  });
+  return totalMb;
+}
+
 // Helper: atomically write the servers array back to servers.json
 function writeServersArray(arr) {
   const tmp = SERVERS_JSON + '.tmp.' + process.pid;
@@ -1068,7 +1126,12 @@ app.post('/change-version', async function(req, res) {
 // ---------------------------------------------------------------------------
 const MEM_MIN_MB = 512;
 const MEM_MAX_MB = 8192;
-const MEM_TOTAL_CAP_MB = 12000; // total allocated across all servers (OS+Velocity headroom)
+const MEM_TOTAL_CAP_MB = 12000; // total allocated across all servers (OS+Velocity headroom) — used by /update-memory
+// Live-load cap for the create-server guard. Box has ~24GB total; Velocity ~512MB,
+// OS + manager-api + page cache need headroom, so we cap the sum of RUNNING game
+// server heaps at 18GB. Sleep/wake means most servers are stopped at any moment,
+// so this measures actual pressure rather than total allocation.
+const MEM_RUNNING_CAP_MB = 18000;
 
 app.post('/update-memory', function(req, res) {
   const serverId = req.body.serverId;
