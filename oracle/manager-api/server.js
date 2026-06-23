@@ -5,6 +5,7 @@ const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const net = require('net');
+const dns = require('dns');
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const MANAGER_API_KEY = process.env.MANAGER_API_KEY || '';
@@ -250,6 +251,25 @@ app.post('/start-server', async function(req, res) {
   const memoryMb = req.body.memoryMb;
   if (!validateId(serverId, res)) return;
   if (!memoryMb) return res.status(400).json({ success: false, error: 'Missing memoryMb' });
+
+  // RAM guard (start/wake): same live-load check as /create-server. ServerWaker
+  // calls this endpoint, so waking a stopped server when the box is already near
+  // the live cap would OOM-kill a running backend. We measure the live -Xmx of
+  // running java backends and block if (running + requested) exceeds the cap.
+  // Fails LOUD via the catch → 500, never silently starts past the cap.
+  try {
+    const _runningMb = runningGameServerMemoryMb();
+    const _reqMem = parseInt(memoryMb, 10) || 0;
+    if (_runningMb + _reqMem > MEM_RUNNING_CAP_MB) {
+      return res.status(400).json({
+        success: false,
+        error: 'RAM cap exceeded (start): ' + (_runningMb + _reqMem) + 'MB would be live, max ' + MEM_RUNNING_CAP_MB + 'MB. Running servers currently use ' + _runningMb + 'MB. Stop an idle server and retry.'
+      });
+    }
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not compute running RAM for guard: ' + e.message });
+  }
+
   try {
     await runScript('start-server.sh', [serverId, String(memoryMb)]);
     return res.json({ success: true, serverId: serverId });
@@ -777,6 +797,79 @@ app.post('/delete-file', function(req, res) {
   }
 });
 
+// --- SSRF guard helpers (shared across initial URL + every redirect hop) ---
+// Defence-in-depth: even though /install-datapack is not exposed via a Cloud
+// Function, prevent using this box as a fetch proxy into the internal network
+// (Oracle metadata 169.254.169.254, loopback, RFC1918, etc.). Checks run against
+// the DNS-RESOLVED IP — not the host string — so octal/decimal/hex/IPv6-mapped
+// encodings and DNS-rebinding cannot smuggle an internal address past us.
+var ALLOWED_DATAPACK_HOSTS = [
+  'modrinth.com', 'cdn.modrinth.com',
+  'github.com', 'raw.githubusercontent.com', 'objects.githubusercontent.com',
+  'codeload.github.com', 'github.io'
+];
+
+// True if the given numeric IP string is private / loopback / link-local /
+// unspecified, for both IPv4 and IPv6 (incl. IPv4-mapped IPv6 like ::ffff:127.0.0.1).
+function isPrivateIp(ip) {
+  var fam = net.isIP(ip);
+  if (!fam) return true; // not a parseable IP → reject, fail closed
+  // Normalise IPv4-mapped IPv6 (::ffff:a.b.c.d / ::ffff:7f00:1) down to IPv4.
+  var lower = ip.toLowerCase();
+  var mapped = lower.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+  if (mapped) { ip = mapped[1]; fam = 4; }
+  if (fam === 4) {
+    var p = ip.split('.').map(function(o) { return parseInt(o, 10); });
+    if (p.length !== 4 || p.some(function(o) { return isNaN(o) || o < 0 || o > 255; })) return true;
+    if (p[0] === 0) return true;                                   // 0.0.0.0/8
+    if (p[0] === 10) return true;                                  // 10/8
+    if (p[0] === 127) return true;                                 // 127/8 loopback
+    if (p[0] === 169 && p[1] === 254) return true;                 // 169.254/16 link-local (metadata)
+    if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true;     // 172.16/12
+    if (p[0] === 192 && p[1] === 168) return true;                 // 192.168/16
+    if (p[0] === 100 && p[1] >= 64 && p[1] <= 127) return true;    // 100.64/10 CGNAT
+    return false;
+  }
+  // IPv6
+  if (lower === '::' || lower === '::1') return true;              // unspecified / loopback
+  if (/^(fc|fd)[0-9a-f]{2}:/.test(lower)) return true;            // fc00::/7 unique-local
+  if (/^fe[89ab][0-9a-f]:/.test(lower)) return true;             // fe80::/10 link-local
+  return false;
+}
+
+// Validate a single URL: https only + host on allowlist + every resolved IP public.
+// Async because of dns.lookup. Calls cb(errMessage|null).
+function assertUrlAllowed(rawUrl, cb) {
+  var parsed;
+  try { parsed = new URL(rawUrl); }
+  catch (e) { return cb('Invalid url'); }
+  if (parsed.protocol !== 'https:') {
+    return cb('Only https URLs allowed');
+  }
+  var host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, ''); // strip IPv6 brackets
+  // Layer 1: host allowlist (modrinth / github families). If the host is a bare
+  // IP literal it will simply not match the allowlist and be rejected here.
+  var hostAllowed = ALLOWED_DATAPACK_HOSTS.some(function(h) {
+    return host === h || host.endsWith('.' + h);
+  });
+  if (!hostAllowed) return cb('Host not allowed: ' + host);
+  // If the host is itself an IP literal, check it directly (no DNS).
+  if (net.isIP(host)) {
+    return cb(isPrivateIp(host) ? 'Blocked host (private/loopback address)' : null);
+  }
+  // Layer 2: resolve and reject if ANY answer is an internal address (rebinding-safe).
+  dns.lookup(host, { all: true }, function(err, addresses) {
+    if (err) return cb('DNS resolution failed for host: ' + host);
+    if (!addresses || addresses.length === 0) return cb('No DNS records for host: ' + host);
+    for (var i = 0; i < addresses.length; i++) {
+      if (isPrivateIp(addresses[i].address)) {
+        return cb('Blocked host (resolves to private/loopback address)');
+      }
+    }
+    return cb(null);
+  });
+}
+
 app.post('/install-datapack', async function(req, res) {
   var serverId = req.body.serverId;
   var url = req.body.url;
@@ -788,6 +881,12 @@ app.post('/install-datapack', async function(req, res) {
     return res.status(400).json({ success: false, error: 'Invalid filename' });
   }
 
+  // SSRF guard on the initial URL (per-hop re-validation happens in fetchToFile).
+  var initialErr = await new Promise(function(resolve) { assertUrlAllowed(url, resolve); });
+  if (initialErr) {
+    return res.status(400).json({ success: false, error: initialErr });
+  }
+
   var serverDir = path.join(SERVERS_DIR, serverId);
   var worldDatapacks = path.join(serverDir, 'world', 'datapacks');
   var pending = path.join(serverDir, 'datapacks-pending');
@@ -796,20 +895,33 @@ app.post('/install-datapack', async function(req, res) {
   fs.mkdirSync(targetDir, { recursive: true });
   var dest = path.join(targetDir, filename);
 
-  function fetchToFile(srcUrl, destPath, cb) {
-    var https = require('https');
-    var http = require('http');
-    var file = fs.createWriteStream(destPath);
-    var proto = srcUrl.startsWith('https') ? https : http;
-    proto.get(srcUrl, { headers: { 'User-Agent': 'omricraft/1.0' } }, function(response) {
-      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-        file.close();
-        fs.unlink(destPath, function() {});
-        return fetchToFile(response.headers.location, destPath, cb);
-      }
-      response.pipe(file);
-      file.on('finish', function() { file.close(); cb(null); });
-    }).on('error', cb);
+  var MAX_REDIRECTS = 5;
+  function fetchToFile(srcUrl, destPath, cb, depth) {
+    depth = depth || 0;
+    // Re-validate EVERY hop (incl. the URL we were redirected to) before fetching,
+    // so a 30x Location pointing at 169.254.169.254 / loopback is rejected.
+    assertUrlAllowed(srcUrl, function(vErr) {
+      if (vErr) return cb(new Error('Blocked redirect/url: ' + vErr));
+      var https = require('https');
+      var file = fs.createWriteStream(destPath);
+      https.get(srcUrl, { headers: { 'User-Agent': 'omricraft/1.0' } }, function(response) {
+        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          response.resume(); // drain
+          file.close();
+          fs.unlink(destPath, function() {});
+          if (depth >= MAX_REDIRECTS) {
+            return cb(new Error('Too many redirects (max ' + MAX_REDIRECTS + ')'));
+          }
+          // Resolve relative redirects against the current URL before re-validating.
+          var nextUrl;
+          try { nextUrl = new URL(response.headers.location, srcUrl).toString(); }
+          catch (e) { return cb(new Error('Invalid redirect location')); }
+          return fetchToFile(nextUrl, destPath, cb, depth + 1);
+        }
+        response.pipe(file);
+        file.on('finish', function() { file.close(); cb(null); });
+      }).on('error', cb);
+    });
   }
 
   try {

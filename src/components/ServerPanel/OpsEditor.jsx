@@ -8,15 +8,18 @@ export default function OpsEditor({ server, updateServer }) {
 
   const handleSave = async () => {
     const ops = opsText.split(',').map(o => o.trim()).filter(Boolean);
+    const prevOps = server.ops || [];
     setSaving(true);
     setSaved(false);
-    updateServer({ ops });
+    updateServer({ ops }); // optimistic
     try {
       const res = await updateServerOpsFn({ serverId: server.id, ops });
       if (!res.data?.success) throw new Error(res.data?.error || 'Ops update failed');
     } catch(e) {
       console.error('updateServerOps error:', e);
       setSaved(false);
+      updateServer({ ops: prevOps }); // rollback — keep Firestore/VPS in sync
+      setSaving(false); // was stuck before: return left saving=true → button disabled forever
       alert(`שגיאה בעדכון OPs: ${e.message}`);
       return;
     }

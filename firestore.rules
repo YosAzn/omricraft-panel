@@ -13,10 +13,12 @@ service cloud.firestore {
         && request.auth.token.email in ['yosijo@gmail.com', 'omri.sokolov@gmail.com'];
     }
 
-    // Custom addons
+    // Custom addons — read: כל מאומת; write: אדמין בלבד.
+    // (אחרת כל אנונימי יכול להשחית/להזריק payload לקטלוג שמוצג ב-UI.)
     match /omricraft/main/customAddons/{addonId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.token.email in ['yosijo@gmail.com', 'omri.sokolov@gmail.com'];
     }
 
     // Admin config — קריאה לכל מאומת; כתיבה חסומה לחלוטין (anti-admin-hijack).

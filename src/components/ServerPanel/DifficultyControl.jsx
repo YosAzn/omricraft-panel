@@ -6,16 +6,23 @@ export default function DifficultyControl({ server, updateServer, t }) {
   const [saved, setSaved] = React.useState(false);
 
   const handleChange = async (newDifficulty) => {
+    const prevDifficulty = server.difficulty || 'normal';
     setSaving(true); setSaved(false);
-    updateServer({ difficulty: newDifficulty });
+    updateServer({ difficulty: newDifficulty }); // optimistic
     try {
-      await changeDifficultyFn({ serverId: server.id, difficulty: newDifficulty });
+      const res = await changeDifficultyFn({ serverId: server.id, difficulty: newDifficulty });
+      if (res && res.data && res.data.success === false) {
+        throw new Error(res.data.error || 'שינוי הדרגה נכשל');
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) {
       console.error('changeDifficulty error', e);
+      updateServer({ difficulty: prevDifficulty }); // rollback — keep Firestore/VPS in sync
+      alert(`שגיאה בשינוי דרגת הקושי: ${e.message}`);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const current = server.difficulty || 'normal';

@@ -153,7 +153,9 @@ export default function App() {
     const addonsPath = getAddonsPath();
 
     const unsubServers = onSnapshot(collection(db, serversPath), (snap) => {
-      setServers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      // Normalize installedAddons so every consumer (Dashboard, ServerPanel,
+      // AddonsTab) can safely call .includes/.length without guarding for undefined.
+      setServers(snap.docs.map(doc => ({ id: doc.id, ...doc.data(), installedAddons: doc.data().installedAddons || [] })));
     }, (err) => console.error("Firestore Listen Error (Servers):", err));
 
     const unsubAddons = onSnapshot(collection(db, addonsPath), (snap) => {

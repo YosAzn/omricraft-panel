@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield } from 'lucide-react';
+import { Shield, MessageCircle } from 'lucide-react';
 import {
   updateServerPropertiesFn, updateServerIconFn, setServerPrivacyFn,
   changeServerTypeFn, changeServerVersionFn, updateServerMemoryFn
@@ -259,7 +259,7 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
           )}
 
           <div>
-            <label className="block text-sm text-zinc-400 mb-1 flex items-center gap-2"><img src="https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png" className="w-4 h-3 object-contain"/> {t('discordWebhook')} <span className="text-xs bg-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">בקרוב</span></label>
+            <label className="block text-sm text-zinc-400 mb-1 flex items-center gap-2"><MessageCircle size={16} className="text-indigo-400" /> {t('discordWebhook')} <span className="text-xs bg-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">בקרוב</span></label>
             <input type="text" disabled placeholder="https://discord.com/api/webhooks/..." value={server.discordWebhook || ''} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-500 outline-none text-sm cursor-not-allowed" />
           </div>
         </div>

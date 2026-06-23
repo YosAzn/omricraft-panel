@@ -107,6 +107,9 @@ spawn-protection=16
 enable-command-block=false
 PROPS
 
+# server.properties holds the RCON password — restrict to owner only (not world/group readable).
+chmod 600 "$SERVER_DIR/server.properties"
+
 mkdir -p "$SERVER_DIR/config"
 cat > "$SERVER_DIR/config/paper-global.yml" <<PAPERCONF
 _version: 28

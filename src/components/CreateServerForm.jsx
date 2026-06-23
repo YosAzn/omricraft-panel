@@ -6,8 +6,6 @@ import { isViaVersion } from '../lib/utils';
 import ImageUploader from './ImageUploader';
 
 export default function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersions, versionMatrix = {}, isCreatingServer = false }) {
-  if (userRole !== 'admin') return <div className="text-center p-12 text-zinc-500">{t('noPermission')}</div>;
-
   const [name, setName] = useState('');
   const [icon, setIcon] = useState(null);
   const [software, setSoftware] = useState('paper');
@@ -25,10 +23,15 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, use
   // State חדש לחיפוש תוספים
   const [addonSearch, setAddonSearch] = useState('');
 
+  // Keep these lists in sync with AddonsTab.jsx (Bukkit family = plugins,
+  // mod-loaders = mods; Mohist is hybrid → both). folia/mohist/neoforge were
+  // previously dropped here, hiding valid addons in the create form.
+  const PLUGIN_SERVERS = ['paper', 'purpur', 'folia', 'mohist'];
+  const MOD_SERVERS = ['fabric', 'forge', 'neoforge', 'mohist'];
   const relevantAddons = allAddons.filter(a => {
     if (a.type === 'textures') return true;
-    if (['fabric', 'forge'].includes(software) && ['mods', 'modpacks'].includes(a.type)) return true;
-    if (['paper', 'purpur'].includes(software) && a.type === 'plugins') return true;
+    if (MOD_SERVERS.includes(software) && ['mods', 'modpacks'].includes(a.type)) return true;
+    if (PLUGIN_SERVERS.includes(software) && a.type === 'plugins') return true;
     if (a.type === 'datapacks') return true;
     return false;
   });
@@ -66,6 +69,9 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, use
     const list = (versionMatrix[id] && versionMatrix[id].length) ? versionMatrix[id] : mcVersions;
     if (list.length && !list.includes(version)) setVersion(list[0]);
   };
+
+  // Permission guard AFTER all hooks (Rules of Hooks — hooks must run unconditionally).
+  if (userRole !== 'admin') return <div className="text-center p-12 text-zinc-500">{t('noPermission')}</div>;
 
   return (
     <div className="max-w-3xl mx-auto animate-in fade-in duration-300 pb-10">

@@ -62,14 +62,19 @@ export default function ConsoleTab({ server, t, userRole }) {
         {server.status !== 'online' && <span className="text-xs text-yellow-400 flex items-center gap-1"><AlertCircle size={14}/> סטטוס לא ידוע — נסה לשלוח פקודה</span>}
       </div>
       <div className="flex-1 bg-black border-x border-zinc-800 p-4 font-mono text-sm overflow-y-auto text-zinc-300 min-h-[300px]" dir="ltr">
-        {logs.map((log, i) => (
-          <div key={i} className="mb-1">
-            {log.includes('[INFO]') ? <span className="text-blue-400">INFO </span> : null}
-            {log.includes('[ERROR]') ? <span className="text-red-400">ERROR </span> : null}
-            {log.includes('[RCON]') ? <span className="text-green-400">RCON </span> : null}
-            <span dangerouslySetInnerHTML={{__html: log.replace(/\[INFO\]:\s*|\[ERROR\]:\s*|\[RCON\]:\s*/, '')}}></span>
-          </div>
-        ))}
+        {logs.map((log, i) => {
+          // Render raw server log as TEXT, never HTML (XSS: log content is attacker-influenced).
+          const cleaned = log.replace(/\[INFO\]:\s*|\[ERROR\]:\s*|\[RCON\]:\s*/, '');
+          const lineColor = log.includes('[ERROR]') ? 'text-red-400'
+            : log.includes('[RCON]') ? 'text-green-400'
+            : log.includes('[INFO]') ? 'text-blue-400'
+            : '';
+          return (
+            <div key={i} className="mb-1">
+              <span className={lineColor}>{cleaned}</span>
+            </div>
+          );
+        })}
         <div ref={logsEndRef} />
       </div>
       <div className="border border-zinc-800 rounded-b-xl overflow-hidden flex">

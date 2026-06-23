@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Users } from 'lucide-react';
 import { getServerStatsFn } from '../../lib/api';
 
+// Maps every worldType value (matches the create/settings <select>) to its i18n key.
+const WORLD_TYPE_KEYS = {
+  default: 'worldDefault',
+  flat: 'worldFlat',
+  amplified: 'worldAmplified',
+  large_biomes: 'worldLargeBiomes',
+};
+
 export default function OverviewTab({ server, t, playersLive }) {
   const [copiedDomain, setCopiedDomain] = useState(false);
   const [liveStats, setLiveStats] = useState({ ram: null, cpu: null });
@@ -76,7 +84,7 @@ export default function OverviewTab({ server, t, playersLive }) {
         </div>
         <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-xl">
           <div className="text-zinc-400 text-xs mb-1">{t('worldType')}</div>
-          <div className="font-bold text-lg">{t(server.worldType === 'flat' ? 'worldFlat' : 'worldDefault')}</div>
+          <div className="font-bold text-lg">{t(WORLD_TYPE_KEYS[server.worldType] || 'worldDefault')}</div>
         </div>
         <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-xl">
           <div className="text-zinc-400 text-xs mb-1">Seed</div>

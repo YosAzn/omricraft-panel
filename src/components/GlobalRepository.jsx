@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Layers, X, Plus, UploadCloud, Link as LinkIcon, Search,
-  Package, Palette, Star, Trash2, Download
+  Package, Palette, Star, Trash2, Download, Check
 } from 'lucide-react';
 
 import { TYPE_COLORS } from '../lib/constants';
