@@ -450,6 +450,41 @@ exports.installPlugin = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// installDatapack — installs a datapack on an existing server BY addonId.
+// SSRF-safe: the client never sends a URL. The Manager API resolves the addonId
+// against a server-side allowlist (DATAPACK_CATALOG) and, if the server is up,
+// enables + reloads the datapack live over RCON. addonId not in the catalog =>
+// { success:false } from the Manager API (no download attempt).
+// Contract: installDatapackFn({ serverId, addonId }) -> POST /install-datapack-by-id
+// -> { success, addonId, file, path, installedToWorld, rconApplied, needsRestart, note }
+// ---------------------------------------------------------------------------
+exports.installDatapack = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 120,
+  },
+  async (request) => {
+    assertAdmin(request);
+    const { serverId, addonId } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    if (!addonId || typeof addonId !== 'string' || !/^[a-z0-9_-]+$/.test(addonId)) {
+      return { success: false, error: 'Invalid addonId' };
+    }
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/install-datapack-by-id', { serverId, addonId });
+      return result;
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // removePluginJar — deletes a single .jar from a server's plugins dir (VPS truth)
 // ---------------------------------------------------------------------------
 exports.removePluginJar = onCall(

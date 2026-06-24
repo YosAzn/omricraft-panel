@@ -14,6 +14,7 @@ export const getPaperVersionsFn = httpsCallable(functionsInstance, 'getPaperVers
 export const getVersionMatrixFn = httpsCallable(functionsInstance, 'getVersionMatrix');
 export const updateServerOpsFn = httpsCallable(functionsInstance, 'updateServerOps');
 export const installPluginFn = httpsCallable(functionsInstance, 'installPlugin');
+export const installDatapackFn = httpsCallable(functionsInstance, 'installDatapack');
 export const changeDifficultyFn = httpsCallable(functionsInstance, 'changeDifficulty');
 export const getPlayersOnlineFn = httpsCallable(functionsInstance, 'getPlayersOnline');
 export const getServerLogFn = httpsCallable(functionsInstance, 'getServerLog');

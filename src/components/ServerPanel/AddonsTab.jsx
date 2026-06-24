@@ -4,7 +4,7 @@ import {
   Star, Download, Layers, Palette
 } from 'lucide-react';
 import { listFilesFn, removePluginJarFn, reloadPluginFn } from '../../lib/api';
-import { TYPE_COLORS } from '../../lib/constants';
+import { TYPE_COLORS, getInstallMethod } from '../../lib/constants';
 
 export default function AddonsTab({ server, toggleAddon, t, allAddons, userRole }) {
   const [filter, setFilter] = useState('all');
@@ -197,6 +197,7 @@ export default function AddonsTab({ server, toggleAddon, t, allAddons, userRole 
         {displayAddons.map(item => {
           const isInstalled = server.installedAddons.includes(item.id);
           const badgeStyle = TYPE_COLORS[item.type] || 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20';
+          const installMethod = getInstallMethod(item); // 'server' | 'manual' | 'client'
 
           let IconComp = Package;
           if (item.type === 'modpacks') IconComp = Layers;
@@ -228,7 +229,15 @@ export default function AddonsTab({ server, toggleAddon, t, allAddons, userRole 
                   </div>
                 </div>
               </div>
-              {userRole === 'admin' && (
+              {installMethod !== 'server' ? (
+                // manual / client — לא ניתן להתקין דרך הפאנל; מציגים באדג' הסבר במקום כפתור.
+                <span
+                  title={installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo')}
+                  className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg font-bold text-xs border whitespace-nowrap ${installMethod === 'client' ? 'border-teal-500/30 text-teal-400 bg-teal-500/5' : 'border-zinc-600 text-zinc-400 bg-zinc-800/40'}`}
+                >
+                  {installMethod === 'client' ? t('clientSideBadge') : t('manualBadge')}
+                </span>
+              ) : userRole === 'admin' && (
                 item.paid && !isInstalled ? (
                   <a href="#" onClick={e => e.preventDefault()} title="Premium plugin — התקן ידנית מהאתר הרשמי"
                     className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-sm border border-yellow-500/30 text-yellow-400 bg-yellow-500/5 cursor-not-allowed whitespace-nowrap">

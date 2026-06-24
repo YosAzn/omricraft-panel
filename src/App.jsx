@@ -8,10 +8,10 @@ import { auth, db } from './lib/firebase';
 import {
   createServerFn, deleteServerFn, getServerStatusFn, startServerFn,
   stopServerFn, getPaperVersionsFn, getVersionMatrixFn,
-  installPluginFn, getPlayersOnlineFn, restartServerFn
+  installPluginFn, installDatapackFn, getPlayersOnlineFn, restartServerFn
 } from './lib/api';
 import { DICT } from './lib/i18n';
-import { DEFAULT_ADDONS } from './lib/constants';
+import { DEFAULT_ADDONS, getInstallMethod } from './lib/constants';
 import { NavBtn } from './components/ui';
 import Dashboard from './components/Dashboard';
 import CreateServerForm from './components/CreateServerForm';
@@ -588,9 +588,19 @@ export default function App() {
     const currentServer = servers.find(s => s.id === serverId);
     if (!currentServer) return;
 
-    let newAddons = [...currentServer.installedAddons];
-    const isInstalled = newAddons.includes(addon.id);
+    const method = getInstallMethod(addon); // 'server' | 'manual' | 'client'
+    const isInstalled = currentServer.installedAddons.includes(addon.id);
 
+    // manual / client: לא נוגעים ב-VPS ולא מסמנים "מותקן" ב-Firestore (כדי לא לשקר).
+    // רק מציגים הודעת מידע למשתמש.
+    if (method !== 'server') {
+      const msg = method === 'client' ? t('clientInstallInfo') : t('manualInstallInfo');
+      alert(`${addon.name}\n\n${msg}`);
+      return;
+    }
+
+    // server: install/remove דרך ה-Cloud Function המתאים (datapack vs plugin/mod/modpack).
+    let newAddons = [...currentServer.installedAddons];
     if (isInstalled) {
       newAddons = newAddons.filter(id => id !== addon.id);
     } else {
@@ -608,9 +618,18 @@ export default function App() {
       });
     }
 
-    // Actually install/remove the plugin on VPS, with rollback on failure
+    // Actually install/remove on VPS, with rollback on failure
     try {
-      const res = await installPluginFn({ serverId, pluginId: addon.id, install: !isInstalled });
+      let res;
+      if (addon.type === 'datapacks') {
+        // datapack endpoint is install-only (no uninstall path on the backend).
+        if (isInstalled) {
+          throw new Error('הסרת datapack מהשרת אינה נתמכת אוטומטית — הסר ידנית מתיקיית העולם.');
+        }
+        res = await installDatapackFn({ serverId, addonId: addon.id });
+      } else {
+        res = await installPluginFn({ serverId, pluginId: addon.id, install: !isInstalled });
+      }
       const d = res.data || res;
       if (!d.success && d.note === undefined) throw new Error(d.error || 'VPS install failed');
     } catch (e) {
@@ -622,7 +641,7 @@ export default function App() {
           needsRestart: currentServer.needsRestart || false,
         });
       }
-      alert(`שגיאה בהתקנת/הסרת הפלאגין: ${e.message}`);
+      alert(`שגיאה בהתקנת/הסרת התוסף: ${e.message}`);
     }
   };
 

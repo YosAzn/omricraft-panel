@@ -806,6 +806,9 @@ app.post('/delete-file', function(req, res) {
 var ALLOWED_DATAPACK_HOSTS = [
   'modrinth.com', 'cdn.modrinth.com',
   'github.com', 'raw.githubusercontent.com', 'objects.githubusercontent.com',
+  // GitHub now 302-redirects release-asset downloads to this signed-URL host;
+  // it is GitHub-owned, so allow it (else every /releases/download/* 404s here).
+  'release-assets.githubusercontent.com',
   'codeload.github.com', 'github.io'
 ];
 
@@ -933,6 +936,158 @@ app.post('/install-datapack', async function(req, res) {
     var installedToWorld = fs.existsSync(worldDatapacks);
     console.log('[' + new Date().toISOString() + '] Installed datapack ' + filename + ' on ' + serverId + ' -> ' + targetDir);
     return res.json({ success: true, path: dest, needsRestart: !installedToWorld });
+  } catch (e) {
+    try { fs.unlinkSync(dest); } catch(_) {}
+    return res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ===================================================================
+// /install-datapack-by-id — addonId-driven datapack install (no client URL).
+// SSRF is closed at the source: the caller sends only { serverId, addonId };
+// the URL is looked up from a SERVER-SIDE allowlist (DATAPACK_CATALOG). An
+// addonId not in the catalog is rejected with 400 *before* any network call.
+// The existing assertUrlAllowed host-allowlist + per-redirect re-validation
+// stays in force as a second layer. After a successful download, if the server
+// is running we enable + reload the datapack live over RCON (the real gap that
+// made datapacks "succeed" but never load).
+// ===================================================================
+var DATAPACK_CATALOG = {
+  // addonId -> { url, filename }. Keep filenames in sync with create-server.sh
+  // DATAPACK_URLS so create-time and post-create installs land identical files.
+  'd2': {
+    url: 'https://github.com/Stardust-Labs-MC/Terralith/releases/download/v2.5.9/Terralith_1.21_v2.5.9_BETA.jar',
+    // Saved with a .zip extension: Minecraft only recognises .zip (or a folder)
+    // inside world/datapacks/. A .jar is logged "non-pack entry, ignoring" and
+    // never loads — the archive bytes are an ordinary zip, only the name matters.
+    filename: 'Terralith_1.21_v2.5.9_BETA.zip',
+    worldgen: true // applies to NEW chunks only once enabled
+  }
+  // TODO: add more datapacks here as direct-download URLs become available
+  // (d3 Tectonic, Nullscape, Structory). Vanilla Tweaks (d1,d4,d6...) need the
+  // browser picker — no stable direct URL — so they stay out of the catalog.
+};
+
+app.post('/install-datapack-by-id', async function(req, res) {
+  var serverId = req.body.serverId;
+  var addonId = req.body.addonId;
+  if (!validateId(serverId, res)) return;
+  if (!addonId || typeof addonId !== 'string' || !/^[a-z0-9_-]+$/.test(addonId)) {
+    return res.status(400).json({ success: false, error: 'Invalid addonId' });
+  }
+
+  // Server-side allowlist resolution. Unknown id => no download attempt at all.
+  var entry = DATAPACK_CATALOG[addonId];
+  if (!entry) {
+    return res.status(400).json({ success: false, error: 'datapack not available: ' + addonId });
+  }
+  var url = entry.url;
+  var filename = entry.filename;
+
+  // Defence-in-depth: SSRF guard still runs on the catalog URL + every redirect.
+  var initialErr = await new Promise(function(resolve) { assertUrlAllowed(url, resolve); });
+  if (initialErr) {
+    return res.status(400).json({ success: false, error: initialErr });
+  }
+
+  var serverDir = path.join(SERVERS_DIR, serverId);
+  if (!fs.existsSync(serverDir)) {
+    return res.status(404).json({ success: false, error: 'Server not found' });
+  }
+  var worldDatapacks = path.join(serverDir, 'world', 'datapacks');
+  var pending = path.join(serverDir, 'datapacks-pending');
+  var installedToWorld = fs.existsSync(worldDatapacks);
+  var targetDir = installedToWorld ? worldDatapacks : pending;
+
+  fs.mkdirSync(targetDir, { recursive: true });
+  var dest = path.join(targetDir, filename);
+
+  var MAX_REDIRECTS = 5;
+  function fetchToFile(srcUrl, destPath, cb, depth) {
+    depth = depth || 0;
+    assertUrlAllowed(srcUrl, function(vErr) {
+      if (vErr) return cb(new Error('Blocked redirect/url: ' + vErr));
+      var https = require('https');
+      var file = fs.createWriteStream(destPath);
+      https.get(srcUrl, { headers: { 'User-Agent': 'omricraft/1.0' } }, function(response) {
+        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          response.resume();
+          file.close();
+          fs.unlink(destPath, function() {});
+          if (depth >= MAX_REDIRECTS) {
+            return cb(new Error('Too many redirects (max ' + MAX_REDIRECTS + ')'));
+          }
+          var nextUrl;
+          try { nextUrl = new URL(response.headers.location, srcUrl).toString(); }
+          catch (e) { return cb(new Error('Invalid redirect location')); }
+          return fetchToFile(nextUrl, destPath, cb, depth + 1);
+        }
+        response.pipe(file);
+        file.on('finish', function() { file.close(); cb(null); });
+      }).on('error', cb);
+    });
+  }
+
+  try {
+    await new Promise(function(resolve, reject) { fetchToFile(url, dest, function(err) { if (err) reject(err); else resolve(); }); });
+    if (!fs.existsSync(dest) || fs.statSync(dest).size === 0) {
+      try { fs.unlinkSync(dest); } catch(_) {}
+      return res.status(500).json({ success: false, error: 'Download failed (0 bytes)' });
+    }
+    // ZIP/JAR magic check — datapacks are zip archives ("PK\x03\x04").
+    var fd = fs.openSync(dest, 'r');
+    var magic = Buffer.alloc(4);
+    fs.readSync(fd, magic, 0, 4, 0);
+    fs.closeSync(fd);
+    if (!(magic[0] === 0x50 && magic[1] === 0x4B)) {
+      try { fs.unlinkSync(dest); } catch(_) {}
+      return res.status(500).json({ success: false, error: 'Downloaded file is not a valid zip/jar archive' });
+    }
+
+    console.log('[' + new Date().toISOString() + '] Installed datapack ' + addonId + ' (' + filename + ') on ' + serverId + ' -> ' + targetDir);
+
+    // RCON enable + reload — only meaningful when installed into the live world
+    // dir AND the server is up. Otherwise it loads on next start (pending dir is
+    // copied into world/datapacks by start-server flow).
+    var rconApplied = false;
+    var rconError = null;
+    if (installedToWorld && isServerRunning(serverId)) {
+      try {
+        var rcon = readRcon(serverId);
+        if (rcon.pass) {
+          // Datapack names are referenced as: file/<filename>
+          await rconConnect('127.0.0.1', rcon.port, rcon.pass, 'datapack enable "file/' + filename + '"', 10000);
+          await rconConnect('127.0.0.1', rcon.port, rcon.pass, 'reload', 30000);
+          rconApplied = true;
+        } else {
+          rconError = 'RCON password not found';
+        }
+      } catch (re) {
+        rconError = re.message;
+      }
+    }
+
+    var note;
+    if (rconApplied) {
+      note = entry.worldgen
+        ? 'Datapack enabled and reloaded. Worldgen datapacks (e.g. Terralith) only affect NEWLY generated chunks — existing terrain is unchanged.'
+        : 'Datapack enabled and reloaded live.';
+    } else if (installedToWorld) {
+      note = 'Datapack downloaded to world. Live enable skipped' + (rconError ? ' (' + rconError + ')' : ' (server not running)') + '; it will load on next start.';
+    } else {
+      note = 'Server has no world yet — datapack staged in datapacks-pending and will load when the world is first generated.';
+    }
+
+    return res.json({
+      success: true,
+      addonId: addonId,
+      file: filename,
+      path: dest,
+      installedToWorld: installedToWorld,
+      rconApplied: rconApplied,
+      needsRestart: !rconApplied,
+      note: note
+    });
   } catch (e) {
     try { fs.unlinkSync(dest); } catch(_) {}
     return res.status(500).json({ success: false, error: e.message });

@@ -1,4 +1,12 @@
 // --- Shared constants ---
+
+// installMethod — איך התוסף מותקן:
+//   'server' (ברירת מחדל) — מותקן בשרת ה-VPS דרך Cloud Function (installPlugin / installDatapack).
+//   'manual' — אין URL מתארח (vanilla-tweaks וכו') → המשתמש מוריד ידנית, לא נוגעים ב-VPS.
+//   'client' — resource/texture pack שמותקן אצל השחקן בלקוח, לא בשרת.
+// addon ללא השדה הזה נחשב 'server'.
+export const getInstallMethod = (addon) => addon?.installMethod || 'server';
+
 export const TYPE_COLORS = {
   mods: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   plugins: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
@@ -74,27 +82,29 @@ export const DEFAULT_ADDONS = [
   { id: 'p35', name: 'ClearLag', desc: 'פלאגין חובה לשרתים עמוסים: מנקה אוטומטית חפצים שזרוקים על הרצפה, מוחק מובים מיותרים שנתקעו, ומונע קריסות (Crash) כשיש עומס.', type: 'plugins', downloads: '22M', rating: 4.7, reviews: 35000 },
 
   // --- Datapacks ---
-  { id: 'd1', name: 'Vanilla Tweaks', desc: 'אוסף שיפורים קטנים ונוחים למשחק הרגיל', type: 'datapacks', downloads: '2M', rating: 4.8, reviews: 3200 },
-  { id: 'd2', name: 'Terralith', desc: 'משנה לחלוטין את יצירת העולם, ביומות והרים ללא בלוקים חדשים', type: 'datapacks', downloads: '4M', rating: 4.7, reviews: 5100 },
-  { id: 'd4', name: 'Multiplayer Sleep', desc: 'מספיק שחקן אחד במיטה כדי להעביר את הלילה', type: 'datapacks', downloads: '3M', rating: 4.9, reviews: 4500 },
-  { id: 'd6', name: 'Mini Blocks', desc: 'מאפשר להשיג גרסאות מיניאטוריות של בלוקים כראשים', type: 'datapacks', downloads: '1.5M', rating: 4.6, reviews: 1200 },
-  { id: 'd7', name: 'Wandering Trades', desc: 'משפר את החפצים שמוכר הסוחר הנודד ומציע בלוקים מיניאטוריים', type: 'datapacks', downloads: '1.2M', rating: 4.5, reviews: 900 },
-  { id: 'd8', name: 'Nether Portal Coords', desc: 'מסייע בחישוב מדויק של מיקומי פורטלים בנדר', type: 'datapacks', downloads: '800K', rating: 4.7, reviews: 600 },
-  { id: 'd9', name: 'Coordinates HUD', desc: 'מציג קואורדינטות וזמן בצורה נוחה מעל ה-Hotbar', type: 'datapacks', downloads: '2.5M', rating: 4.8, reviews: 2200 },
-  { id: 'd10', name: 'Player Head Drops', desc: 'שחקנים מפילים את הראש שלהם כשהם מתים מחיצים או שחקנים', type: 'datapacks', downloads: '2.1M', rating: 4.6, reviews: 1700 },
-  { id: 'd11', name: 'More Mob Heads', desc: 'כל המובים במשחק יכולים להפיל את הראש שלהם למטרות קישוט', type: 'datapacks', downloads: '2.8M', rating: 4.7, reviews: 2500 },
+  // installMethod: 'server' = מותקן בשרת דרך installDatapack endpoint. 'manual' = אין URL מתארח → הורדה ידנית.
+  { id: 'd1', name: 'Vanilla Tweaks', desc: 'אוסף שיפורים קטנים ונוחים למשחק הרגיל', type: 'datapacks', installMethod: 'manual', downloads: '2M', rating: 4.8, reviews: 3200 },
+  { id: 'd2', name: 'Terralith', desc: 'משנה לחלוטין את יצירת העולם, ביומות והרים ללא בלוקים חדשים', type: 'datapacks', installMethod: 'server', downloads: '4M', rating: 4.7, reviews: 5100 },
+  { id: 'd4', name: 'Multiplayer Sleep', desc: 'מספיק שחקן אחד במיטה כדי להעביר את הלילה', type: 'datapacks', installMethod: 'manual', downloads: '3M', rating: 4.9, reviews: 4500 },
+  { id: 'd6', name: 'Mini Blocks', desc: 'מאפשר להשיג גרסאות מיניאטוריות של בלוקים כראשים', type: 'datapacks', installMethod: 'manual', downloads: '1.5M', rating: 4.6, reviews: 1200 },
+  { id: 'd7', name: 'Wandering Trades', desc: 'משפר את החפצים שמוכר הסוחר הנודד ומציע בלוקים מיניאטוריים', type: 'datapacks', installMethod: 'manual', downloads: '1.2M', rating: 4.5, reviews: 900 },
+  { id: 'd8', name: 'Nether Portal Coords', desc: 'מסייע בחישוב מדויק של מיקומי פורטלים בנדר', type: 'datapacks', installMethod: 'manual', downloads: '800K', rating: 4.7, reviews: 600 },
+  { id: 'd9', name: 'Coordinates HUD', desc: 'מציג קואורדינטות וזמן בצורה נוחה מעל ה-Hotbar', type: 'datapacks', installMethod: 'manual', downloads: '2.5M', rating: 4.8, reviews: 2200 },
+  { id: 'd10', name: 'Player Head Drops', desc: 'שחקנים מפילים את הראש שלהם כשהם מתים מחיצים או שחקנים', type: 'datapacks', installMethod: 'manual', downloads: '2.1M', rating: 4.6, reviews: 1700 },
+  { id: 'd11', name: 'More Mob Heads', desc: 'כל המובים במשחק יכולים להפיל את הראש שלהם למטרות קישוט', type: 'datapacks', installMethod: 'manual', downloads: '2.8M', rating: 4.7, reviews: 2500 },
   
   // --- Modpacks ---
   { id: 'mp1', name: 'Better MC', desc: 'המיינקראפט כמו שהוא היה צריך להיות - מאות ביומות ומובים', type: 'modpacks', downloads: '7M', rating: 4.6, reviews: 12000 },
   { id: 'mp2', name: 'Vault Hunters', desc: 'מודפאק אקשן ו-RPG מדהים בתוך מבוכים מסוכנים', type: 'modpacks', downloads: '3M', rating: 4.8, reviews: 7500 },
   
   // --- Textures ---
-  { id: 't1', name: 'Custom Hats Pack', desc: 'מוסיף כתרים, כובעי קסם ופריטים שניתן לשים על הראש לטובת מראה ייחודי (בדומה לנייטפול)', type: 'textures', downloads: '1.2M', rating: 4.8, reviews: 4500 },
-  { id: 't2', name: 'Golden Pumpkin Pie', desc: 'מודל תלת-ממדי מיוחד שהופך את פשטידת הדלעת הרגילה לפשטידת זהב נוצצת', type: 'textures', downloads: '800K', rating: 4.6, reviews: 2100 },
-  { id: 't3', name: 'Fresh Animations', desc: 'אנימציות תנועה מציאותיות, חלקות ומצחיקות לכל המפלצות והחיות במשחק', type: 'textures', downloads: '15M', rating: 4.9, reviews: 45000 },
-  { id: 't4', name: 'Faithful 32x', desc: 'הטקסטורה הקלאסית והמוכרת של מיינקראפט ברזולוציה כפולה וחדה הרבה יותר', type: 'textures', downloads: '50M', rating: 4.8, reviews: 120000 },
-  { id: 't5', name: 'Bare Bones', desc: 'טקסטורה חלקה ונקייה שגורמת למשחק להיראות כמו הטריילרים הרשמיים של מיינקראפט', type: 'textures', downloads: '22M', rating: 4.9, reviews: 60000 },
-  { id: 't6', name: 'Visible Ores', desc: 'גורם למחצבים (יהלומים, ברזל) לזהור בחושך, מושלם למערות עמוקות', type: 'textures', downloads: '9.5M', rating: 4.8, reviews: 25000 },
-  { id: 't7', name: 'Dark UI', desc: 'משנה את כל התפריטים במשחק לעיצוב כהה ונוח לעיניים (Dark Mode)', type: 'textures', downloads: '18M', rating: 4.9, reviews: 41000 },
-  { id: 't8', name: 'Shulker Box Tooltip', desc: 'מאפשר לראות את כל התכולה של השאלקרים ברחרוף עם העכבר בתוך התיק, בלי להניח אותם', type: 'textures', downloads: '35M', rating: 4.9, reviews: 85000 },
+  // installMethod: 'client' = resource/texture packs מותקנים בצד-הלקוח (אצל השחקן), לא בשרת. אין URL מתארח כרגע.
+  { id: 't1', name: 'Custom Hats Pack', desc: 'מוסיף כתרים, כובעי קסם ופריטים שניתן לשים על הראש לטובת מראה ייחודי (בדומה לנייטפול)', type: 'textures', installMethod: 'client', downloads: '1.2M', rating: 4.8, reviews: 4500 },
+  { id: 't2', name: 'Golden Pumpkin Pie', desc: 'מודל תלת-ממדי מיוחד שהופך את פשטידת הדלעת הרגילה לפשטידת זהב נוצצת', type: 'textures', installMethod: 'client', downloads: '800K', rating: 4.6, reviews: 2100 },
+  { id: 't3', name: 'Fresh Animations', desc: 'אנימציות תנועה מציאותיות, חלקות ומצחיקות לכל המפלצות והחיות במשחק', type: 'textures', installMethod: 'client', downloads: '15M', rating: 4.9, reviews: 45000 },
+  { id: 't4', name: 'Faithful 32x', desc: 'הטקסטורה הקלאסית והמוכרת של מיינקראפט ברזולוציה כפולה וחדה הרבה יותר', type: 'textures', installMethod: 'client', downloads: '50M', rating: 4.8, reviews: 120000 },
+  { id: 't5', name: 'Bare Bones', desc: 'טקסטורה חלקה ונקייה שגורמת למשחק להיראות כמו הטריילרים הרשמיים של מיינקראפט', type: 'textures', installMethod: 'client', downloads: '22M', rating: 4.9, reviews: 60000 },
+  { id: 't6', name: 'Visible Ores', desc: 'גורם למחצבים (יהלומים, ברזל) לזהור בחושך, מושלם למערות עמוקות', type: 'textures', installMethod: 'client', downloads: '9.5M', rating: 4.8, reviews: 25000 },
+  { id: 't7', name: 'Dark UI', desc: 'משנה את כל התפריטים במשחק לעיצוב כהה ונוח לעיניים (Dark Mode)', type: 'textures', installMethod: 'client', downloads: '18M', rating: 4.9, reviews: 41000 },
+  { id: 't8', name: 'Shulker Box Tooltip', desc: 'מאפשר לראות את כל התכולה של השאלקרים ברחרוף עם העכבר בתוך התיק, בלי להניח אותם', type: 'textures', installMethod: 'client', downloads: '35M', rating: 4.9, reviews: 85000 },
 ];
