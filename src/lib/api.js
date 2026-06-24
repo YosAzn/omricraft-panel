@@ -29,3 +29,6 @@ export const removePluginJarFn = httpsCallable(functionsInstance, 'removePluginJ
 export const changeServerVersionFn = httpsCallable(functionsInstance, 'changeServerVersion');
 export const changeServerTypeFn = httpsCallable(functionsInstance, 'changeServerType');
 export const updateServerMemoryFn = httpsCallable(functionsInstance, 'updateServerMemory');
+export const backupServerFn = httpsCallable(functionsInstance, 'backupServer');
+export const listBackupsFn = httpsCallable(functionsInstance, 'listBackups');
+export const restoreBackupFn = httpsCallable(functionsInstance, 'restoreBackup');

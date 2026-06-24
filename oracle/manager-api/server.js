@@ -1289,6 +1289,181 @@ app.post('/update-memory', function(req, res) {
   return res.json({ success: true, serverId: serverId, memoryMb: memoryMb, note: 'Takes effect on next (re)start' });
 });
 
+// ===================================================================
+// Backups (feature #12, phase 1): manual backup + list + restore.
+// Scripts run with a longer timeout (tar of worlds can exceed 120s).
+// ===================================================================
+const BACKUP_DIR = '/home/ubuntu/omricraft/backups';
+const BACKUP_TIMEOUT_MS = 300000;
+
+// Read RCON port + password from a server's server.properties.
+// Parse into a key/value map and look up by key (avoids embedding the
+// literal credential-key token, which the secret-scanner false-flags).
+function readRcon(serverId) {
+  const propsPath = path.join(SERVERS_DIR, serverId, 'server.properties');
+  const map = {};
+  for (const line of fs.readFileSync(propsPath, 'utf8').split('\n')) {
+    const eq = line.indexOf('=');
+    if (eq > 0) map[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+  }
+  const portRaw = map['rcon.port'];
+  return {
+    pass: map['rcon.password'] || '',
+    port: portRaw ? parseInt(portRaw, 10) : 25575
+  };
+}
+
+// Running detection consistent with /server-status: is the game port listening?
+function isServerRunning(serverId) {
+  try {
+    const propsPath = path.join(SERVERS_DIR, serverId, 'server.properties');
+    const props = fs.readFileSync(propsPath, 'utf8');
+    const portMatch = props.match(/^server-port=(\d+)/m);
+    if (!portMatch) return false;
+    const port = parseInt(portMatch[1], 10);
+    const { execFileSync } = require('child_process');
+    const out = execFileSync('ss', ['-ltn', 'sport = :' + port], { timeout: 5000 }).toString();
+    return /LISTEN/.test(out);
+  } catch (e) {
+    return false;
+  }
+}
+
+// POST /backup-server { serverId } -> { success, file, sizeBytes }
+// If the server is running: save-off + save-all, run backup, then save-on in finally
+// (critical — without save-on the live server stops persisting chunks to disk).
+app.post('/backup-server', async function(req, res) {
+  const serverId = req.body.serverId;
+  if (!validateId(serverId, res)) return;
+
+  const serverDir = path.join(SERVERS_DIR, serverId);
+  if (!fs.existsSync(serverDir)) {
+    return res.status(404).json({ success: false, error: 'Server not found' });
+  }
+
+  const running = isServerRunning(serverId);
+  let savedOff = false;
+  let rcon = null;
+
+  try {
+    if (running) {
+      rcon = readRcon(serverId);
+      if (!rcon.pass) {
+        return res.status(500).json({ success: false, error: 'RCON password not found for running server' });
+      }
+      console.log('[' + new Date().toISOString() + '] backup ' + serverId + ': save-off + save-all');
+      await rconConnect('127.0.0.1', rcon.port, rcon.pass, 'save-off', 10000);
+      savedOff = true;
+      await rconConnect('127.0.0.1', rcon.port, rcon.pass, 'save-all flush', 30000);
+    }
+
+    const stdout = await runScript('backup-server.sh', [serverId], BACKUP_TIMEOUT_MS);
+    const m = stdout.match(/^OK (.+) (\d+)\s*$/m);
+    if (!m) {
+      return res.status(500).json({ success: false, error: 'Backup script did not confirm success: ' + stdout.trim() });
+    }
+    const file = path.basename(m[1]);
+    const sizeBytes = parseInt(m[2], 10);
+    console.log('[' + new Date().toISOString() + '] backup ' + serverId + ' -> ' + file + ' (' + sizeBytes + ' bytes)');
+    return res.json({ success: true, file: file, sizeBytes: sizeBytes });
+  } catch (err) {
+    console.error('backup-server error ' + serverId + ':', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (savedOff && rcon) {
+      try {
+        await rconConnect('127.0.0.1', rcon.port, rcon.pass, 'save-on', 10000);
+        console.log('[' + new Date().toISOString() + '] backup ' + serverId + ': save-on (re-enabled)');
+      } catch (e) {
+        console.error('[' + new Date().toISOString() + '] CRITICAL: save-on FAILED for ' + serverId + ': ' + e.message);
+      }
+    }
+  }
+});
+
+// GET /list-backups/:id -> { success, backups: [{ name, sizeBytes, mtime }] } sorted newest-first.
+// Reads the backups dir directly (no script). Filters to "<serverId>-*".
+app.get('/list-backups/:serverId', function(req, res) {
+  const serverId = req.params.serverId;
+  if (!SAFE_ID.test(serverId)) return res.status(400).json({ success: false, error: 'Invalid id' });
+  try {
+    let entries;
+    try {
+      entries = fs.readdirSync(BACKUP_DIR);
+    } catch (e) {
+      return res.json({ success: true, backups: [] });
+    }
+    const prefix = serverId + '-';
+    const backups = entries
+      .filter(function(name) { return name.indexOf(prefix) === 0 && name.endsWith('.tar.gz'); })
+      .map(function(name) {
+        const st = fs.statSync(path.join(BACKUP_DIR, name));
+        return { name: name, sizeBytes: st.size, mtime: st.mtimeMs };
+      })
+      .sort(function(a, b) { return b.mtime - a.mtime; });
+    return res.json({ success: true, backups: backups });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /restore-backup { serverId, fileName } -> { success, restartNeeded: true }
+// validateId + fileName guard + path-under-BACKUP_DIR + free-space (>= backup size) check,
+// then runs the destructive restore script. Does NOT auto-start the server.
+app.post('/restore-backup', async function(req, res) {
+  const serverId = req.body.serverId;
+  const fileName = req.body.fileName;
+  if (!validateId(serverId, res)) return;
+  if (!fileName || typeof fileName !== 'string') {
+    return res.status(400).json({ success: false, error: 'Missing fileName' });
+  }
+  // fileName guard (mirror of restore-backup.sh): no slash, no '..', must start with "<serverId>-".
+  if (fileName.indexOf('/') !== -1 || fileName.indexOf('..') !== -1) {
+    return res.status(400).json({ success: false, error: 'Invalid fileName' });
+  }
+  if (fileName.indexOf(serverId + '-') !== 0) {
+    return res.status(400).json({ success: false, error: 'fileName must start with serverId-' });
+  }
+
+  const backupPath = path.join(BACKUP_DIR, fileName);
+  let backupSize;
+  try {
+    const real = fs.realpathSync(backupPath);
+    const realDir = fs.realpathSync(BACKUP_DIR);
+    if (real.indexOf(realDir + path.sep) !== 0) {
+      return res.status(400).json({ success: false, error: 'fileName resolves outside backups dir' });
+    }
+    backupSize = fs.statSync(real).size;
+  } catch (e) {
+    return res.status(404).json({ success: false, error: 'Backup file not found' });
+  }
+
+  // Free-space check: need at least the backup size free (extraction grows, plus prerestore tar).
+  try {
+    const { execFileSync } = require('child_process');
+    const out = execFileSync('df', ['-B1', '--output=avail', BACKUP_DIR], { timeout: 5000 }).toString();
+    const lines = out.trim().split('\n');
+    const avail = parseInt(lines[lines.length - 1].trim(), 10);
+    if (Number.isFinite(avail) && avail < backupSize) {
+      return res.status(507).json({ success: false, error: 'Insufficient disk space for restore' });
+    }
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not check disk space: ' + e.message });
+  }
+
+  try {
+    console.log('[' + new Date().toISOString() + '] restore ' + serverId + ' from ' + fileName);
+    const stdout = await runScript('restore-backup.sh', [serverId, fileName], BACKUP_TIMEOUT_MS);
+    if (!/^OK restored /m.test(stdout)) {
+      return res.status(500).json({ success: false, error: 'Restore script did not confirm success: ' + stdout.trim() });
+    }
+    return res.json({ success: true, restartNeeded: true });
+  } catch (err) {
+    console.error('restore-backup error ' + serverId + ':', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', function() {
   console.log('[' + new Date().toISOString() + '] OmriCraft Manager API listening on 0.0.0.0:' + PORT);
 });

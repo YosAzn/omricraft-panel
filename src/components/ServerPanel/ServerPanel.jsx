@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   AlertCircle, RefreshCcw, ArrowLeft, Server, RefreshCw, Square, Play,
-  HardDrive, Map as MapIcon, Terminal, Package, Folder, Settings
+  HardDrive, Map as MapIcon, Terminal, Package, Folder, Settings, Archive
 } from 'lucide-react';
 
 import { TabBtn } from '../ui';
@@ -11,6 +11,7 @@ import ConsoleTab from './ConsoleTab';
 import AddonsTab from './AddonsTab';
 import FilesTab from './FilesTab';
 import SettingsTab from './SettingsTab';
+import BackupsTab from './BackupsTab';
 
 export default function ServerPanel({ server, onBack, toggleStatus, restartServer, toggleAddon, onDelete, updateServer, t, allAddons, userRole, mcVersions, versionMatrix = {}, syncStatus, playersData }) {
   const [activeTab, setActiveTab] = useState('overview');
@@ -100,6 +101,7 @@ export default function ServerPanel({ server, onBack, toggleStatus, restartServe
             <TabBtn icon={<Terminal size={18} />} label={t('console')} active={activeTab === 'console'} onClick={() => setActiveTab('console')} />
             <TabBtn icon={<Package size={18} />} label={t('addonsTab')} active={activeTab === 'addons'} onClick={() => setActiveTab('addons')} badge={server.installedAddons.length} />
             <TabBtn icon={<Folder size={18} />} label={t('filesTab')} active={activeTab === 'files'} onClick={() => setActiveTab('files')} />
+            {userRole === 'admin' && <TabBtn icon={<Archive size={18} />} label={t('backupsTab')} active={activeTab === 'backups'} onClick={() => setActiveTab('backups')} />}
             {userRole === 'admin' && <TabBtn icon={<Settings size={18} />} label={t('advanced')} active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />}
           </div>
         </div>
@@ -110,6 +112,7 @@ export default function ServerPanel({ server, onBack, toggleStatus, restartServe
           {activeTab === 'console' && <ConsoleTab server={server} t={t} userRole={userRole} />}
           {activeTab === 'addons' && <AddonsTab server={server} toggleAddon={toggleAddon} t={t} allAddons={allAddons} userRole={userRole} />}
           {activeTab === 'files' && <FilesTab server={server} t={t} userRole={userRole} />}
+          {activeTab === 'backups' && userRole === 'admin' && <BackupsTab server={server} t={t} userRole={userRole} syncStatus={syncStatus} />}
           {activeTab === 'settings' && userRole === 'admin' && <SettingsTab server={server} onDelete={onDelete} updateServer={updateServer} t={t} mcVersions={mcVersions} versionMatrix={versionMatrix} />}
         </div>
       </div>

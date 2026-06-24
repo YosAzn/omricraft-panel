@@ -933,3 +933,71 @@ exports.getVersionMatrix = onCall(
     return { success: true, matrix };
   }
 );
+
+// ---------------------------------------------------------------------------
+// backupServer — creates a full world/server backup on the VPS via Manager API
+// ---------------------------------------------------------------------------
+exports.backupServer = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 300 },
+  async (request) => {
+    assertAdmin(request);
+    const { serverId } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      return await callManagerApi(BASE_URL, API_KEY, 'POST', '/backup-server', { serverId });
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// listBackups — lists existing backups for a server (newest-first) via Manager API
+// ---------------------------------------------------------------------------
+exports.listBackups = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 30 },
+  async (request) => {
+    assertAdmin(request);
+    const { serverId } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      return await callManagerApi(BASE_URL, API_KEY, 'GET', `/list-backups/${serverId}`, null);
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// restoreBackup — restores a server from a backup file (does NOT auto-start) via
+// Manager API. The backend makes a safety backup of the current world first and
+// returns { restartNeeded: true } so the UI can offer to start the server.
+// ---------------------------------------------------------------------------
+exports.restoreBackup = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 300 },
+  async (request) => {
+    assertAdmin(request);
+    const { serverId, fileName } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    if (!fileName || typeof fileName !== 'string' || fileName.includes('/') || fileName.includes('..')) {
+      return { success: false, error: 'Invalid fileName' };
+    }
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      return await callManagerApi(BASE_URL, API_KEY, 'POST', '/restore-backup', { serverId, fileName });
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
