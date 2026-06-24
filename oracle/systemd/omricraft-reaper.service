@@ -1,0 +1,10 @@
+[Unit]
+Description=OmriCraft orphan reaper (kills minecraft java procs with deleted/unknown server dirs)
+After=network.target omricraft-manager.service
+Wants=omricraft-manager.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/omricraft/manager/scripts
+ExecStart=/usr/bin/env bash /home/ubuntu/omricraft/manager/scripts/reap-orphans.sh

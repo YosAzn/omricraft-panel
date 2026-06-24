@@ -66,6 +66,29 @@ fi
 SERVER_PID=$!
 echo "$SERVER_PID" > "$PID_FILE"
 
+# Defense-in-depth (non-blocking): once the game port is LISTENing, reconcile the
+# pid file with the REAL java PID that owns the port — but only if that java's cwd
+# matches THIS server dir (port+cwd double-check, identical to stop-server.sh).
+# Never blocks startup; on any failure the original $! value is left in place.
+(
+  PORT="$(grep -E '^server-port=' "$SERVER_DIR/server.properties" 2>/dev/null | head -1 | cut -d= -f2 | tr -d '[:space:]')"
+  [ -n "$PORT" ] || exit 0
+  for _ in $(seq 1 60); do
+    sleep 2
+    REAL=""
+    for p in $(ss -ltnpH "sport = :$PORT" 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u); do
+      grep -qa 'server.jar' "/proc/$p/cmdline" 2>/dev/null || continue
+      c="$(readlink "/proc/$p/cwd" 2>/dev/null)"; c="${c% (deleted)}"
+      if [ "$c" = "$SERVER_DIR" ]; then REAL="$p"; break; fi
+    done
+    if [ -n "$REAL" ]; then
+      echo "$REAL" > "$PID_FILE"
+      echo "[$(date)] pid file reconciled to listening java PID $REAL (port $PORT)" >> "$LOG_FILE"
+      exit 0
+    fi
+  done
+) &
+
 # Background: move datapacks-pending → world/datapacks when world folder appears
 DATAPACK_PENDING="$SERVER_DIR/datapacks-pending"
 if [ -d "$DATAPACK_PENDING" ] && [ "$(ls -A "$DATAPACK_PENDING" 2>/dev/null)" ]; then

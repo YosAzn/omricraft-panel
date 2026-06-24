@@ -28,6 +28,24 @@ function apiCall(method, path, body) {
   });
 }
 
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// verifyStopped: after a stop call, re-query /players and confirm the server
+// is no longer online. Returns true if confirmed down, false if still up.
+// Loud (console.error) on failure so a regression in churn surfaces immediately.
+async function verifyStopped(sid) {
+  await sleep(4000); // give graceful shutdown a moment
+  let players;
+  try { players = await apiCall('GET', '/players'); }
+  catch (e) { console.error('[auto-stop] verify: /players unreachable for ' + sid + ': ' + e.message); return false; }
+  const info = (players && players.servers) ? players.servers[sid] : undefined;
+  if (info && info.online) {
+    console.error('[auto-stop] VERIFY FAILED: ' + sid + ' STILL ONLINE after stop — stop-server did not kill it. Investigate.');
+    return false;
+  }
+  return true;
+}
+
 async function main() {
   let state = {};
   try { state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')); } catch {}
@@ -56,9 +74,18 @@ async function main() {
         console.log('[auto-stop] Stopping ' + sid + '...');
         try {
           await apiCall('POST', '/stop-server', { serverId: sid });
-          newState[sid] = { emptyCount: 0 };
-          console.log('[auto-stop] ' + sid + ' stopped OK');
+          const ok = await verifyStopped(sid);
+          if (ok) {
+            newState[sid] = { emptyCount: 0 };
+            console.log('[auto-stop] ' + sid + ' stopped OK (verified down)');
+          } else {
+            // Do NOT reset emptyCount — keep it at/above threshold so the next
+            // cycle retries the stop instead of silently dropping it.
+            newState[sid] = { emptyCount };
+            console.error('[auto-stop] ' + sid + ' stop NOT verified — will retry next cycle');
+          }
         } catch (e) {
+          newState[sid] = { emptyCount };
           console.error('[auto-stop] Stop failed:', e.message);
         }
       }
