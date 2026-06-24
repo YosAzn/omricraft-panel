@@ -35,6 +35,17 @@ graceful_kill() {
   return 1
 }
 
+# is_server_jar_cmdline FILE -> 0 if the NUL-delimited /proc cmdline is a real
+# minecraft launch: standalone "-jar" arg AND a jar arg whose basename is exactly
+# "server.jar". Anchored to arg boundaries (NUL = [:cntrl:], "/", or start/end) so
+# substrings like "otherserver.jar"/"server.jar.txt"/bare "echo server.jar" do NOT match.
+is_server_jar_cmdline() {
+  local f="$1"
+  grep -qaE '(^|[[:cntrl:]])-jar([[:cntrl:]]|$)' "$f" 2>/dev/null || return 1
+  grep -qaE '(^|[/[:cntrl:]])server\.jar([[:cntrl:]]|$)' "$f" 2>/dev/null || return 1
+  return 0
+}
+
 # resolve_pid_by_port_cwd: find the java PID that BOTH listens on the server's
 # configured port AND has its cwd == this server's directory (double verification
 # so we never kill a foreign process). Echoes PID on success, empty on no match.
@@ -47,8 +58,8 @@ resolve_pid_by_port_cwd() {
   # All PIDs listening on that exact port (LISTEN sockets only).
   for pid in $(ss -ltnpH "sport = :$port" 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u); do
     [ -n "$pid" ] || continue
-    # Verify the process command looks like a minecraft server.jar java process.
-    grep -qa 'server.jar' "/proc/$pid/cmdline" 2>/dev/null || continue
+    # Verify the process command looks like a minecraft server.jar java process (anchored).
+    is_server_jar_cmdline "/proc/$pid/cmdline" || continue
     # Verify cwd matches THIS server's directory exactly (authoritative check).
     pcwd="$(readlink "/proc/$pid/cwd" 2>/dev/null)"
     # readlink may append " (deleted)"; strip it for comparison.

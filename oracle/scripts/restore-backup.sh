@@ -99,6 +99,26 @@ if [ "${#CURRENT_WORLDS[@]}" -gt 0 ]; then
     exit 1
   fi
   echo "[$(date)] Pre-restore backup created: $PRERESTORE_FILE"
+
+  # --- retention: keep only the 3 newest prerestore (and any restore-old)
+  # tarballs for THIS serverId, delete older ones. Prevents disk fill-up.
+  # Scoped strictly to "<SERVER_ID>-prerestore-*.tar.gz" and
+  # "<SERVER_ID>-restore-old-*.tar.gz" — never touches manual/daily backups
+  # (those are pruned by a separate 30-day cron) and never another serverId.
+  KEEP=3
+  prune_set() {  # $1 = glob pattern under BACKUP_DIR
+    local pattern="$1" old n=0
+    # Newest-first by mtime; delete everything past the first $KEEP.
+    while IFS= read -r old; do
+      [ -n "$old" ] || continue
+      n=$((n + 1))
+      if [ "$n" -gt "$KEEP" ]; then
+        rm -f -- "$old" && echo "[$(date)] retention: removed old $(basename "$old")"
+      fi
+    done < <(ls -1t $pattern 2>/dev/null)
+  }
+  prune_set "$BACKUP_DIR/${SERVER_ID}-prerestore-*.tar.gz"
+  prune_set "$BACKUP_DIR/${SERVER_ID}-restore-old-*.tar.gz"
 else
   echo "[$(date)] No current world dirs to pre-back-up (fresh restore)."
   PRERESTORE_FILE="(none)"

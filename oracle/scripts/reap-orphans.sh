@@ -54,10 +54,22 @@ graceful_kill() {
 reaped=0
 checked=0
 
+# is_server_jar_cmdline FILE -> 0 if the NUL-delimited /proc cmdline is a real
+# minecraft launch: it has a standalone "-jar" arg AND a jar arg whose basename
+# is exactly "server.jar". Anchored to arg boundaries (NUL = [:cntrl:], "/", or
+# start/end) so substrings like "otherserver.jar", "server.jar.txt", or a bare
+# "echo server.jar" (no -jar flag) are NOT matched.
+is_server_jar_cmdline() {
+  local f="$1"
+  grep -qaE '(^|[[:cntrl:]])-jar([[:cntrl:]]|$)' "$f" 2>/dev/null || return 1
+  grep -qaE '(^|[/[:cntrl:]])server\.jar([[:cntrl:]]|$)' "$f" 2>/dev/null || return 1
+  return 0
+}
+
 for pid in $(pgrep -f '[j]ava' || true); do
   [ -n "$pid" ] || continue
-  # Must be a minecraft server.jar java process.
-  grep -qa 'server.jar' "/proc/$pid/cmdline" 2>/dev/null || continue
+  # Must be a minecraft server.jar java process (anchored, not substring).
+  is_server_jar_cmdline "/proc/$pid/cmdline" || continue
   checked=$((checked + 1))
 
   raw_cwd="$(readlink "/proc/$pid/cwd" 2>/dev/null || true)"
