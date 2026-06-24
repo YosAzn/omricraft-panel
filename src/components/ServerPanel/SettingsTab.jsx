@@ -212,12 +212,16 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
             </div>
             <div>
               <label className="block text-sm text-zinc-400 mb-1">{t('worldType')}</label>
-              <select value={server.worldType} onChange={(e) => { updateServer({ worldType: e.target.value }); applyServerProperty('worldType', e.target.value); }} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600">
+              {/* World type is locked after creation — Minecraft only reads level-type
+                  on first world generation. Show it read-only to avoid lying to the user
+                  (writing the property would have no effect on an existing world). */}
+              <select value={server.worldType} disabled className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-500 outline-none cursor-not-allowed">
                 <option value="default">{t('worldDefault')}</option>
                 <option value="flat">{t('worldFlat')}</option>
                 <option value="amplified">{t('worldAmplified')}</option>
                 <option value="large_biomes">{t('worldLargeBiomes')}</option>
               </select>
+              <p className="text-xs text-zinc-500 mt-1">🔒 {t('worldTypeLocked')}</p>
             </div>
           </div>
           <DifficultyControl server={server} updateServer={updateServer} t={t} />
