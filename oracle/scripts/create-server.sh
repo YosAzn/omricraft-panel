@@ -269,8 +269,15 @@ fi
 
 # Download datapacks if addons include datapacks
 # d1,d4,d6,d7,d8,d9,d10,d11 = Vanilla Tweaks — require browser picker, no direct URL
+# url + filename MUST stay identical to DATAPACK_CATALOG in manager-api/server.js so
+# create-time installs and post-create installs land the EXACT same file.
 declare -A DATAPACK_URLS
+declare -A DATAPACK_FILENAMES
 DATAPACK_URLS["d2"]="https://github.com/Stardust-Labs-MC/Terralith/releases/download/v2.5.9/Terralith_1.21_v2.5.9_BETA.jar"
+# Minecraft only recognises a .zip (or a folder) inside world/datapacks/. A .jar is
+# logged "non-pack entry, ignoring" and never loads — the archive bytes are an
+# ordinary zip, only the NAME matters. Save with .zip to match the catalog.
+DATAPACK_FILENAMES["d2"]="Terralith_1.21_v2.5.9_BETA.zip"
 # TODO: Data — add more datapack URLs when direct download becomes available (d3 Tectonic, Nullscape, Structory)
 
 mkdir -p "$SERVER_DIR/datapacks-pending"
@@ -280,7 +287,12 @@ if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
     [ -z "$addonId" ] && continue
     url="${DATAPACK_URLS[$addonId]:-}"
     if [ -n "$url" ]; then
-      filename=$(basename "$url" | sed 's/\?.*$//')
+      # Prefer the explicit catalog filename (.zip); fall back to URL basename.
+      if [[ -n "${DATAPACK_FILENAMES[$addonId]:-}" ]]; then
+        filename="${DATAPACK_FILENAMES[$addonId]}"
+      else
+        filename=$(basename "$url" | sed 's/\?.*$//')
+      fi
       echo "[$(date)] Downloading datapack $addonId: $filename"
       wget -q -L --timeout=60 "$url" -O "$SERVER_DIR/datapacks-pending/$filename" || true
       # Datapacks are .jar/.zip archives → same ZIP-magic validation applies.

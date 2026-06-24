@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Play, Search, Check, Shield } from 'lucide-react';
 
-import { TYPE_COLORS, SOFTWARE_TYPES } from '../lib/constants';
+import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod } from '../lib/constants';
 import { isViaVersion } from '../lib/utils';
 import ImageUploader from './ImageUploader';
 
@@ -46,14 +46,26 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, use
     e.preventDefault();
     const opsArray = opsString.split(',').map(o => o.trim()).filter(Boolean);
     const whitelistArray = isPrivate ? whitelistString.split(',').map(o => o.trim()).filter(Boolean) : [];
+    // Honest install: only 'server' addons can actually be installed by create-server.sh.
+    // client (textures) install on the player's game; manual (e.g. vanilla-tweaks) have no
+    // hosted URL. Sending them would promise an install that never happens (same bug AddonsTab fixed).
+    const serverInstallable = selectedAddons.filter(id => {
+      const addon = allAddons.find(a => a.id === id);
+      return getInstallMethod(addon) === 'server';
+    });
     onCreate({
       name, icon, software, version, gamemode, worldType, ops: opsArray,
-      seed: seed || undefined, installedAddons: selectedAddons, maxPlayers,
+      seed: seed || undefined, installedAddons: serverInstallable, maxPlayers,
       difficulty, isPrivate, whitelistPlayers: whitelistArray
     });
   };
 
-  const toggleSelection = (id) => setSelectedAddons(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]);
+  // Only 'server' addons are selectable — client/manual show an info badge instead (no false promise).
+  const toggleSelection = (id) => {
+    const addon = allAddons.find(a => a.id === id);
+    if (getInstallMethod(addon) !== 'server') return;
+    setSelectedAddons(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]);
+  };
 
   // Version list is driven by the SELECTED software type. Each type's real API
   // supports a different set (Paper ≤ 1.21.x, Purpur/Fabric/Vanilla ship 26.x).
@@ -228,11 +240,24 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, use
                </div>
 
                <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-2 max-h-56 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2">
-                 {searchedAddons.map(a => (
-                    <div key={a.id} onClick={() => toggleSelection(a.id)} className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer border transition-colors ${selectedAddons.includes(a.id) ? 'bg-green-500/5 border-green-500/50' : 'bg-zinc-900 border-transparent hover:border-zinc-700'}`}>
-                      <div className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center border flex-shrink-0 ${selectedAddons.includes(a.id) ? 'bg-green-600 border-green-600' : 'border-zinc-600'}`}>
-                        {selectedAddons.includes(a.id) && <Check size={14} className="text-white"/>}
-                      </div>
+                 {searchedAddons.map(a => {
+                    const installMethod = getInstallMethod(a); // 'server' | 'manual' | 'client'
+                    const installable = installMethod === 'server';
+                    const checked = selectedAddons.includes(a.id);
+                    return (
+                    <div key={a.id} onClick={() => toggleSelection(a.id)}
+                      title={installable ? undefined : (installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo'))}
+                      className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${installable ? 'cursor-pointer' : 'cursor-default'} ${checked ? 'bg-green-500/5 border-green-500/50' : 'bg-zinc-900 border-transparent hover:border-zinc-700'}`}>
+                      {installable ? (
+                        <div className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center border flex-shrink-0 ${checked ? 'bg-green-600 border-green-600' : 'border-zinc-600'}`}>
+                          {checked && <Check size={14} className="text-white"/>}
+                        </div>
+                      ) : (
+                        // No checkbox for client/manual — they are NOT installed on the server. Avoid a false promise.
+                        <span className={`mt-0.5 text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border flex-shrink-0 whitespace-nowrap ${installMethod === 'client' ? 'border-teal-500/30 text-teal-400 bg-teal-500/5' : 'border-zinc-600 text-zinc-400 bg-zinc-800/40'}`}>
+                          {installMethod === 'client' ? t('clientSideBadge') : t('manualBadge')}
+                        </span>
+                      )}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-sm block leading-none text-zinc-200">{a.name}</span>
@@ -241,9 +266,15 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, use
                           </span>
                         </div>
                         <span className="text-xs text-zinc-400 mt-2 block leading-relaxed">{a.desc}</span>
+                        {!installable && (
+                          <span className="text-[11px] text-zinc-500 mt-1.5 block leading-relaxed">
+                            {installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo')}
+                          </span>
+                        )}
                       </div>
                     </div>
-                 ))}
+                    );
+                 })}
                  {searchedAddons.length === 0 && <div className="col-span-full p-4 text-center text-zinc-600 text-sm">לא נמצאו תוספים התואמים לחיפוש.</div>}
                </div>
             </div>

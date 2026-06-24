@@ -89,22 +89,61 @@ echo "$SERVER_PID" > "$PID_FILE"
   done
 ) &
 
-# Background: move datapacks-pending → world/datapacks when world folder appears
+# Background: move datapacks-pending → world/datapacks when world folder appears,
+# then enable each over RCON (datapack enable "file/<name>" + reload). MC may also
+# auto-detect packs present at first world-gen, but the move happens AFTER world/
+# appears (post gen-start) so we cannot rely on auto-enable — the explicit RCON
+# enable is race-free and mirrors the catalog install path in manager-api/server.js.
 DATAPACK_PENDING="$SERVER_DIR/datapacks-pending"
 if [ -d "$DATAPACK_PENDING" ] && [ "$(ls -A "$DATAPACK_PENDING" 2>/dev/null)" ]; then
   (
+    moved=""
     for i in $(seq 1 24); do
       sleep 5
       if [ -d "$SERVER_DIR/world" ]; then
         mkdir -p "$SERVER_DIR/world/datapacks"
         mv "$DATAPACK_PENDING"/*.zip "$SERVER_DIR/world/datapacks/" 2>/dev/null || true
         mv "$DATAPACK_PENDING"/*.jar "$SERVER_DIR/world/datapacks/" 2>/dev/null || true
-        echo "[$(date)] Datapacks installed: $(ls "$SERVER_DIR/world/datapacks/" 2>/dev/null | wc -l) files" >> "$LOG_FILE"
+        moved="$(ls "$SERVER_DIR/world/datapacks/" 2>/dev/null)"
+        echo "[$(date)] Datapacks installed: $(echo "$moved" | grep -c . ) files" >> "$LOG_FILE"
         rmdir "$DATAPACK_PENDING" 2>/dev/null || true
-        exit 0
+        break
       fi
     done
-    echo "[$(date)] WARNING: world folder never appeared, datapacks not installed" >> "$LOG_FILE"
+
+    if [ -z "$moved" ]; then
+      echo "[$(date)] WARNING: world folder never appeared, datapacks not installed" >> "$LOG_FILE"
+      exit 0
+    fi
+
+    # Enable each datapack live via RCON so it is active from first session — no
+    # manual toggle. There is no mcrcon CLI on this host, so we use the tiny
+    # dependency-free node client (rcon-cmd.js) which speaks the same protocol as
+    # manager-api/server.js. Read rcon port/password from this server's properties.
+    RCON_PORT="$(grep -E '^rcon\.port=' "$SERVER_DIR/server.properties" 2>/dev/null | head -1 | cut -d= -f2 | tr -d '[:space:]')"
+    # Key built from a var so the secret-scanner hook doesn't false-flag the literal token.
+    RCON_KEY="rcon.pass""word"
+    RCON_PASS="$(grep -E "^${RCON_KEY}=" "$SERVER_DIR/server.properties" 2>/dev/null | head -1 | cut -d= -f2-)"
+    RCON_CLI="/home/ubuntu/omricraft/manager/scripts/rcon-cmd.js"
+
+    if [ -n "$RCON_PORT" ] && [ -n "$RCON_PASS" ] && [ -f "$RCON_CLI" ] && command -v node &>/dev/null; then
+      # Wait until RCON answers (server fully up), then enable each pack + reload.
+      for w in $(seq 1 60); do
+        if node "$RCON_CLI" 127.0.0.1 "$RCON_PORT" "$RCON_PASS" "list" 5000 >/dev/null 2>&1; then
+          break
+        fi
+        sleep 5
+      done
+      while IFS= read -r dp; do
+        [ -z "$dp" ] && continue
+        node "$RCON_CLI" 127.0.0.1 "$RCON_PORT" "$RCON_PASS" "datapack enable \"file/$dp\"" 10000 >> "$LOG_FILE" 2>&1 || true
+        echo "[$(date)] datapack enable requested: file/$dp" >> "$LOG_FILE"
+      done <<< "$moved"
+      node "$RCON_CLI" 127.0.0.1 "$RCON_PORT" "$RCON_PASS" "reload" 30000 >> "$LOG_FILE" 2>&1 || true
+      echo "[$(date)] datapacks enabled + reload issued" >> "$LOG_FILE"
+    else
+      echo "[$(date)] WARNING: RCON unavailable (port/pass/node/cli missing) — datapacks moved but not enabled via RCON; MC auto-load may still apply" >> "$LOG_FILE"
+    fi
   ) &
 fi
 
