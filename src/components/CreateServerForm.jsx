@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Play, Search, Check, Shield } from 'lucide-react';
 
-import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod } from '../lib/constants';
+import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType } from '../lib/constants';
 import { isViaVersion } from '../lib/utils';
 import ImageUploader from './ImageUploader';
 
@@ -17,6 +17,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, use
   const [selectedAddons, setSelectedAddons] = useState([]);
   const [maxPlayers, setMaxPlayers] = useState(20);
   const [difficulty, setDifficulty] = useState('normal');
+  const [memoryMb, setMemoryMb] = useState(2048);
   const [isPrivate, setIsPrivate] = useState(false);
   const [whitelistString, setWhitelistString] = useState('');
 
@@ -56,7 +57,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, use
     onCreate({
       name, icon, software, version, gamemode, worldType, ops: opsArray,
       seed: seed || undefined, installedAddons: serverInstallable, maxPlayers,
-      difficulty, isPrivate, whitelistPlayers: whitelistArray
+      difficulty, memoryMb, isPrivate, whitelistPlayers: whitelistArray
     });
   };
 
@@ -70,15 +71,19 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, use
   // Version list is driven by the SELECTED software type. Each type's real API
   // supports a different set (Paper ≤ 1.21.x, Purpur/Fabric/Vanilla ship 26.x).
   // Fall back to the global Paper list if the matrix hasn't loaded for that type.
-  const typeVersions = (versionMatrix[software] && versionMatrix[software].length)
+  const baseTypeVersions = (versionMatrix[software] && versionMatrix[software].length)
     ? versionMatrix[software]
     : mcVersions;
+  // Apply per-type caps (e.g. Mohist → 1.20.1 only) so the selector never offers a
+  // version whose jar download will fail. Unrestricted types are returned unchanged.
+  const typeVersions = limitVersionsForType(software, baseTypeVersions);
 
   // When the type changes, if the current version isn't valid for it, snap to newest.
   const handleSoftwareChange = (id) => {
     setSoftware(id);
     setSelectedAddons([]);
-    const list = (versionMatrix[id] && versionMatrix[id].length) ? versionMatrix[id] : mcVersions;
+    const base = (versionMatrix[id] && versionMatrix[id].length) ? versionMatrix[id] : mcVersions;
+    const list = limitVersionsForType(id, base);
     if (list.length && !list.includes(version)) setVersion(list[0]);
   };
 
@@ -183,6 +188,17 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, use
                 <option value="normal">{t('normal')}</option>
                 <option value="hard">{t('hard')}</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-zinc-400 mb-2">זיכרון (RAM)</label>
+              <select value={memoryMb} onChange={(e) => setMemoryMb(Number(e.target.value))}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-all">
+                <option value={1024}>1 GB</option>
+                <option value={2048}>2 GB (מומלץ)</option>
+                <option value={3072}>3 GB</option>
+                <option value={4096}>4 GB</option>
+              </select>
+              <p className="text-xs text-zinc-500 mt-2">כמה זיכרון מוקצה לשרת. 2 GB מספיק לרוב; מודים/הרבה שחקנים → יותר.</p>
             </div>
           </div>
 

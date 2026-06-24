@@ -502,6 +502,63 @@ app.post('/install-plugin', async function(req, res) {
   }
 });
 
+// ===================================================================
+// /install-mod — modId-driven mod install for fabric/forge/neoforge (no client URL).
+// SSRF-safe like /install-datapack-by-id: client sends only { serverId, modId }; the
+// Modrinth slug is resolved from a SERVER-SIDE allowlist (MOD_CATALOG), and the
+// server's loader(type)+version come from servers.json. install-mod.sh resolves the
+// correct loader+MC build from the Modrinth API (fail-loud if no compatible build).
+// Mods load on restart (no live RCON hot-load for jar mods) -> needsRestart:true.
+// ===================================================================
+var MOD_CATALOG = {
+  // modId -> Modrinth slug. SERVER-installable mods only (client-side mods like Sodium
+  // are installMethod:'client' in the UI and never reach this endpoint). Keep in sync
+  // with create-server.sh MOD_SLUGS so create-time and post-create installs match.
+  'm3': 'create',
+  'm5': 'distanthorizons',
+  'm6': 'simple-voice-chat',
+  'm7': 'jei'
+};
+
+app.post('/install-mod', async function(req, res) {
+  var serverId = req.body.serverId;
+  var modId = req.body.modId;
+  if (!validateId(serverId, res)) return;
+  if (!modId || typeof modId !== 'string' || !/^[a-z0-9_-]+$/.test(modId)) {
+    return res.status(400).json({ success: false, error: 'Invalid modId' });
+  }
+  var slug = MOD_CATALOG[modId];
+  if (!slug) {
+    return res.status(400).json({ success: false, error: 'mod not available: ' + modId });
+  }
+  var serverDir = path.join(SERVERS_DIR, serverId);
+  if (!fs.existsSync(serverDir)) {
+    return res.status(404).json({ success: false, error: 'Server not found' });
+  }
+  var srv;
+  try {
+    srv = readServersArray().find(function(s) { return s.id === serverId; });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not read servers.json: ' + e.message });
+  }
+  if (!srv) {
+    return res.status(404).json({ success: false, error: 'Server not in servers.json' });
+  }
+  var loader = srv.type;
+  var version = srv.version;
+  if (['fabric', 'forge', 'neoforge'].indexOf(loader) === -1) {
+    return res.status(400).json({ success: false, error: 'מודים ניתנים להתקנה רק על שרתי Fabric/Forge/NeoForge (זהו ' + loader + ')' });
+  }
+  try {
+    await runScript('install-mod.sh', [serverDir, loader, version, slug], 90000);
+    console.log('[' + new Date().toISOString() + '] Installed mod ' + modId + ' (' + slug + ') on ' + serverId);
+    return res.json({ success: true, modId: modId, slug: slug, needsRestart: true });
+  } catch (err) {
+    console.error('install-mod error:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/remove-plugin', function(req, res) {
   var serverId = req.body.serverId;
   var pluginId = req.body.pluginId;
@@ -1210,14 +1267,15 @@ function readServersArray() {
 }
 
 // Helper: total heap (MB) of Minecraft game-server java processes RUNNING NOW.
-// Parses -Xmx from each java process whose command line references a server.jar
-// backend (excludes the Velocity proxy, which runs velocity.jar). Used by the
-// create-server RAM guard so that the cap reflects live load, not allocation.
-// Fails LOUD: if ps cannot be read the caller's try/catch returns a 500.
+// Parses -Xmx from every backend java launch shape — -jar server.jar (paper/purpur/
+// vanilla/folia/mohist), -jar fabric-server-launch.jar (fabric), and run.sh java that
+// reads @user_jvm_args.txt / @libraries (forge/neoforge). Excludes the Velocity proxy
+// (velocity.jar). Used by the create-server RAM guard so the cap reflects live load,
+// not allocation. Fails LOUD: if ps cannot be read the caller's try/catch returns 500.
 function runningGameServerMemoryMb() {
   const { execSync } = require('child_process');
   const out = execSync(
-    "ps -eo args | grep -E 'java .*-jar server.jar' | grep -v grep || true",
+    "ps -eo args | grep -E 'java .*(-jar (server|fabric-server-launch)\\.jar|@user_jvm_args\\.txt|@libraries)' | grep -v grep || true",
     { timeout: 5000 }
   ).toString();
   let totalMb = 0;

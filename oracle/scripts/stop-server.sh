@@ -36,14 +36,24 @@ graceful_kill() {
 }
 
 # is_server_jar_cmdline FILE -> 0 if the NUL-delimited /proc cmdline is a real
-# minecraft launch: standalone "-jar" arg AND a jar arg whose basename is exactly
-# "server.jar". Anchored to arg boundaries (NUL = [:cntrl:], "/", or start/end) so
-# substrings like "otherserver.jar"/"server.jar.txt"/bare "echo server.jar" do NOT match.
+# minecraft launch. Covers ALL launch shapes:
+#   - standalone "-jar" arg AND a jar arg whose basename is "server.jar" OR
+#     "fabric-server-launch.jar" (paper/purpur/vanilla/folia/mohist/fabric)
+#   - modern Forge/NeoForge run.sh java: reads "@user_jvm_args.txt" / "@libraries"
+#     and has NO -jar (the wrapper is bash run.sh; this matches the java CHILD).
+# Anchored to arg boundaries (NUL = [:cntrl:], "/", or start/end) so substrings like
+# "otherserver.jar"/"server.jar.txt" do NOT match. The caller's cwd==SERVER_DIR check
+# is the authoritative guard, so the broadened run.sh match stays safe.
 is_server_jar_cmdline() {
   local f="$1"
-  grep -qaE '(^|[[:cntrl:]])-jar([[:cntrl:]]|$)' "$f" 2>/dev/null || return 1
-  grep -qaE '(^|[/[:cntrl:]])server\.jar([[:cntrl:]]|$)' "$f" 2>/dev/null || return 1
-  return 0
+  if grep -qaE '(^|[[:cntrl:]])-jar([[:cntrl:]]|$)' "$f" 2>/dev/null \
+     && grep -qaE '(^|[/[:cntrl:]])(server|fabric-server-launch)\.jar([[:cntrl:]]|$)' "$f" 2>/dev/null; then
+    return 0
+  fi
+  if grep -qaE '@?user_jvm_args\.txt|@libraries' "$f" 2>/dev/null; then
+    return 0
+  fi
+  return 1
 }
 
 # resolve_pid_by_port_cwd: find the java PID that BOTH listens on the server's
@@ -112,6 +122,19 @@ if [ -z "$KILLED" ]; then
     fi
   else
     echo "[$(date)] No matching java process (port+cwd) for $SERVER_ID — treating as not running."
+  fi
+fi
+
+# Path 3: final sweep. If the port is STILL listening, the killed pid was likely a
+# `bash run.sh` WRAPPER whose java child (Forge/NeoForge) survived. Resolve the java
+# by port+cwd (now matched by the broadened is_server_jar_cmdline) and kill it. This is
+# what stops delete-server.sh from leaking a Forge java that re-creates world/ post-rm.
+if port_listening; then
+  echo "[$(date)] Port still listening after initial stop; final port+cwd java sweep for $SERVER_ID..."
+  SWEEP_PID="$(resolve_pid_by_port_cwd)"
+  if [ -n "$SWEEP_PID" ]; then
+    echo "[$(date)] Sweeping leftover java PID $SWEEP_PID for $SERVER_ID..."
+    graceful_kill "$SWEEP_PID" || true
   fi
 fi
 

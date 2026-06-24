@@ -143,10 +143,18 @@ exports.createServer = onCall(
       slug = `${slug}-${i}`;
     }
 
-    const usedPorts = new Set(existingServers.map(s => s.gamePort).filter(Boolean));
+    // Dedupe the new port against BOTH existing game AND rcon ports, and put rcon in a
+    // separate high range (game+10000) so an rcon port can never collide with another
+    // server's game port. The old rcon=game+10 scheme overlapped after ~10 servers
+    // (server A's rcon 25576 == server B's game 25576).
+    const usedPorts = new Set();
+    for (const s of existingServers) {
+      if (s.gamePort) usedPorts.add(s.gamePort);
+      if (s.rconPort) usedPorts.add(s.rconPort);
+    }
     let gamePort = 25566;
-    while (usedPorts.has(gamePort)) gamePort++;
-    const rconPort = gamePort + 10;
+    while (usedPorts.has(gamePort) || usedPorts.has(gamePort + 10000)) gamePort++;
+    const rconPort = gamePort + 10000;
 
     console.log(`createServer: id=${serverId} slug=${slug} port=${gamePort}`);
 
@@ -477,6 +485,40 @@ exports.installDatapack = onCall(
     const API_KEY  = managerApiKey.value().trim();
     try {
       const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/install-datapack-by-id', { serverId, addonId });
+      return result;
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// installMod — installs a mod on an existing fabric/forge/neoforge server BY modId.
+// SSRF-safe (same pattern as installDatapack): the client sends only { serverId, modId };
+// the Manager API maps modId -> Modrinth slug via a server-side allowlist (MOD_CATALOG),
+// reads the server's loader(type)+version from servers.json, and runs install-mod.sh
+// which resolves the correct loader+MC build from the Modrinth API. modId not in the
+// catalog => { success:false } (no download). Mods need a restart to load (no live RCON).
+// ---------------------------------------------------------------------------
+exports.installMod = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 120,
+  },
+  async (request) => {
+    assertAdmin(request);
+    const { serverId, modId } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    if (!modId || typeof modId !== 'string' || !/^[a-z0-9_-]+$/.test(modId)) {
+      return { success: false, error: 'Invalid modId' };
+    }
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/install-mod', { serverId, modId });
       return result;
     } catch (error) {
       return { success: false, error: error?.message || String(error) };
@@ -894,6 +936,17 @@ exports.getVersionMatrix = onCall(
     const isStable = (v) => typeof v === 'string'
       && !/-pre|-rc|-alpha|-beta|snapshot|-exp|w\d{2}[a-z]/i.test(v);
 
+    // Numeric version compare (newest-first) — string sort wrongly orders 1.21.9 > 1.21.11.
+    const verTuple = (v) => String(v).split('.').map(n => parseInt(n, 10) || 0);
+    const cmpVerDesc = (a, b) => {
+      const ta = verTuple(a), tb = verTuple(b);
+      for (let i = 0; i < Math.max(ta.length, tb.length); i++) {
+        const d = (tb[i] || 0) - (ta[i] || 0);
+        if (d) return d;
+      }
+      return 0;
+    };
+
     // Generic JSON GET that never throws — resolves to a fallback on any failure.
     const fetchJson = (url, fallback) => new Promise((resolve) => {
       const req = https.get(url, { headers: { 'User-Agent': 'OmriCraft-Panel/1.0' } }, (res) => {
@@ -945,12 +998,36 @@ exports.getVersionMatrix = onCall(
         // Manifest is newest-first already; keep releases only.
         return arr.filter(v => v && v.type === 'release' && isStable(v.id)).map(v => v.id);
       },
-      // NeoForge / Mohist: deriving a clean MC version from NeoForge's maven version
-      // string (e.g. 21.1.x → MC 1.21.1) and Mohist's per-MC builds is messy and
-      // error-prone. Until a reliable mapping exists, fall back to the Paper list so
-      // the UI never offers a version the backend can't resolve to a real jar.
-      neoforge: async () => sources.paper(),
-      mohist: async () => sources.paper(),
+      // Forge: promotions_slim.json keys each MC version as "<mc>-recommended"/"<mc>-latest".
+      // Extract the distinct MC versions that actually have a Forge build (no Paper aliasing).
+      forge: async () => {
+        const j = await fetchJson('https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json', null);
+        const promos = j?.promos;
+        if (!promos || typeof promos !== 'object') return FALLBACK_121;
+        const mc = new Set();
+        for (const key of Object.keys(promos)) {
+          const m = key.match(/^(\d+\.\d+(?:\.\d+)?)-(?:recommended|latest)$/);
+          if (m && isStable(m[1])) mc.add(m[1]);
+        }
+        const list = Array.from(mc);
+        return list.length ? list.sort(cmpVerDesc) : FALLBACK_121;
+      },
+      // NeoForge: maven versions like "21.1.93" → MC "1.21.1" (major.minor → 1.major.minor).
+      // Real source so the form never offers a version with no NeoForge jar.
+      neoforge: async () => {
+        const j = await fetchJson('https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge', null);
+        const arr = j?.versions;
+        if (!Array.isArray(arr) || !arr.length) return FALLBACK_121;
+        const mc = new Set();
+        for (const v of arr) {
+          const m = String(v).match(/^(\d+)\.(\d+)\.\d+/);
+          if (m) mc.add(`1.${m[1]}.${m[2]}`);
+        }
+        const list = Array.from(mc).filter(isStable);
+        return list.length ? list.sort(cmpVerDesc) : FALLBACK_121;
+      },
+      // Mohist only publishes 1.20.1 builds — offer exactly that, no phantom versions.
+      mohist: async () => ['1.20.1'],
     };
 
     const keys = Object.keys(sources);

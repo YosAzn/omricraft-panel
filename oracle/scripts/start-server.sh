@@ -48,13 +48,32 @@ fi
 
 cd "$SERVER_DIR"
 
-# For modern Forge (1.17+) and NeoForge, run.sh is the entry point rather than a jar
-if [ -f "$SERVER_DIR/run.sh" ] && ([ ! -s "$SERVER_DIR/server.jar" ] || grep -q "neoforge" "$SERVER_DIR/run.sh" 2>/dev/null); then
+# For modern Forge (1.17+) and NeoForge, run.sh is the entry point rather than a jar.
+# Detection is via the .use-run-sh sentinel that download-server-jar.sh drops for BOTH
+# forge and neoforge — NOT a grep for "neoforge" (plain Forge's run.sh contains
+# "minecraftforge", so the old grep skipped Forge and ran `java -jar` on a shell
+# script -> "Invalid or corrupt jarfile"). Empty-jar fallback kept as a safety net.
+if [ -f "$SERVER_DIR/run.sh" ] && { [ -f "$SERVER_DIR/.use-run-sh" ] || [ ! -s "$SERVER_DIR/server.jar" ]; }; then
   chmod +x "$SERVER_DIR/run.sh"
+  # Propagate the panel-selected heap to modern Forge/NeoForge. run.sh reads
+  # @user_jvm_args.txt; stock installers ship it with -Xmx commented out (~1/4 RAM).
+  # Writing explicit Xms/Xmx makes the server honor the panel's memory selection.
+  printf -- '-Xms%sM\n-Xmx%sM\n' "$MEMORY_MB" "$MEMORY_MB" > "$SERVER_DIR/user_jvm_args.txt"
   nohup bash "$SERVER_DIR/run.sh" nogui \
     >> "$LOG_FILE" 2>&1 &
+elif [ -f "$SERVER_DIR/fabric-server-launch.jar" ]; then
+  # Fabric: server.jar is the REAL Minecraft server (downloaded by the installer);
+  # fabric-server-launch.jar is the thin launcher that loads it + the mod loader.
+  # Launch the launcher (NOT server.jar) so mods actually load. The launcher reads
+  # fabric-server-launcher.properties (serverJar=server.jar) to find the MC jar.
+  nohup "$JAVA_BIN" -Xms${MEMORY_MB}M -Xmx${MEMORY_MB}M \
+    -XX:+UseG1GC \
+    -XX:+ParallelRefProcEnabled \
+    -XX:MaxGCPauseMillis=200 \
+    -jar fabric-server-launch.jar --nogui \
+    >> "$LOG_FILE" 2>&1 &
 else
-  # Paper, Purpur, Fabric (fabric-server-launch.jar copied to server.jar during create)
+  # Paper, Purpur, Vanilla, Folia, Mohist — runnable server.jar
   nohup "$JAVA_BIN" -Xms${MEMORY_MB}M -Xmx${MEMORY_MB}M \
     -XX:+UseG1GC \
     -XX:+ParallelRefProcEnabled \
@@ -77,7 +96,12 @@ echo "$SERVER_PID" > "$PID_FILE"
     sleep 2
     REAL=""
     for p in $(ss -ltnpH "sport = :$PORT" 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u); do
-      grep -qa 'server.jar' "/proc/$p/cmdline" 2>/dev/null || continue
+      # Match ALL launch shapes: -jar server.jar (paper/purpur/vanilla/folia/mohist),
+      # fabric-server-launch.jar (fabric), and run.sh java (forge/neoforge read
+      # @user_jvm_args.txt / @libraries). Without the run.sh markers the pid file kept
+      # the `bash run.sh` WRAPPER pid, not the java child — so stop/delete leaked the
+      # java (it held the port and re-created world/ after the dir was removed).
+      grep -qaE 'server\.jar|fabric-server-launch\.jar|user_jvm_args|@libraries' "/proc/$p/cmdline" 2>/dev/null || continue
       c="$(readlink "/proc/$p/cwd" 2>/dev/null)"; c="${c% (deleted)}"
       if [ "$c" = "$SERVER_DIR" ]; then REAL="$p"; break; fi
     done

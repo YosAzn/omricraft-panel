@@ -40,9 +40,20 @@ mkdir -p "$SERVER_DIR/mods"
 # Fabric/Forge: install mod loader instead of Paper
 if [ "$TYPE" = "fabric" ]; then
   echo "[$(date)] Installing Fabric $VERSION..."
-  FABRIC_INSTALLER_VER="0.16.14"
+  # Resolve the LATEST Fabric installer dynamically so a pinned version can't 404
+  # (the old hard-pinned 0.16.14 went dead). meta.fabricmc.net returns newest-first;
+  # [0].version + [0].url are the current installer. Fall back to 1.1.1 if fetch fails.
+  FABRIC_INSTALLER_VER=$(curl -sf "https://meta.fabricmc.net/v2/versions/installer" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['version'])" 2>/dev/null || echo "")
+  FABRIC_INSTALLER_FETCHED_URL=$(curl -sf "https://meta.fabricmc.net/v2/versions/installer" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['url'])" 2>/dev/null || echo "")
+  if [ -z "$FABRIC_INSTALLER_VER" ]; then
+    FABRIC_INSTALLER_VER="1.1.1"
+  fi
+  if [ -z "$FABRIC_INSTALLER_FETCHED_URL" ]; then
+    FABRIC_INSTALLER_FETCHED_URL="https://maven.fabricmc.net/net/fabricmc/fabric-installer/${FABRIC_INSTALLER_VER}/fabric-installer-${FABRIC_INSTALLER_VER}.jar"
+  fi
+  echo "[$(date)] Fabric installer version: $FABRIC_INSTALLER_VER"
   FABRIC_INSTALLER="/tmp/fabric-installer-$SERVER_ID.jar"
-  wget -q -L "https://maven.fabricmc.net/net/fabricmc/fabric-installer/${FABRIC_INSTALLER_VER}/fabric-installer-${FABRIC_INSTALLER_VER}.jar" \
+  wget -q -L "$FABRIC_INSTALLER_FETCHED_URL" \
     -O "$FABRIC_INSTALLER"
   if [ ! -s "$FABRIC_INSTALLER" ]; then
     echo "[$(date)] ERROR: Could not download Fabric installer"
@@ -50,14 +61,20 @@ if [ "$TYPE" = "fabric" ]; then
   fi
   java -jar "$FABRIC_INSTALLER" server -mcversion "$VERSION" -dir "$SERVER_DIR" -downloadMinecraft
   rm -f "$FABRIC_INSTALLER"
-  # Fabric generates fabric-server-launch.jar; copy to server.jar for uniform start-server.sh
-  if [ -f "$SERVER_DIR/fabric-server-launch.jar" ]; then
-    cp "$SERVER_DIR/fabric-server-launch.jar" "$SERVER_DIR/server.jar"
-    echo "[$(date)] Fabric $VERSION installed successfully"
-  else
+  # -downloadMinecraft places the REAL ~56MB Minecraft server at server.jar, and
+  # fabric-server-launcher.properties points serverJar=server.jar. The launcher
+  # (fabric-server-launch.jar, ~639B) loads that. DO NOT copy the launcher over
+  # server.jar — that clobbers the real MC jar and Fabric can't locate the game.
+  # start-server.sh detects fabric-server-launch.jar and launches via it.
+  if [ ! -f "$SERVER_DIR/fabric-server-launch.jar" ]; then
     echo "[$(date)] ERROR: fabric-server-launch.jar not found after install"
     exit 1
   fi
+  if [ ! -s "$SERVER_DIR/server.jar" ]; then
+    echo "[$(date)] ERROR: Fabric did not download the Minecraft server jar (server.jar missing). Cannot start."
+    exit 1
+  fi
+  echo "[$(date)] Fabric $VERSION installed successfully (launcher + MC server.jar)"
 
 elif [ "$TYPE" = "folia" ]; then
   echo "[$(date)] Installing Folia $VERSION..."
@@ -69,24 +86,40 @@ elif [ "$TYPE" = "folia" ]; then
 
 elif [ "$TYPE" = "neoforge" ]; then
   echo "[$(date)] Installing NeoForge $VERSION..."
-  MC_SHORT="${VERSION#1.}"
-  NEO_VER=$(curl -sf "https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge" | python3 -c "import sys,json; vs=[v for v in json.load(sys.stdin)['versions'] if v.startswith('${VERSION#1.}.')]; print(sorted(vs)[-1])" 2>/dev/null || echo "")
+  # Map MC version -> NeoForge prefix: MC 1.X.Y -> "X.Y.", MC 1.X -> "X.0.". Anchor to
+  # the FULL minor so "1.21" can't match every 21.x build, and sort NUMERICALLY (string
+  # sort wrongly ranks 21.9.9 above 21.11.1). Prefer stable over -beta/-rc.
+  NEO_VER=$(curl -sf "https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge" | python3 -c "import sys,json,re; v='${VERSION}'.split('.'); prefix=(v[1] if len(v)>1 else '0')+'.'+(v[2] if len(v)>2 else '0')+'.'; allv=[x for x in json.load(sys.stdin)['versions'] if x.startswith(prefix)]; key=lambda s: tuple(int(n) for n in re.findall(r'\d+', s)); stable=[x for x in allv if 'beta' not in x.lower() and 'rc' not in x.lower()]; pick=stable or allv; print(sorted(pick,key=key)[-1] if pick else '')" 2>/dev/null || echo "")
   if [ -z "$NEO_VER" ]; then echo "[$(date)] ERROR: cannot find NeoForge for $VERSION"; exit 1; fi
   wget -q -L "https://maven.neoforged.net/releases/net/neoforged/neoforge/${NEO_VER}/neoforge-${NEO_VER}-installer.jar" -O "$SERVER_DIR/neoforge-installer.jar"
   if [ ! -s "$SERVER_DIR/neoforge-installer.jar" ]; then echo "[$(date)] ERROR: NeoForge installer 0 bytes"; exit 1; fi
   java -jar "$SERVER_DIR/neoforge-installer.jar" --installServer "$SERVER_DIR" 2>&1
   rm -f "$SERVER_DIR/neoforge-installer.jar"
-  echo "[$(date)] NeoForge $NEO_VER installed"
+  # NeoForge (like modern Forge) ships a run.sh launcher, not a runnable jar. Copy it
+  # to server.jar so the universal 0-byte/size check passes, and drop a .use-run-sh
+  # sentinel so start-server.sh launches via run.sh (loader-name-INDEPENDENT — do not
+  # rely on grepping "neoforge" out of run.sh, which silently breaks plain Forge).
+  if [ -f "$SERVER_DIR/run.sh" ]; then
+    cp "$SERVER_DIR/run.sh" "$SERVER_DIR/server.jar" 2>/dev/null || true
+    : > "$SERVER_DIR/.use-run-sh"
+    echo "[$(date)] NeoForge $NEO_VER installed (modern, run.sh)"
+  else
+    echo "[$(date)] ERROR: NeoForge run.sh not found after install"
+    exit 1
+  fi
 
 elif [ "$TYPE" = "mohist" ]; then
   echo "[$(date)] Installing Mohist $VERSION..."
-  # Use the newest build's own `url` field directly — the latest Mohist builds have
-  # no `number` (only a git-SHA), so building the URL from a build number breaks.
-  MOHIST_URL=$(curl -sf "https://mohistmc.com/api/v2/projects/mohist/${VERSION}/builds" | python3 -c "import sys,json; b=json.load(sys.stdin).get('builds',[]); print((b[-1].get('url') or '') if b else '')" 2>/dev/null || echo "")
-  if [ -z "$MOHIST_URL" ]; then echo "[$(date)] ERROR: cannot find Mohist build for $VERSION"; exit 1; fi
+  # v3 API (api.mohistmc.com). The old v2 host (mohistmc.com/api/v2) is dead. v3 returns
+  # a builds array; take the last build's numeric `id`, then download via the dedicated
+  # /builds/{id}/download endpoint. NOTE: Mohist only publishes builds for 1.20.1 (no
+  # 1.21.x) — the create form caps Mohist to 1.20.1 (see src/lib/constants.js).
+  MOHIST_BUILD_ID=$(curl -sf "https://api.mohistmc.com/project/mohist/${VERSION}/builds" | python3 -c "import sys,json; d=json.load(sys.stdin); b=d if isinstance(d,list) else d.get('builds',[]); print(b[-1]['id'] if b else '')" 2>/dev/null || echo "")
+  if [ -z "$MOHIST_BUILD_ID" ]; then echo "[$(date)] ERROR: cannot find Mohist build for $VERSION (Mohist publishes 1.20.1 only)"; exit 1; fi
+  MOHIST_URL="https://api.mohistmc.com/project/mohist/${VERSION}/builds/${MOHIST_BUILD_ID}/download"
   wget -q -L "$MOHIST_URL" -O "$SERVER_DIR/server.jar"
   if [ ! -s "$SERVER_DIR/server.jar" ]; then echo "[$(date)] ERROR: Mohist jar 0 bytes"; exit 1; fi
-  echo "[$(date)] Mohist $VERSION installed from $MOHIST_URL"
+  echo "[$(date)] Mohist $VERSION build $MOHIST_BUILD_ID installed from $MOHIST_URL"
 
 elif [ "$TYPE" = "purpur" ]; then
   echo "[$(date)] Installing Purpur $VERSION..."
@@ -147,7 +180,10 @@ elif [ "$TYPE" = "forge" ]; then
     exit 1
   fi
   FORGE_INSTALLER="/tmp/forge-installer-$SERVER_ID.jar"
-  FORGE_URL="https://files.minecraftforge.net/net/minecraftforge/forge/${VERSION}-${FORGE_BUILD}/forge-${VERSION}-${FORGE_BUILD}-installer.jar"
+  # Download from the maven host (files.minecraftforge.net no longer serves the jar
+  # directly — returns an HTML page → 0-byte/HTML jar). promotions_slim.json above
+  # still lives on the files host; only the artifact download moves to maven.
+  FORGE_URL="https://maven.minecraftforge.net/net/minecraftforge/forge/${VERSION}-${FORGE_BUILD}/forge-${VERSION}-${FORGE_BUILD}-installer.jar"
   wget -q -L "$FORGE_URL" -O "$FORGE_INSTALLER"
   if [ ! -s "$FORGE_INSTALLER" ]; then
     echo "[$(date)] ERROR: Could not download Forge installer"
@@ -157,10 +193,16 @@ elif [ "$TYPE" = "forge" ]; then
   rm -f "$FORGE_INSTALLER"
   # Find forge unix_args.txt / run.sh (modern Forge) or forge-*.jar (legacy)
   if [ -f "$SERVER_DIR/run.sh" ]; then
-    # Modern Forge (1.17+) uses run.sh
+    # Modern Forge (1.17+) uses run.sh. Copy it to server.jar for the size check and
+    # drop the .use-run-sh sentinel so start-server.sh launches via run.sh. (Plain
+    # Forge run.sh contains "minecraftforge", NOT "neoforge" — the old grep gate
+    # silently skipped it and tried java -jar on a shell script: "Invalid jarfile".)
     cp "$SERVER_DIR/run.sh" "$SERVER_DIR/server.jar" 2>/dev/null || true
+    : > "$SERVER_DIR/.use-run-sh"
     echo "[$(date)] Forge ${VERSION}-${FORGE_BUILD} installed (modern, run.sh)"
   else
+    # Legacy Forge (<=1.16) ships a real runnable forge-*.jar — launched via -jar,
+    # so NO .use-run-sh sentinel here.
     FORGE_JAR=$(ls "$SERVER_DIR"/forge-*.jar 2>/dev/null | grep -v installer | head -1)
     if [ -n "$FORGE_JAR" ]; then
       cp "$FORGE_JAR" "$SERVER_DIR/server.jar"

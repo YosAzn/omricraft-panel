@@ -155,52 +155,45 @@ if [ "$WHITELIST" = "true" ]; then
   " "$OPS" "$WHITELIST_PLAYERS" "$SERVER_DIR/whitelist.json" || echo "[$(date)] Warning: could not write whitelist.json"
 fi
 
-# Download mods if TYPE=fabric or forge
-declare -A MOD_URLS_FABRIC
-# Fabric 1.21.1 mod URLs (Modrinth CDN — pinned versions, update periodically)
-# TODO: Data — pin these to Fabric API-compatible builds; verify after each MC version bump
-MOD_URLS_FABRIC["m1"]="https://cdn.modrinth.com/data/AANobbMI/versions/uheoPKxU/sodium-fabric-0.8.12-alpha.4%2Bmc1.21.1.jar"
-MOD_URLS_FABRIC["m2"]="https://cdn.modrinth.com/data/YL57xq9U/versions/zsoi0dso/iris-fabric-1.8.8%2Bmc1.21.1.jar"
-# m3 (Create) — no stable Fabric 1.21.1 release; skip
-MOD_URLS_FABRIC["m4"]="https://cdn.modrinth.com/data/bEpr0Arc/versions/aEvrmYqW/litematica-fabric-1.21-0.19.60.jar"
-MOD_URLS_FABRIC["m5"]="https://cdn.modrinth.com/data/uCdwusMi/versions/oYXIfeus/DistantHorizons-3.0.3-b-1.21.1-fabric-neoforge.jar"
-MOD_URLS_FABRIC["m6"]="https://cdn.modrinth.com/data/9eGKb6K1/versions/RMvAyxuK/voicechat-fabric-1.21.1-2.6.18.jar"
-MOD_URLS_FABRIC["m7"]="https://cdn.modrinth.com/data/u6dRKJwZ/versions/TvqzuFwN/jei-1.21.1-fabric-19.27.0.340.jar"
-# Fabric API dependency — required by most mods
-MOD_URLS_FABRIC["fabric-api"]="https://cdn.modrinth.com/data/P7dR8mSH/versions/Lwt6YYHL/fabric-api-0.116.12%2B1.21.1.jar"
+# Download mods for ALL mod-loaders (fabric/forge/neoforge) via the Modrinth API.
+# No pinned URL tables: install-mod.sh resolves the newest build matching the
+# server's loader+version per mod. We only map server-installable mod addonIds to
+# their Modrinth slug here — client-only mods (Sodium/Iris/Litematica) are NOT
+# server-installed (the panel marks them installMethod:'client'), so they are
+# absent from this map and never reach create-server.sh as a server mod.
+declare -A MOD_SLUGS
+MOD_SLUGS["m3"]="create"             # server-required
+MOD_SLUGS["m5"]="distanthorizons"    # server-optional (LOD)
+MOD_SLUGS["m6"]="simple-voice-chat"  # server-optional (proximity chat)
+MOD_SLUGS["m7"]="jei"                # server-optional (recipe viewer)
+# m1 Sodium, m2 Iris, m4 Litematica = client-only → not server mods (see report).
 
-declare -A MOD_URLS_FORGE
-# Forge 1.20.1 mod URLs (most stable Forge ecosystem)
-MOD_URLS_FORGE["m3"]="https://cdn.modrinth.com/data/LNytGWDc/versions/8amzvn9x/create-1.20.1-6.0.8.jar"
-MOD_URLS_FORGE["m6"]="https://cdn.modrinth.com/data/9eGKb6K1/versions/8jZe6s12/voicechat-forge-1.20.1-2.6.18.jar"
-MOD_URLS_FORGE["m7"]="https://cdn.modrinth.com/data/u6dRKJwZ/versions/RTFeXsvE/jei-1.20.1-forge-15.20.0.130.jar"
-
-if [ "$TYPE" = "fabric" ] || [ "$TYPE" = "forge" ]; then
+if [ "$TYPE" = "fabric" ] || [ "$TYPE" = "forge" ] || [ "$TYPE" = "neoforge" ]; then
   if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
-    echo "[$(date)] Installing mods..."
-    # Install Fabric API automatically when installing any Fabric mod
-    if [ "$TYPE" = "fabric" ] && [ -n "${MOD_URLS_FABRIC[fabric-api]:-}" ]; then
-      wget -q -L --timeout=60 "${MOD_URLS_FABRIC[fabric-api]}" -O "$SERVER_DIR/mods/fabric-api.jar" || true
-      validate_jar_or_fail "$SERVER_DIR/mods/fabric-api.jar" "fabric-api" && echo "[$(date)] OK: fabric-api" || true
+    echo "[$(date)] Installing mods for $TYPE $VERSION..."
+    # Fabric API is required by most Fabric mods — install it (matched to VERSION)
+    # whenever any mod is selected for a Fabric server. install-mod.sh fails loud
+    # if there is no matching build, but we don't abort the whole create over it.
+    if [ "$TYPE" = "fabric" ]; then
+      if bash "$SCRIPTS_DIR_SELF/install-mod.sh" "$SERVER_DIR" "$TYPE" "$VERSION" "fabric-api"; then
+        echo "[$(date)] OK: fabric-api"
+      else
+        echo "[$(date)] WARN: could not install fabric-api for $VERSION (continuing)"
+      fi
     fi
     while IFS= read -r addonId; do
       [ -z "$addonId" ] && continue
-      if [ "$TYPE" = "fabric" ]; then
-        url="${MOD_URLS_FABRIC[$addonId]:-}"
-      else
-        url="${MOD_URLS_FORGE[$addonId]:-}"
+      slug="${MOD_SLUGS[$addonId]:-}"
+      if [ -z "$slug" ]; then
+        # Not a server-installable mod (client-only or a plugin/datapack id) — skip loudly.
+        echo "[$(date)] skipped $addonId: not a server-installable mod"
+        continue
       fi
-      if [ -n "$url" ]; then
-        filename=$(basename "$url" | sed 's/\?.*$//' | python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.stdin.read().strip()))" 2>/dev/null || basename "$url")
-        echo "[$(date)] Downloading mod $addonId: $filename"
-        wget -q -L --timeout=60 "$url" -O "$SERVER_DIR/mods/$filename" || true
-        if validate_jar_or_fail "$SERVER_DIR/mods/$filename" "mod $addonId"; then
-          echo "[$(date)] OK mod: $addonId ($filename)"
-        else
-          echo "[$(date)] FAILED (invalid jar): mod $addonId"
-        fi
+      if bash "$SCRIPTS_DIR_SELF/install-mod.sh" "$SERVER_DIR" "$TYPE" "$VERSION" "$slug"; then
+        echo "[$(date)] OK mod: $addonId ($slug)"
       else
-        echo "[$(date)] No mod URL for $addonId on $TYPE (skipping)"
+        # install-mod.sh exit 2 = no compatible build for this loader+version.
+        echo "[$(date)] skipped $addonId ($slug): no $TYPE build for $VERSION"
       fi
     done < <(node -e "const ids=JSON.parse(process.argv[1]); ids.forEach(function(i){console.log(i);})" "$ADDONS")
   fi

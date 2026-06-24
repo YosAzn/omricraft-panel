@@ -26,15 +26,40 @@ export const SOFTWARE_TYPES = [
   { id: 'mohist',    name: 'Mohist',    type: 'hybrid',   desc: 'Forge + Bukkit plugins יחד' },
 ];
 
+// Per-type version allow-list. When a software type can only run a subset of MC
+// versions, list them here; the create form (and SettingsTab) intersect the global
+// version list with this. Mohist only publishes builds for 1.20.1 (no 1.21.x), so
+// offering 1.21.x would create a server whose jar download always fails.
+// Types NOT listed here are unrestricted (use the full versionMatrix/mcVersions list).
+export const TYPE_VERSION_LIMITS = {
+  mohist: ['1.20.1'],
+};
+
+// Returns the version list for a software type, applying TYPE_VERSION_LIMITS if any.
+// `baseList` is the per-type list already resolved (versionMatrix[type] || mcVersions).
+export const limitVersionsForType = (type, baseList) => {
+  const allow = TYPE_VERSION_LIMITS[type];
+  if (!allow) return baseList;
+  const filtered = baseList.filter(v => allow.includes(v));
+  // If none of the allowed versions are in the live list, fall back to the static
+  // allow-list itself so the type is never left with an empty selector.
+  return filtered.length ? filtered : allow;
+};
+
 export const DEFAULT_ADDONS = [
-  // --- Mods (Fabric/Forge) ---
-  { id: 'm1', name: 'Sodium', desc: 'משפר ביצועים ו-FPS בטירוף', type: 'mods', downloads: '24M', rating: 4.9, reviews: 15400 },
-  { id: 'm2', name: 'Iris Shaders', desc: 'תמיכה בשיידרים מהממים', type: 'mods', downloads: '15M', requires: ['m1'], rating: 4.8, reviews: 11200 },
-  { id: 'm3', name: 'Create', desc: 'מוד טכנולוגיה, גלגלי שיניים, אוטומציה ורכבות', type: 'mods', downloads: '40M', rating: 4.9, reviews: 30000 },
-  { id: 'm4', name: 'Litematica', desc: 'מאפשר להציג סכמות ושרטוטים תלת ממדיים', type: 'mods', downloads: '12M', rating: 4.7, reviews: 8500 },
-  { id: 'm5', name: 'Distant Horizons', desc: 'מגדיל את טווח הראייה משמעותית בלי להעמיס על המחשב', type: 'mods', downloads: '8M', rating: 4.6, reviews: 4200 },
-  { id: 'm6', name: 'Simple Voice Chat', desc: 'צ\'אט קולי מובנה במשחק לפי מרחק שחקנים (Proximity Chat)', type: 'mods', downloads: '25M', rating: 4.8, reviews: 16000 },
-  { id: 'm7', name: 'Just Enough Items (JEI)', desc: 'מציג את כל הפריטים והמתכונים במשחק', type: 'mods', downloads: '150M', rating: 4.9, reviews: 90000 },
+  // --- Mods (Fabric/Forge/NeoForge) ---
+  // installMethod:'client' — Sodium/Iris/Litematica are client-side mods (rendering /
+  // shaders / schematics); installing them on the server is useless, so they get a
+  // client-side badge like textures (no server install, no false "installed").
+  // Server-installable mods carry a modrinthSlug; install-mod.sh resolves the correct
+  // build for the server's loader+version via the Modrinth API (fail-loud if none).
+  { id: 'm1', name: 'Sodium', desc: 'משפר ביצועים ו-FPS בטירוף', type: 'mods', installMethod: 'client', downloads: '24M', rating: 4.9, reviews: 15400 },
+  { id: 'm2', name: 'Iris Shaders', desc: 'תמיכה בשיידרים מהממים', type: 'mods', installMethod: 'client', requires: ['m1'], downloads: '15M', rating: 4.8, reviews: 11200 },
+  { id: 'm3', name: 'Create', desc: 'מוד טכנולוגיה, גלגלי שיניים, אוטומציה ורכבות (Forge/NeoForge בלבד)', type: 'mods', modrinthSlug: 'create', downloads: '40M', rating: 4.9, reviews: 30000 },
+  { id: 'm4', name: 'Litematica', desc: 'מאפשר להציג סכמות ושרטוטים תלת ממדיים', type: 'mods', installMethod: 'client', downloads: '12M', rating: 4.7, reviews: 8500 },
+  { id: 'm5', name: 'Distant Horizons', desc: 'מגדיל את טווח הראייה משמעותית בלי להעמיס על המחשב', type: 'mods', modrinthSlug: 'distanthorizons', downloads: '8M', rating: 4.6, reviews: 4200 },
+  { id: 'm6', name: 'Simple Voice Chat', desc: 'צ\'אט קולי מובנה במשחק לפי מרחק שחקנים (Proximity Chat)', type: 'mods', modrinthSlug: 'simple-voice-chat', downloads: '25M', rating: 4.8, reviews: 16000 },
+  { id: 'm7', name: 'Just Enough Items (JEI)', desc: 'מציג את כל הפריטים והמתכונים במשחק', type: 'mods', modrinthSlug: 'jei', downloads: '150M', rating: 4.9, reviews: 90000 },
 
   // --- Plugins (Paper) ---
   { id: 'p1', name: 'EssentialsX', desc: 'פקודות בסיסיות לשרת (spawn, home, tpa, warp)', type: 'plugins', downloads: '10M', rating: 4.7, reviews: 12500 },
@@ -94,8 +119,11 @@ export const DEFAULT_ADDONS = [
   { id: 'd11', name: 'More Mob Heads', desc: 'כל המובים במשחק יכולים להפיל את הראש שלהם למטרות קישוט', type: 'datapacks', installMethod: 'manual', downloads: '2.8M', rating: 4.7, reviews: 2500 },
   
   // --- Modpacks ---
-  { id: 'mp1', name: 'Better MC', desc: 'המיינקראפט כמו שהוא היה צריך להיות - מאות ביומות ומובים', type: 'modpacks', downloads: '7M', rating: 4.6, reviews: 12000 },
-  { id: 'mp2', name: 'Vault Hunters', desc: 'מודפאק אקשן ו-RPG מדהים בתוך מבוכים מסוכנים', type: 'modpacks', downloads: '3M', rating: 4.8, reviews: 7500 },
+  // installMethod: 'manual' — modpacks are multi-file (mods+configs); the single-jar
+  // installer can't deploy them. Shown with a manual badge so the UI never promises a
+  // server install that loud-fails. A real mrpack/zip unpacker is a post-launch feature.
+  { id: 'mp1', name: 'Better MC', desc: 'המיינקראפט כמו שהוא היה צריך להיות - מאות ביומות ומובים', type: 'modpacks', installMethod: 'manual', downloads: '7M', rating: 4.6, reviews: 12000 },
+  { id: 'mp2', name: 'Vault Hunters', desc: 'מודפאק אקשן ו-RPG מדהים בתוך מבוכים מסוכנים', type: 'modpacks', installMethod: 'manual', downloads: '3M', rating: 4.8, reviews: 7500 },
   
   // --- Textures ---
   // installMethod: 'client' = resource/texture packs מותקנים בצד-הלקוח (אצל השחקן), לא בשרת. אין URL מתארח כרגע.

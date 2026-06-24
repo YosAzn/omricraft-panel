@@ -15,6 +15,7 @@ export const getVersionMatrixFn = httpsCallable(functionsInstance, 'getVersionMa
 export const updateServerOpsFn = httpsCallable(functionsInstance, 'updateServerOps');
 export const installPluginFn = httpsCallable(functionsInstance, 'installPlugin');
 export const installDatapackFn = httpsCallable(functionsInstance, 'installDatapack');
+export const installModFn = httpsCallable(functionsInstance, 'installMod');
 export const changeDifficultyFn = httpsCallable(functionsInstance, 'changeDifficulty');
 export const getPlayersOnlineFn = httpsCallable(functionsInstance, 'getPlayersOnline');
 export const getServerLogFn = httpsCallable(functionsInstance, 'getServerLog');

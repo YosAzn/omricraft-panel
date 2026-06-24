@@ -8,7 +8,7 @@ import { auth, db } from './lib/firebase';
 import {
   createServerFn, deleteServerFn, getServerStatusFn, startServerFn,
   stopServerFn, getPaperVersionsFn, getVersionMatrixFn,
-  installPluginFn, installDatapackFn, getPlayersOnlineFn, restartServerFn
+  installPluginFn, installDatapackFn, installModFn, getPlayersOnlineFn, restartServerFn
 } from './lib/api';
 import { DICT } from './lib/i18n';
 import { DEFAULT_ADDONS, getInstallMethod } from './lib/constants';
@@ -384,6 +384,7 @@ export default function App() {
         ops: data.ops || [],
         maxPlayers: data.maxPlayers || 20,
         seed: String(finalSeed || ''),
+        worldType: data.worldType || 'default',
         addons: resolvedAddons,
         icon: smallIcon,
         isPrivate: data.isPrivate === true,
@@ -627,6 +628,14 @@ export default function App() {
           throw new Error('הסרת datapack מהשרת אינה נתמכת אוטומטית — הסר ידנית מתיקיית העולם.');
         }
         res = await installDatapackFn({ serverId, addonId: addon.id });
+      } else if (addon.type === 'mods') {
+        // mods install via Modrinth (install-mod.sh) and load on restart. Install-only —
+        // no auto-uninstall (same model as datapacks). Client-side mods (Sodium/Iris/
+        // Litematica) are installMethod:'client' and never reach here (handled above).
+        if (isInstalled) {
+          throw new Error('הסרת mod מהשרת אינה נתמכת אוטומטית — הסר ידנית מתיקיית mods.');
+        }
+        res = await installModFn({ serverId, modId: addon.id });
       } else {
         res = await installPluginFn({ serverId, pluginId: addon.id, install: !isInstalled });
       }
