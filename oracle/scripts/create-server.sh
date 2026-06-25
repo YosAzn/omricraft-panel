@@ -268,8 +268,16 @@ fi
 # Vanilla Tweaks (d1,d4,d6,d7,d8,d9,d10,d11) need the browser picker (no slug) and
 # are absent from this map, so they never reach create-server.sh as server installs.
 declare -A DATAPACK_SLUGS
-DATAPACK_SLUGS["d2"]="terralith"
-# TODO: Data — add more datapack slugs when they become server-installable (d3 Tectonic, Nullscape, Structory)
+DATAPACK_SLUGS["d2"]="terralith"                  # worldgen overhaul
+DATAPACK_SLUGS["d4"]="serversleep"                # Multiplayer Sleep — one player skips the night
+DATAPACK_SLUGS["d6"]="mini-blocks-datapack"       # Mini Blocks
+DATAPACK_SLUGS["d7"]="better-wanderingtraders"    # Wandering Trades — improved wandering-trader offers
+DATAPACK_SLUGS["d9"]="hotbarcoordinates"          # Coordinates HUD above the hotbar
+DATAPACK_SLUGS["d10"]="player-drops-head"         # Player Head Drops
+DATAPACK_SLUGS["d11"]="mob-heads"                 # More Mob Heads
+# d1 Vanilla Tweaks (umbrella collection) and d8 Nether Portal Coords have NO single
+# Modrinth datapack equivalent — they stay installMethod:'manual' in the UI and are
+# absent from this map, so they never reach create-server.sh as server installs.
 
 # Worldgen-overhaul datapacks REPLACE the overworld generator. They only make sense on
 # a 'default' world: on flat/amplified/large_biomes they override (and contradict) the
@@ -302,6 +310,40 @@ if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
         echo "[$(date)] skipped datapack $addonId: no build for $VERSION"
       else
         echo "[$(date)] FAILED datapack: $addonId ($slug)"
+      fi
+    fi
+  done < <(node -e "const ids=JSON.parse(process.argv[1]); ids.forEach(function(i){console.log(i);})" "$ADDONS")
+fi
+
+# Install a server-forced resource pack (texture) if a texture addon is selected.
+# server.properties supports exactly ONE resource-pack, so if multiple textures are
+# selected the LAST one wins. install-resourcepack.sh resolves the pack's direct
+# cdn.modrinth.com URL + sha1 (version-aware) and writes resource-pack /
+# resource-pack-sha1 / require-resource-pack=false into the server.properties we
+# already wrote above. Map server-installable texture addonIds -> Modrinth slug here.
+# t2 Golden Pumpkin Pie and t8 Shulker Box Tooltip have no server-forced equivalent
+# (t8 is a client-side tooltip mod) — they stay installMethod:'client' and are absent.
+declare -A TEXTURE_SLUGS
+TEXTURE_SLUGS["t1"]="elibruhs-custom-hats-pack"   # Custom Hats (renamed carved pumpkins)
+TEXTURE_SLUGS["t3"]="fresh-animations"            # Fresh Animations
+TEXTURE_SLUGS["t4"]="faithful-32x"                # Faithful 32x
+TEXTURE_SLUGS["t5"]="bare-bones"                  # Bare Bones
+TEXTURE_SLUGS["t6"]="visible-ores"                # Visible Ores
+TEXTURE_SLUGS["t7"]="mandalas-gui-dark-mode"      # Dark UI
+
+if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
+  while IFS= read -r addonId; do
+    [ -z "$addonId" ] && continue
+    rpslug="${TEXTURE_SLUGS[$addonId]:-}"
+    [ -z "$rpslug" ] && continue
+    if bash "$SCRIPTS_DIR_SELF/install-resourcepack.sh" "$SERVER_DIR" "$VERSION" "$rpslug"; then
+      echo "[$(date)] OK resourcepack: $addonId ($rpslug)"
+    else
+      rc=$?
+      if [ "$rc" -eq 2 ]; then
+        echo "[$(date)] skipped resourcepack $addonId ($rpslug): no build for $VERSION"
+      else
+        echo "[$(date)] FAILED resourcepack: $addonId ($rpslug)"
       fi
     fi
   done < <(node -e "const ids=JSON.parse(process.argv[1]); ids.forEach(function(i){console.log(i);})" "$ADDONS")

@@ -527,6 +527,39 @@ exports.installMod = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// installResourcepack — addonId-driven server-forced resource pack (texture). Mirrors
+// installDatapack: SSRF-safe (client sends only { serverId, addonId }); the Manager API
+// maps addonId -> Modrinth slug (TEXTURE_CATALOG), reads the server's MC version, and
+// runs install-resourcepack.sh which writes resource-pack + sha1 into server.properties.
+// Resource packs cannot be hot-set over vanilla RCON -> needsRestart:true.
+// ---------------------------------------------------------------------------
+exports.installResourcepack = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 120,
+  },
+  async (request) => {
+    assertAdmin(request);
+    const { serverId, addonId } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    if (!addonId || typeof addonId !== 'string' || !/^[a-z0-9_-]+$/.test(addonId)) {
+      return { success: false, error: 'Invalid addonId' };
+    }
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/install-resourcepack', { serverId, addonId });
+      return result;
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // removePluginJar — deletes a single .jar from a server's plugins dir (VPS truth)
 // ---------------------------------------------------------------------------
 exports.removePluginJar = onCall(

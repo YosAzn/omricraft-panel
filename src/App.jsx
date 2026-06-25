@@ -8,7 +8,7 @@ import { auth, db } from './lib/firebase';
 import {
   createServerFn, deleteServerFn, getServerStatusFn, startServerFn,
   stopServerFn, getPaperVersionsFn, getVersionMatrixFn,
-  installPluginFn, installDatapackFn, installModFn, getPlayersOnlineFn, restartServerFn
+  installPluginFn, installDatapackFn, installModFn, installResourcepackFn, getPlayersOnlineFn, restartServerFn
 } from './lib/api';
 import { DICT } from './lib/i18n';
 import { DEFAULT_ADDONS, getInstallMethod } from './lib/constants';
@@ -636,6 +636,14 @@ export default function App() {
           throw new Error('הסרת mod מהשרת אינה נתמכת אוטומטית — הסר ידנית מתיקיית mods.');
         }
         res = await installModFn({ serverId, modId: addon.id });
+      } else if (addon.type === 'textures') {
+        // server-forced resource pack (install-resourcepack.sh -> server.properties).
+        // ONE pack per server (last one wins); needs a restart to apply. Client-only
+        // textures (t2/t8) are installMethod:'client' and never reach here (handled above).
+        if (isInstalled) {
+          throw new Error('הסרת חבילת-טקסטורות אינה נתמכת אוטומטית — הסר ידנית מ-server.properties.');
+        }
+        res = await installResourcepackFn({ serverId, addonId: addon.id });
       } else {
         res = await installPluginFn({ serverId, pluginId: addon.id, install: !isInstalled });
       }

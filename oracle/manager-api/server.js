@@ -567,6 +567,73 @@ app.post('/install-mod', async function(req, res) {
   }
 });
 
+// ===================================================================
+// /install-resourcepack — addonId-driven server-forced resource pack (texture).
+// SSRF-safe like /install-mod: the client sends only { serverId, addonId }; the
+// Modrinth slug is resolved from a SERVER-SIDE allowlist (TEXTURE_CATALOG), and the
+// server's MC version comes from servers.json. install-resourcepack.sh resolves the
+// pack's direct cdn.modrinth.com URL + sha1 (version-aware) and writes them into
+// server.properties (resource-pack / resource-pack-sha1 / require-resource-pack).
+// server.properties supports exactly ONE resource-pack → one texture per server
+// (last install wins). A resource-pack cannot be hot-set via vanilla RCON, so the
+// new pack takes effect on the next (re)start → needsRestart:true.
+// ===================================================================
+var TEXTURE_CATALOG = {
+  // addonId -> Modrinth slug. SERVER-forceable resource packs only. Keep in sync
+  // with create-server.sh TEXTURE_SLUGS so create-time and post-create match.
+  // t2 Golden Pumpkin Pie (no Modrinth pack) and t8 Shulker Box Tooltip (client-side
+  // tooltip mod) stay installMethod:'client' in the UI and never reach this endpoint.
+  't1': 'elibruhs-custom-hats-pack',
+  't3': 'fresh-animations',
+  't4': 'faithful-32x',
+  't5': 'bare-bones',
+  't6': 'visible-ores',
+  't7': 'mandalas-gui-dark-mode'
+};
+
+app.post('/install-resourcepack', async function(req, res) {
+  var serverId = req.body.serverId;
+  var addonId = req.body.addonId;
+  if (!validateId(serverId, res)) return;
+  if (!addonId || typeof addonId !== 'string' || !/^[a-z0-9_-]+$/.test(addonId)) {
+    return res.status(400).json({ success: false, error: 'Invalid addonId' });
+  }
+  var slug = TEXTURE_CATALOG[addonId];
+  if (!slug) {
+    return res.status(400).json({ success: false, error: 'resource pack not available: ' + addonId });
+  }
+  var serverDir = path.join(SERVERS_DIR, serverId);
+  if (!fs.existsSync(serverDir)) {
+    return res.status(404).json({ success: false, error: 'Server not found' });
+  }
+  var srv;
+  try {
+    srv = readServersArray().find(function(s) { return s.id === serverId; });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not read servers.json: ' + e.message });
+  }
+  if (!srv || !srv.version) {
+    return res.status(404).json({ success: false, error: 'Server not in servers.json' });
+  }
+  try {
+    await runScript('install-resourcepack.sh', [serverDir, srv.version, slug], 90000);
+    console.log('[' + new Date().toISOString() + '] Installed resourcepack ' + addonId + ' (' + slug + ') on ' + serverId);
+    var running = isServerRunning(serverId);
+    return res.json({
+      success: true,
+      addonId: addonId,
+      slug: slug,
+      needsRestart: true,
+      note: running
+        ? 'חבילת המרקם הוגדרה. אי אפשר להחיל אותה בזמן ריצה — היא תיכנס לתוקף בהפעלה מחדש. שים לב: שרת תומך בחבילת מרקם אחת בלבד (האחרונה גוברת).'
+        : 'חבילת המרקם הוגדרה ותיטען כשהשרת יעלה. שים לב: שרת תומך בחבילת מרקם אחת בלבד (האחרונה גוברת).'
+    });
+  } catch (err) {
+    console.error('install-resourcepack error:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/remove-plugin', function(req, res) {
   var serverId = req.body.serverId;
   var pluginId = req.body.pluginId;
@@ -1027,10 +1094,17 @@ var DATAPACK_CATALOG = {
   'd2': {
     modrinthSlug: 'terralith',
     worldgen: true // applies to NEW chunks only once enabled
-  }
-  // TODO: add more datapacks here. Prefer modrinthSlug (version-aware) over a
-  // pinned url. Vanilla Tweaks (d1,d4,d6...) need the browser picker — no stable
-  // slug/URL — so they stay out of the catalog.
+  },
+  // Keep in sync with create-server.sh DATAPACK_SLUGS so create-time and post-create
+  // installs resolve the same Modrinth project (version-aware).
+  'd4':  { modrinthSlug: 'serversleep' },            // Multiplayer Sleep
+  'd6':  { modrinthSlug: 'mini-blocks-datapack' },   // Mini Blocks
+  'd7':  { modrinthSlug: 'better-wanderingtraders' },// Wandering Trades
+  'd9':  { modrinthSlug: 'hotbarcoordinates' },      // Coordinates HUD
+  'd10': { modrinthSlug: 'player-drops-head' },      // Player Head Drops
+  'd11': { modrinthSlug: 'mob-heads' }               // More Mob Heads
+  // d1 Vanilla Tweaks (umbrella) and d8 Nether Portal Coords have no single Modrinth
+  // datapack equivalent → they stay installMethod:'manual' and out of this catalog.
 };
 
 // Resolve a datapack's download for a specific MC version via the Modrinth API
