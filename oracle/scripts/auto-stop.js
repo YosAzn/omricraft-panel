@@ -10,6 +10,14 @@ const API_KEY    = process.env.MANAGER_API_KEY;
 if (!API_KEY) { console.error("[auto-stop] MANAGER_API_KEY missing from env"); process.exit(1); }
 const STATE_FILE = '/tmp/omricraft-empty-state.json';
 const THRESHOLD  = 2; // בדיקות עוקבות לפני כיבוי
+// Start grace: never auto-stop a server within this window of it starting, even if
+// empty. Lets players actually join, and — critically for seamless-wake — keeps a
+// just-woken backend alive while the player is still held in the NanoLimbo world
+// waiting for VelocityLimboHandler to transfer them in. Without this, a freshly-woken
+// empty backend gets stopped out from under the transfer (the "started then stopped
+// after a few seconds" bug).
+const GRACE_MS    = 10 * 60 * 1000;
+const SERVERS_DIR = '/home/ubuntu/omricraft/servers';
 
 function apiCall(method, path, body) {
   return new Promise((resolve, reject) => {
@@ -29,6 +37,14 @@ function apiCall(method, path, body) {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Milliseconds since the server started, from its pid-file mtime (start-server.sh
+// writes/reconciles server.pid at boot; stop-server.sh removes it). Infinity if
+// unknown, so a server is never spared from a stop by accident.
+function serverUptimeMs(sid) {
+  try { return Date.now() - fs.statSync(SERVERS_DIR + '/' + sid + '/server.pid').mtimeMs; }
+  catch { return Infinity; }
+}
 
 // verifyStopped: after a stop call, re-query /players and confirm the server
 // is no longer online. Returns true if confirmed down, false if still up.
@@ -65,6 +81,13 @@ async function main() {
       newState[sid] = { emptyCount: 0 };
       console.log('[auto-stop] ' + sid + ': ' + info.count + ' players online — skip');
     } else {
+      // Within the start grace window: never count/stop, even if empty.
+      const upMs = serverUptimeMs(sid);
+      if (upMs < GRACE_MS) {
+        newState[sid] = { emptyCount: 0 };
+        console.log('[auto-stop] ' + sid + ': empty but within start grace (' + Math.round(upMs / 1000) + 's < ' + (GRACE_MS / 60000) + 'min) — skip');
+        continue;
+      }
       const prev = state[sid] || { emptyCount: 0 };
       const emptyCount = prev.emptyCount + 1;
       newState[sid] = { emptyCount };
