@@ -1,0 +1,26 @@
+# VelocityLimboHandler v1.8.3 config — reference copy.
+# Live path on the VPS: velocity/plugins/velocity-limbo-handler/config.yml
+# The ONLY change from the generated default: direct-connect-server lobby -> limbo
+# (default "lobby" does not resolve in our network, which makes VLH self-destruct).
+file-version: 7
+
+# The name of the limbo server in the velocity [servers] block.
+limbo-name: limbo
+
+# Last-resort queue target when a player reaches limbo with no forced-host / previous
+# server. We have no lobby, so this points at the limbo itself (harmless: they wait).
+direct-connect-server: limbo
+
+# How often VLH pings the intended backend to see if it's up yet (ms).
+task-interval: 3000
+
+queue-enabled: true
+queue-notify-interval: 30
+
+disabled-commands:
+- server
+- lobby
+- hub
+
+# Log offline pings during bring-up; can be flipped to false once stable.
+connection-warnings: true

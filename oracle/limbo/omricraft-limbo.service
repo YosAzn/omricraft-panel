@@ -1,0 +1,16 @@
+[Unit]
+Description=OmriCraft NanoLimbo (seamless-wake holding world)
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/omricraft/limbo
+ExecStart=/usr/bin/java -Xms64M -Xmx128M -jar /home/ubuntu/omricraft/limbo/NanoLimbo.jar
+Restart=always
+RestartSec=5
+OOMScoreAdjust=-700
+
+[Install]
+WantedBy=multi-user.target

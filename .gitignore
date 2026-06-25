@@ -35,3 +35,6 @@ functions/test_rcon.mjs
 oracle/serverwaker/**/*.jar
 oracle/serverwaker/out*/
 oracle/scripts/serverwaker-*.jar
+
+# NanoLimbo + VelocityLimboHandler artifacts (configs/source tracked; jars downloaded/built)
+oracle/limbo/*.jar

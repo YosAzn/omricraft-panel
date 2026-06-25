@@ -54,20 +54,32 @@ public class ServerWaker {
         var target = event.getOriginalServer();
         if (target == null) return;
 
-        var addr = (InetSocketAddress) target.getServerInfo().getAddress();
-        if (isAlive(addr.getHostName(), addr.getPort())) return;
-
         String serverId = target.getServerInfo().getName();
-        log.info("[ServerWaker] " + serverId + " is offline - starting...");
+        if ("limbo".equals(serverId)) return;  // never wake/redirect the limbo holding world
 
-        event.setResult(ServerPreConnectEvent.ServerResult.denied());
-        event.getPlayer().disconnect(
-            Component.text()
-                .append(Component.text("OmriCraft\n", NamedTextColor.GREEN))
-                .append(Component.text("Server is starting up...\n", NamedTextColor.YELLOW))
-                .append(Component.text("Please wait ~30 seconds and reconnect.", NamedTextColor.WHITE))
-                .build()
-        );
+        var addr = (InetSocketAddress) target.getServerInfo().getAddress();
+        if (isAlive(addr.getHostName(), addr.getPort())) return;  // backend already up -> normal route
+
+        log.info("[ServerWaker] " + serverId + " is offline - holding in limbo + starting...");
+
+        var limbo = proxy.getServer("limbo").orElse(null);
+        if (limbo != null) {
+            // SEAMLESS: send the player into the NanoLimbo holding world instead of
+            // kicking. VelocityLimboHandler queues them there and transfers them into
+            // the real backend once it answers a ping -> no kick, no manual reconnect.
+            event.setResult(ServerPreConnectEvent.ServerResult.allowed(limbo));
+        } else {
+            // Fail-loud fallback (limbo server missing): old kick-and-reconnect so the
+            // player is never silently stranded.
+            event.setResult(ServerPreConnectEvent.ServerResult.denied());
+            event.getPlayer().disconnect(
+                Component.text()
+                    .append(Component.text("OmriCraft\n", NamedTextColor.GREEN))
+                    .append(Component.text("Server is starting up...\n", NamedTextColor.YELLOW))
+                    .append(Component.text("Please wait ~30 seconds and reconnect.", NamedTextColor.WHITE))
+                    .build()
+            );
+        }
 
         proxy.getScheduler().buildTask(this, () -> wakeServer(serverId)).schedule();
     }
