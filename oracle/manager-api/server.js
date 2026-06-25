@@ -52,7 +52,14 @@ function runScript(scriptName, args, timeout) {
   return new Promise((resolve, reject) => {
     const scriptPath = path.join(SCRIPTS_DIR, scriptName);
     execFile('bash', [scriptPath].concat(args), { timeout: timeout }, function(err, stdout, stderr) {
-      if (err) return reject(new Error(stderr || stdout || err.message));
+      if (err) {
+        const e = new Error(stderr || stdout || err.message);
+        // Surface the script's exit status so callers can tell "no compatible build"
+        // (the install-*.sh scripts exit 2) from a real failure (exit 1). execFile sets
+        // err.code to the numeric exit status (a string like 'ETIMEDOUT' for signals).
+        e.exitCode = (typeof err.code === 'number') ? err.code : null;
+        return reject(e);
+      }
       resolve(stdout);
     });
   });
@@ -563,6 +570,9 @@ app.post('/install-mod', async function(req, res) {
     return res.json({ success: true, modId: modId, slug: slug, needsRestart: true });
   } catch (err) {
     console.error('install-mod error:', err.message);
+    if (err && err.exitCode === 2) {
+      return res.status(422).json({ success: false, error: 'אין גרסת מוד תואמת לגרסת השרת הזו' });
+    }
     return res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -630,6 +640,9 @@ app.post('/install-resourcepack', async function(req, res) {
     });
   } catch (err) {
     console.error('install-resourcepack error:', err.message);
+    if (err && err.exitCode === 2) {
+      return res.status(422).json({ success: false, error: 'אין חבילת מרקם תואמת לגרסת השרת הזו' });
+    }
     return res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -1176,8 +1189,9 @@ app.post('/install-datapack-by-id', async function(req, res) {
       return res.status(502).json({ success: false, error: e.message });
     }
     if (!resolved) {
-      // No compatible build — fail loudly, never install an incompatible pinned zip.
-      return res.status(409).json({ success: false, error: 'no datapack build of ' + entry.modrinthSlug + ' for Minecraft ' + srv.version });
+      // No compatible build — fail loudly with a precise status (422, not an opaque
+      // 5xx), never install an incompatible pinned zip that would crash the server.
+      return res.status(422).json({ success: false, error: 'אין חבילת datapack תואמת לגרסת השרת הזו (' + srv.version + ')' });
     }
     url = resolved.url;
     filename = resolved.filename;
@@ -1445,18 +1459,6 @@ function writeServersArray(arr) {
   const tmp = SERVERS_JSON + '.tmp.' + process.pid;
   fs.writeFileSync(tmp, JSON.stringify(arr, null, 2));
   fs.renameSync(tmp, SERVERS_JSON);
-}
-
-// Helper: is a server currently running (by PID file)?
-function isServerRunning(serverId) {
-  try {
-    const pid = fs.readFileSync(path.join(SERVERS_DIR, serverId, 'server.pid'), 'utf8').trim();
-    if (!pid) return false;
-    process.kill(parseInt(pid, 10), 0);
-    return true;
-  } catch (e) {
-    return false;
-  }
 }
 
 // ---------------------------------------------------------------------------
