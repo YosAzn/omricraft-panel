@@ -260,39 +260,36 @@ if [ "$TYPE" != "fabric" ] && [ "$TYPE" != "forge" ] && [ "$TYPE" != "neoforge" 
   done < <(node -e "const ids=JSON.parse(process.argv[1]); ids.forEach(function(i){console.log(i);})" "$ADDONS")
 fi
 
-# Download datapacks if addons include datapacks
-# d1,d4,d6,d7,d8,d9,d10,d11 = Vanilla Tweaks — require browser picker, no direct URL
-# url + filename MUST stay identical to DATAPACK_CATALOG in manager-api/server.js so
-# create-time installs and post-create installs land the EXACT same file.
-declare -A DATAPACK_URLS
-declare -A DATAPACK_FILENAMES
-DATAPACK_URLS["d2"]="https://github.com/Stardust-Labs-MC/Terralith/releases/download/v2.5.9/Terralith_1.21_v2.5.9_BETA.jar"
-# Minecraft only recognises a .zip (or a folder) inside world/datapacks/. A .jar is
-# logged "non-pack entry, ignoring" and never loads — the archive bytes are an
-# ordinary zip, only the NAME matters. Save with .zip to match the catalog.
-DATAPACK_FILENAMES["d2"]="Terralith_1.21_v2.5.9_BETA.zip"
-# TODO: Data — add more datapack URLs when direct download becomes available (d3 Tectonic, Nullscape, Structory)
+# Download datapacks if addons include datapacks.
+# Server-installable datapacks resolve via the Modrinth API (loader "datapack"),
+# VERSION-AWARE, so the build always matches the server's MC version — pinning a
+# single build (e.g. Terralith 1.21) crashed newer servers (1.21.2+ worldgen JSON
+# changed). Map server-installable datapack addonIds -> Modrinth slug here.
+# Vanilla Tweaks (d1,d4,d6,d7,d8,d9,d10,d11) need the browser picker (no slug) and
+# are absent from this map, so they never reach create-server.sh as server installs.
+declare -A DATAPACK_SLUGS
+DATAPACK_SLUGS["d2"]="terralith"
+# TODO: Data — add more datapack slugs when they become server-installable (d3 Tectonic, Nullscape, Structory)
 
 mkdir -p "$SERVER_DIR/datapacks-pending"
 
 if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
   while IFS= read -r addonId; do
     [ -z "$addonId" ] && continue
-    url="${DATAPACK_URLS[$addonId]:-}"
-    if [ -n "$url" ]; then
-      # Prefer the explicit catalog filename (.zip); fall back to URL basename.
-      if [[ -n "${DATAPACK_FILENAMES[$addonId]:-}" ]]; then
-        filename="${DATAPACK_FILENAMES[$addonId]}"
+    slug="${DATAPACK_SLUGS[$addonId]:-}"
+    [ -z "$slug" ] && continue
+    # Stage into datapacks-pending; start-server.sh drains it into world/datapacks
+    # and RCON-enables on boot (pending convention kept intact).
+    if bash "$SCRIPTS_DIR_SELF/install-datapack.sh" "$SERVER_DIR" "$VERSION" "$slug" pending; then
+      echo "[$(date)] OK datapack: $addonId ($slug)"
+    else
+      rc=$?
+      if [ "$rc" -eq 2 ]; then
+        # No compatible build for this MC version — skip loudly. Do NOT fall back
+        # to an incompatible pinned zip (that is exactly what crashed the server).
+        echo "[$(date)] skipped datapack $addonId: no build for $VERSION"
       else
-        filename=$(basename "$url" | sed 's/\?.*$//')
-      fi
-      echo "[$(date)] Downloading datapack $addonId: $filename"
-      wget -q -L --timeout=60 "$url" -O "$SERVER_DIR/datapacks-pending/$filename" || true
-      # Datapacks are .jar/.zip archives → same ZIP-magic validation applies.
-      if validate_jar_or_fail "$SERVER_DIR/datapacks-pending/$filename" "datapack $addonId"; then
-        echo "[$(date)] OK datapack: $addonId ($filename)"
-      else
-        echo "[$(date)] FAILED (invalid archive): datapack $addonId"
+        echo "[$(date)] FAILED datapack: $addonId ($slug)"
       fi
     fi
   done < <(node -e "const ids=JSON.parse(process.argv[1]); ids.forEach(function(i){console.log(i);})" "$ADDONS")

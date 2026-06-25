@@ -1018,20 +1018,52 @@ app.post('/install-datapack', async function(req, res) {
 // made datapacks "succeed" but never load).
 // ===================================================================
 var DATAPACK_CATALOG = {
-  // addonId -> { url, filename }. Keep filenames in sync with create-server.sh
-  // DATAPACK_URLS so create-time and post-create installs land identical files.
+  // addonId -> { modrinthSlug, worldgen, [url, filename] }.
+  // VERSION-AWARE: when modrinthSlug is set we resolve the download from the
+  // Modrinth API for the server's exact MC version, so the build always matches
+  // (pinning a single build crashed newer servers — Terralith 1.21 on 1.21.11
+  // failed worldgen parse). The pinned url/filename are a last-resort fallback
+  // ONLY used when no slug is present; for Terralith we always go via Modrinth.
   'd2': {
-    url: 'https://github.com/Stardust-Labs-MC/Terralith/releases/download/v2.5.9/Terralith_1.21_v2.5.9_BETA.jar',
-    // Saved with a .zip extension: Minecraft only recognises .zip (or a folder)
-    // inside world/datapacks/. A .jar is logged "non-pack entry, ignoring" and
-    // never loads — the archive bytes are an ordinary zip, only the name matters.
-    filename: 'Terralith_1.21_v2.5.9_BETA.zip',
+    modrinthSlug: 'terralith',
     worldgen: true // applies to NEW chunks only once enabled
   }
-  // TODO: add more datapacks here as direct-download URLs become available
-  // (d3 Tectonic, Nullscape, Structory). Vanilla Tweaks (d1,d4,d6...) need the
-  // browser picker — no stable direct URL — so they stay out of the catalog.
+  // TODO: add more datapacks here. Prefer modrinthSlug (version-aware) over a
+  // pinned url. Vanilla Tweaks (d1,d4,d6...) need the browser picker — no stable
+  // slug/URL — so they stay out of the catalog.
 };
+
+// Resolve a datapack's download for a specific MC version via the Modrinth API
+// (loader "datapack"). Returns { url, filename } for the newest compatible build,
+// null when NO build exists for that version (caller fails loudly — never installs
+// an incompatible pack). Mirrors install-mod.sh / install-datapack.sh resolution.
+function resolveDatapackFromModrinth(slug, mcVersion) {
+  return new Promise(function(resolve, reject) {
+    if (!/^[A-Za-z0-9_-]+$/.test(slug)) return reject(new Error('Invalid Modrinth slug'));
+    if (!/^[0-9][0-9A-Za-z._-]*$/.test(mcVersion)) return reject(new Error('Invalid MC version'));
+    var https = require('https');
+    var api = 'https://api.modrinth.com/v2/project/' + encodeURIComponent(slug) +
+      '/version?loaders=%5B%22datapack%22%5D&game_versions=%5B%22' + encodeURIComponent(mcVersion) + '%22%5D';
+    https.get(api, { headers: { 'User-Agent': 'omricraft/1.0 (datapack-installer)' } }, function(r) {
+      if (r.statusCode !== 200) { r.resume(); return reject(new Error('Modrinth API HTTP ' + r.statusCode)); }
+      var body = '';
+      r.on('data', function(c) { body += c; });
+      r.on('end', function() {
+        var versions;
+        try { versions = JSON.parse(body); } catch (e) { return reject(new Error('Modrinth API parse error')); }
+        if (!Array.isArray(versions) || versions.length === 0) return resolve(null);
+        versions.sort(function(a, b) { return (b.date_published || '').localeCompare(a.date_published || ''); });
+        var files = versions[0].files || [];
+        if (!files.length) return resolve(null);
+        var f = files.find(function(x) { return x.primary; }) || files[0];
+        if (!f.url || !f.filename) return resolve(null);
+        // Minecraft only loads .zip; Modrinth datapack files already are .zip but enforce it.
+        var name = /\.zip$/i.test(f.filename) ? f.filename : (f.filename + '.zip');
+        resolve({ url: f.url, filename: name });
+      });
+    }).on('error', function(e) { reject(new Error('Modrinth API request failed: ' + e.message)); });
+  });
+}
 
 app.post('/install-datapack-by-id', async function(req, res) {
   var serverId = req.body.serverId;
@@ -1046,10 +1078,46 @@ app.post('/install-datapack-by-id', async function(req, res) {
   if (!entry) {
     return res.status(400).json({ success: false, error: 'datapack not available: ' + addonId });
   }
+
   var url = entry.url;
   var filename = entry.filename;
 
-  // Defence-in-depth: SSRF guard still runs on the catalog URL + every redirect.
+  // VERSION-AWARE resolution: when the catalog entry has a Modrinth slug, resolve
+  // the download for THIS server's MC version, so we never install an incompatible
+  // build that crashes the server on boot (the Terralith-1.21-on-1.21.11 bug).
+  if (entry.modrinthSlug) {
+    var srv;
+    try {
+      srv = readServersArray().find(function(s) { return s.id === serverId; });
+    } catch (e) {
+      return res.status(500).json({ success: false, error: 'Could not read servers.json: ' + e.message });
+    }
+    if (!srv || !srv.version) {
+      return res.status(404).json({ success: false, error: 'Server not found in servers.json' });
+    }
+    var resolved;
+    try {
+      resolved = await resolveDatapackFromModrinth(entry.modrinthSlug, srv.version);
+    } catch (e) {
+      return res.status(502).json({ success: false, error: e.message });
+    }
+    if (!resolved) {
+      // No compatible build — fail loudly, never install an incompatible pinned zip.
+      return res.status(409).json({ success: false, error: 'no datapack build of ' + entry.modrinthSlug + ' for Minecraft ' + srv.version });
+    }
+    url = resolved.url;
+    filename = resolved.filename;
+  }
+
+  if (!url || !filename) {
+    return res.status(400).json({ success: false, error: 'datapack not resolvable: ' + addonId });
+  }
+  // Path-traversal safety on the resolved filename (Modrinth names can vary).
+  if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
+    return res.status(400).json({ success: false, error: 'Invalid resolved filename: ' + filename });
+  }
+
+  // Defence-in-depth: SSRF guard still runs on the resolved URL + every redirect.
   var initialErr = await new Promise(function(resolve) { assertUrlAllowed(url, resolve); });
   if (initialErr) {
     return res.status(400).json({ success: false, error: initialErr });
