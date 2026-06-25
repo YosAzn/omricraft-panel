@@ -18,12 +18,20 @@ if (!MANAGER_API_KEY) {
   process.exit(1);
 }
 
+// Accept the primary key plus an OPTIONAL second key (MANAGER_API_KEY_OLD) only while
+// a key rotation is in flight: the new key is rolled out to every caller (Cloud
+// Functions secret + ServerWaker env) with zero downtime, then MANAGER_API_KEY_OLD is
+// removed so only the new key is valid. Unset/empty entries are ignored.
+const VALID_BEARERS = [process.env.MANAGER_API_KEY, process.env.MANAGER_API_KEY_OLD]
+  .filter(Boolean)
+  .map(function (k) { return 'Bearer ' + k; });
+
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
 app.use((req, res, next) => {
   const auth = req.headers['authorization'] || '';
-  if (auth !== `Bearer ${MANAGER_API_KEY}`) {
+  if (!VALID_BEARERS.includes(auth)) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
   next();

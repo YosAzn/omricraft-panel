@@ -30,3 +30,8 @@ test_rcon_connection.js
 functions/test_rcon.mjs
 
 # Local secrets and debug files
+
+# ServerWaker built artifacts (source in oracle/serverwaker/, built+deployed per BUILD.md)
+oracle/serverwaker/**/*.jar
+oracle/serverwaker/out*/
+oracle/scripts/serverwaker-*.jar

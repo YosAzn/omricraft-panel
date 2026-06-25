@@ -54,6 +54,19 @@ if [ -f "$PID_FILE" ]; then
   fi
 fi
 
+# Export manager-api credentials so the ServerWaker plugin (running inside this JVM)
+# can authenticate its wake requests. The key lives ONLY in .env (chmod 600) — it is
+# NEVER compiled into the plugin jar. Rotating the key is then just editing .env and
+# restarting velocity; no plugin rebuild.
+ENV_FILE="$BASE/manager/.env"
+if [ -f "$ENV_FILE" ]; then
+  set -a; . "$ENV_FILE"; set +a
+fi
+export MANAGER_API_URL="${MANAGER_API_URL:-http://127.0.0.1:3001}"
+if [ -z "${MANAGER_API_KEY:-}" ]; then
+  echo "[$(date)] WARNING: MANAGER_API_KEY not set ($ENV_FILE) — ServerWaker wake requests will be rejected (401)."
+fi
+
 cd "$VEL_DIR"
 nohup "$JAVA_BIN" -Xms512M -Xmx512M \
   -XX:+UseG1GC \
