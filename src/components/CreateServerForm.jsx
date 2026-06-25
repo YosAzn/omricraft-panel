@@ -33,7 +33,10 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, use
     if (a.type === 'textures') return true;
     if (MOD_SERVERS.includes(software) && ['mods', 'modpacks'].includes(a.type)) return true;
     if (PLUGIN_SERVERS.includes(software) && a.type === 'plugins') return true;
-    if (a.type === 'datapacks') return true;
+    // Hide worldgen-overhaul datapacks (Terralith) unless the world type is 'default' —
+    // they REPLACE the overworld, so on flat/amplified/large_biomes they would override
+    // (and break) the chosen world type. The backend skips them too as a safety net.
+    if (a.type === 'datapacks') return !(a.worldgenOverhaul && worldType !== 'default');
     return false;
   });
 

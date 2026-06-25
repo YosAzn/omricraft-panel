@@ -271,6 +271,14 @@ declare -A DATAPACK_SLUGS
 DATAPACK_SLUGS["d2"]="terralith"
 # TODO: Data — add more datapack slugs when they become server-installable (d3 Tectonic, Nullscape, Structory)
 
+# Worldgen-overhaul datapacks REPLACE the overworld generator. They only make sense on
+# a 'default' world: on flat/amplified/large_biomes they override (and contradict) the
+# chosen world type, AND make the world hard-depend on the pack — remove/lose the pack
+# later and the world won't load ("Overworld settings missing"). So skip them unless
+# the world type is 'default'.
+declare -A WORLDGEN_DATAPACKS
+WORLDGEN_DATAPACKS["d2"]=1
+
 mkdir -p "$SERVER_DIR/datapacks-pending"
 
 if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
@@ -278,6 +286,10 @@ if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
     [ -z "$addonId" ] && continue
     slug="${DATAPACK_SLUGS[$addonId]:-}"
     [ -z "$slug" ] && continue
+    if [ -n "${WORLDGEN_DATAPACKS[$addonId]:-}" ] && [ "$WORLD_TYPE_RAW" != "default" ]; then
+      echo "[$(date)] skipped datapack $addonId ($slug): worldgen overhaul is incompatible with a '$WORLD_TYPE_RAW' world (it would override the chosen world type). Pick a 'default' world to use $slug."
+      continue
+    fi
     # Stage into datapacks-pending; start-server.sh drains it into world/datapacks
     # and RCON-enables on boot (pending convention kept intact).
     if bash "$SCRIPTS_DIR_SELF/install-datapack.sh" "$SERVER_DIR" "$VERSION" "$slug" pending; then

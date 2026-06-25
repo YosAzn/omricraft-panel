@@ -109,7 +109,7 @@ export const DEFAULT_ADDONS = [
   // --- Datapacks ---
   // installMethod: 'server' = מותקן בשרת דרך installDatapack endpoint. 'manual' = אין URL מתארח → הורדה ידנית.
   { id: 'd1', name: 'Vanilla Tweaks', desc: 'אוסף שיפורים קטנים ונוחים למשחק הרגיל', type: 'datapacks', installMethod: 'manual', downloads: '2M', rating: 4.8, reviews: 3200 },
-  { id: 'd2', name: 'Terralith', desc: 'משנה לחלוטין את יצירת העולם, ביומות והרים ללא בלוקים חדשים', type: 'datapacks', installMethod: 'server', modrinthSlug: 'terralith', downloads: '4M', rating: 4.7, reviews: 5100 },
+  { id: 'd2', name: 'Terralith', desc: 'משנה לחלוטין את יצירת העולם, ביומות והרים ללא בלוקים חדשים', type: 'datapacks', installMethod: 'server', modrinthSlug: 'terralith', worldgenOverhaul: true, downloads: '4M', rating: 4.7, reviews: 5100 },
   { id: 'd4', name: 'Multiplayer Sleep', desc: 'מספיק שחקן אחד במיטה כדי להעביר את הלילה', type: 'datapacks', installMethod: 'manual', downloads: '3M', rating: 4.9, reviews: 4500 },
   { id: 'd6', name: 'Mini Blocks', desc: 'מאפשר להשיג גרסאות מיניאטוריות של בלוקים כראשים', type: 'datapacks', installMethod: 'manual', downloads: '1.5M', rating: 4.6, reviews: 1200 },
   { id: 'd7', name: 'Wandering Trades', desc: 'משפר את החפצים שמוכר הסוחר הנודד ומציע בלוקים מיניאטוריים', type: 'datapacks', installMethod: 'manual', downloads: '1.2M', rating: 4.5, reviews: 900 },
