@@ -20,6 +20,9 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, use
   const [memoryMb, setMemoryMb] = useState(2048);
   const [isPrivate, setIsPrivate] = useState(false);
   const [whitelistString, setWhitelistString] = useState('');
+  // UX/legal acknowledgment only — gates the create button. The EULA itself is
+  // auto-accepted server-side at provisioning (eula.txt); this is consent in the UI.
+  const [eulaAccepted, setEulaAccepted] = useState(false);
 
   // State חדש לחיפוש תוספים
   const [addonSearch, setAddonSearch] = useState('');
@@ -300,11 +303,37 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, use
           )}
 
           <hr className="border-zinc-800" />
+
+          {/* EULA acceptance — required, gates creation (UX/legal acknowledgment only) */}
+          <div
+            onClick={() => setEulaAccepted(v => !v)}
+            className={`flex items-start gap-3 rounded-xl p-4 cursor-pointer border transition-all ${eulaAccepted ? 'bg-green-500/10 border-green-500/40' : 'bg-zinc-950 border-zinc-800 hover:border-zinc-600'}`}
+          >
+            <div className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center border flex-shrink-0 transition-colors ${eulaAccepted ? 'bg-green-600 border-green-600' : 'border-zinc-600'}`}>
+              {eulaAccepted && <Check size={14} className="text-white" />}
+            </div>
+            <div className="min-w-0">
+              <p className={`font-bold text-sm ${eulaAccepted ? 'text-green-400' : 'text-zinc-300'}`}>אני מקבל את תנאי ה-EULA של Minecraft *</p>
+              <p className="text-xs text-zinc-500 mt-1">
+                בהפעלת שרת אתה מסכים ל&rlm;{' '}
+                <a
+                  href="https://www.minecraft.net/en-us/eula"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center text-green-400 hover:text-green-300 font-bold border border-green-500/30 bg-green-500/5 rounded px-1.5 py-0.5 transition-colors"
+                >
+                  תנאי השימוש של Mojang
+                </a>
+              </p>
+            </div>
+          </div>
+
           <div className="flex justify-end gap-3">
             <button type="button" onClick={onCancel} className="px-6 py-3 rounded-xl font-bold text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
               {t('cancel')}
             </button>
-            <button type="submit" disabled={isCreatingServer} className="bg-green-600 hover:bg-green-500 text-white px-10 py-3 rounded-xl font-bold transition-all shadow-lg shadow-green-900/20 text-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+            <button type="submit" disabled={isCreatingServer || !eulaAccepted} className="bg-green-600 hover:bg-green-500 text-white px-10 py-3 rounded-xl font-bold transition-all shadow-lg shadow-green-900/20 text-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
               <Play size={20} fill="currentColor"/> {isCreatingServer ? 'יוצר עולם...' : t('create')}
             </button>
           </div>
