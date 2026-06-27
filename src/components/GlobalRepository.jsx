@@ -130,20 +130,13 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
              </div>
            </div>
 
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 pt-4 border-t border-zinc-800">
-             <div>
-                <label className="block text-xs text-zinc-400 mb-1 font-bold flex items-center gap-1"><UploadCloud size={14}/> {t('uploadFile')}</label>
-                <div className="relative">
-                  <input type="file" accept=".jar,.zip" onChange={e => setSelectedFile(e.target.files[0])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                  <div className={`w-full border border-dashed rounded-lg px-3 py-2 text-center text-sm transition-colors ${selectedFile ? 'border-green-500 bg-green-500/10 text-green-400' : 'border-zinc-700 hover:border-zinc-500 text-zinc-400'}`}>
-                    {selectedFile ? `${t('fileSelected')}: ${selectedFile.name}` : 'לחץ או גרור קובץ לכאן'}
-                  </div>
-                </div>
-             </div>
-             <div>
-                <label className="block text-xs text-zinc-400 mb-1 font-bold flex items-center gap-1"><LinkIcon size={14}/> {t('orLink')}</label>
-                <input type="url" placeholder="https://modrinth.com/..." value={fileUrl} onChange={e=>setFileUrl(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-green-500" />
-             </div>
+           {/* File upload removed: the bytes were never uploaded anywhere (no Storage / no
+               VPS) — only the filename string was kept, so the dropzone was a NO-OP that
+               implied an upload. A custom addon is a LIBRARY REFERENCE (URL) only. */}
+           <div className="mb-4 pt-4 border-t border-zinc-800">
+             <label className="block text-xs text-zinc-400 mb-1 font-bold flex items-center gap-1"><LinkIcon size={14}/> {t('orLink')}</label>
+             <input type="url" placeholder="https://modrinth.com/..." value={fileUrl} onChange={e=>setFileUrl(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-green-500" />
+             <p className="text-[11px] text-zinc-500 mt-1">התוסף נשמר כהפניה בספרייה הגלובלית. להתקנה אוטומטית בשרת — השתמש בקטלוג המובנה (Modrinth); תוסף מותאם מותקן ידנית.</p>
            </div>
            
            <div className="flex justify-end mt-4">

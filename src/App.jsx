@@ -26,7 +26,7 @@ export default function App() {
 
   const [authUser, setAuthUser] = useState(null);
   const [adminUid, setAdminUid] = useState(null);
-  const [userRole, setUserRole] = useState('admin');
+  const [userRole, setUserRole] = useState('member');
   const [lang, setLang] = useState('he');
   const t = (key) => DICT[lang][key] || key;
   const isRtl = lang === 'he';
@@ -173,7 +173,7 @@ export default function App() {
         if (res?.data?.success && res.data.servers) {
           setPlayersData(res.data.servers);
         }
-      } catch (e) { /* silent */ }
+      } catch (e) { console.error('getPlayersOnline poll failed:', e?.message || e); }
     };
     fetchPlayers();
     const interval = setInterval(fetchPlayers, 30000);
@@ -212,6 +212,12 @@ export default function App() {
   const isAdmin =
     (!!adminEmail && ADMIN_EMAILS.includes(adminEmail)) ||
     (!!authUser && !!adminUid && authUser.uid === adminUid);
+
+  // The client role STRICTLY follows the real email-based admin identity — there is no
+  // manual override (the old Admin/Member toggle defaulted to 'admin' and let anyone
+  // self-promote in the UI). The Cloud Functions independently enforce admin server-side;
+  // this only gates which controls render.
+  useEffect(() => { setUserRole(isAdmin ? 'admin' : 'member'); }, [isAdmin]);
 
   const visibleServers = useMemo(() => {
     if (isAdmin) return servers; // admin sees all
@@ -679,7 +685,11 @@ export default function App() {
 
  const handleAddCustomAddon = async (addonData) => {
     // אם העברנו ID מראש נשתמש בו, אחרת נייצר חדש
-    const newAddon = { ...addonData, id: addonData.id || `c_${Math.random().toString(36).substring(7)}`, rating: 5.0, reviews: 0 };
+    // Custom addons are a LIBRARY REFERENCE only — there is no server-side install path
+    // for an arbitrary user URL (would need an SSRF-allowlisted installer). Mark them
+    // installMethod:'manual' so the UI shows an honest manual badge (no fake install
+    // button / no checkbox in the create form) instead of promising an install that fails.
+    const newAddon = { ...addonData, id: addonData.id || `c_${Math.random().toString(36).substring(7)}`, installMethod: 'manual' };
     if (db && authUser) {
       await setDoc(doc(db, getAddonsPath(), newAddon.id), newAddon);
     }
@@ -710,19 +720,9 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end bg-zinc-950 sm:bg-transparent p-2 sm:p-0 rounded-lg">
-            <div className="flex bg-zinc-800 p-1 rounded-lg">
-              <button 
-                onClick={() => setUserRole('admin')} 
-                className={`px-3 py-1.5 text-xs font-bold rounded-md flex items-center gap-1 transition-all ${userRole === 'admin' ? 'bg-emerald-600 text-white' : 'text-zinc-400 hover:text-white'}`}
-              >
-                <Shield size={14}/> <span className="hidden sm:inline">{t('roleAdmin')}</span>
-              </button>
-              <button 
-                onClick={() => setUserRole('member')} 
-                className={`px-3 py-1.5 text-xs font-bold rounded-md flex items-center gap-1 transition-all ${userRole === 'member' ? 'bg-blue-600 text-white' : 'text-zinc-400 hover:text-white'}`}
-              >
-                <Users size={14}/> <span className="hidden sm:inline">{t('roleMember')}</span>
-              </button>
+            <div className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-md ${userRole === 'admin' ? 'bg-emerald-600/15 text-emerald-400' : 'bg-zinc-800 text-zinc-400'}`} title={userRole === 'admin' ? t('roleAdmin') : t('roleMember')}>
+              {userRole === 'admin' ? <Shield size={14}/> : <Users size={14}/>}
+              <span className="hidden sm:inline">{userRole === 'admin' ? t('roleAdmin') : t('roleMember')}</span>
             </div>
 
             <button onClick={() => setLang(lang === 'he' ? 'en' : 'he')} className="text-zinc-400 hover:text-white transition-colors flex items-center gap-1 text-sm px-2 py-1.5 rounded-full" title={t('language')}>

@@ -23,12 +23,8 @@ export default function MapTab({ server, t }) {
               <p>הפעל את השרת כדי לצפות במפה החיה</p>
             ) : (
               <>
-                <p className="text-sm">BlueMap מותקן אך לא מוגדר</p>
-                <p className="text-xs text-zinc-600">יש להוסיף <code className="text-blue-400">blueMapPort</code> לנתוני השרת</p>
-                <a href={`http://${VPS_IP}:8100`} target="_blank" rel="noopener noreferrer"
-                   className="text-blue-400 hover:underline text-sm">
-                  נסה ב-{VPS_IP}:8100
-                </a>
+                <p className="text-sm">מפת BlueMap החיה</p>
+                <p className="text-xs text-zinc-600">בקרוב — מפת תלת-ממד חיה של העולם, ישירות בדפדפן</p>
               </>
             )}
           </div>

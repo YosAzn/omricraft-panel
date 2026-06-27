@@ -20,7 +20,7 @@ export default function OverviewTab({ server, t, playersLive }) {
       try {
         const res = await getServerStatsFn({ serverId: server.id });
         if (res.data?.success) setLiveStats({ ram: res.data.ram, cpu: res.data.cpu });
-      } catch (e) { /* silent — show 0 on failure */ }
+      } catch (e) { console.error('getServerStats poll failed:', e?.message || e); /* keep last/null stats */ }
     };
     fetchStats();
     const interval = setInterval(fetchStats, 15000);
