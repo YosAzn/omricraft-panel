@@ -77,6 +77,15 @@ async function main() {
   for (const [sid, info] of Object.entries(players.servers)) {
     if (!info.online) { newState[sid] = { emptyCount: 0 }; continue; }
 
+    // Defence in depth: if the player count couldn't be parsed (count null/undefined),
+    // NEVER treat the server as empty — that could stop it out from under real players.
+    // Skip until we get a real number.
+    if (info.count === null || info.count === undefined) {
+      newState[sid] = { emptyCount: 0 };
+      console.log('[auto-stop] ' + sid + ': player count unknown (parse failed) — skip, never stop on unknown');
+      continue;
+    }
+
     if (info.count > 0) {
       newState[sid] = { emptyCount: 0 };
       console.log('[auto-stop] ' + sid + ': ' + info.count + ' players online — skip');

@@ -400,7 +400,12 @@ app.get('/players', async function(req, res) {
       // Without stripping, /(\d+)\s+out of.../ matched the digit inside the color code (e.g. the 6 in the prefix)
       // and reported a bogus non-zero count for empty servers, which disabled auto-stop.
       const clean = out.replace(/\u00A7./g, "");
-      const m = clean.match(/There are\s+(\d+)\s+out of maximum\s+(\d+)/);
+      // Match BOTH the vanilla/Paper format ("There are X of a max of Y players online")
+      // AND the EssentialsX format ("There are X out of maximum Y players online"). \D+
+      // spans either phrasing between the two numbers. Earlier the regex only matched the
+      // EssentialsX wording, so every non-Essentials server parsed to count=null \u2014 which
+      // auto-stop then treated as empty and would stop out from under real players.
+      const m = clean.match(/There are\s+(\d+)\D+?(\d+)\s+players online/);
       // fail-safe: if parsing fails, count stays null so auto-stop (online && count===0) skips this server
       // instead of wrongly treating an unparseable server as empty and stopping it.
       const count = m ? parseInt(m[1], 10) : null;
