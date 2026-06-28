@@ -239,10 +239,17 @@ export default function AddonsTab({ server, toggleAddon, t, allAddons, userRole 
                 </span>
               ) : userRole === 'admin' && (
                 item.paid && !isInstalled ? (
-                  <a href="#" onClick={e => e.preventDefault()} title="Premium plugin — התקן ידנית מהאתר הרשמי"
-                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-sm border border-yellow-500/30 text-yellow-400 bg-yellow-500/5 cursor-not-allowed whitespace-nowrap">
-                    💎 Premium
-                  </a>
+                  item.buyUrl ? (
+                    <a href={item.buyUrl} target="_blank" rel="noreferrer noopener" title="תוסף בתשלום — רכישה מהמקור הרשמי"
+                      className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-sm border border-yellow-500/30 text-yellow-400 bg-yellow-500/5 hover:bg-yellow-500/15 whitespace-nowrap">
+                      💎 Premium — לרכישה
+                    </a>
+                  ) : (
+                    <a href="#" onClick={e => e.preventDefault()} title="Premium plugin — התקן ידנית מהאתר הרשמי"
+                      className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-sm border border-yellow-500/30 text-yellow-400 bg-yellow-500/5 cursor-not-allowed whitespace-nowrap">
+                      💎 Premium
+                    </a>
+                  )
                 ) : (
                   <button onClick={() => handleToggle(item)} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${isInstalled ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20' : 'bg-green-600 hover:bg-green-500 text-white'}`}>
                     {isInstalled ? t('uninstall') : <><Download size={16} /> {t('install')}</>}
