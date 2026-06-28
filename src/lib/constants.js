@@ -148,6 +148,13 @@ export const DEFAULT_ADDONS = [
   // server install that loud-fails. A real mrpack/zip unpacker is a post-launch feature.
   { id: 'mp1', name: 'Better MC', desc: 'המיינקראפט כמו שהוא היה צריך להיות - מאות ביומות ומובים', type: 'modpacks', installMethod: 'manual', downloads: '7M', rating: 4.6, reviews: 12000 },
   { id: 'mp2', name: 'Vault Hunters', desc: 'מודפאק אקשן ו-RPG מדהים בתוך מבוכים מסוכנים', type: 'modpacks', installMethod: 'manual', downloads: '3M', rating: 4.8, reviews: 7500 },
+  // mp3..mp7 — modpacks אמיתיים שאומתו ב-Modrinth (project_type:modpack, 200).
+  // downloadUrl = הדף הרשמי ב-Modrinth; ה-AddonsTab הופך את ה-badge הידני לקישור.
+  { id: 'mp3', name: 'Cobblemon Official Modpack', desc: 'המודפאק הרשמי של Cobblemon - הרפתקת פוקימון מלאה בעולם המיינקראפט (Fabric)', type: 'modpacks', installMethod: 'manual', downloadUrl: 'https://modrinth.com/modpack/cobblemon-fabric', downloads: '8M', rating: 4.9, reviews: 14000 },
+  { id: 'mp4', name: 'COBBLEVERSE', desc: 'הרפתקת פוקימון ענקית מבוססת Cobblemon - מנהיגי חדרים, אליפות וגיבוש חבורת פוקימון', type: 'modpacks', installMethod: 'manual', downloadUrl: 'https://modrinth.com/modpack/cobbleverse', downloads: '4.5M', rating: 4.8, reviews: 9000 },
+  { id: 'mp5', name: 'Prominence II: Hasturian Era', desc: 'מודפאק RPG והרפתקה עשיר עם קווסטים, מחלקות לחימה וקסם - אחד הפופולריים ביותר', type: 'modpacks', installMethod: 'manual', downloadUrl: 'https://modrinth.com/modpack/prominence-2-fabric', downloads: '1.5M', rating: 4.9, reviews: 8000 },
+  { id: 'mp6', name: 'The Pixelmon Modpack', desc: 'המודפאק הרשמי של Pixelmon - לתפוס ולאמן פוקימון בעולם המיינקראפט', type: 'modpacks', installMethod: 'manual', downloadUrl: 'https://modrinth.com/modpack/the-pixelmon-modpack', downloads: '1.9M', rating: 4.7, reviews: 7000 },
+  { id: 'mp7', name: 'Fabulously Optimized', desc: 'מודפאק ביצועים מוביל - מאיץ FPS, שיידרים ושיפורי איכות-חיים בלי לשנות gameplay', type: 'modpacks', installMethod: 'manual', downloadUrl: 'https://modrinth.com/modpack/fabulously-optimized', downloads: '13M', rating: 4.9, reviews: 25000 },
   
   // --- Textures ---
   // installMethod: 'client' = resource/texture packs מותקנים בצד-הלקוח (אצל השחקן), לא בשרת. אין URL מתארח כרגע.

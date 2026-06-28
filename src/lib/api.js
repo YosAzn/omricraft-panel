@@ -39,3 +39,5 @@ export const restoreBackupFn = httpsCallable(functionsInstance, 'restoreBackup')
 export const getDiagnosticsFn = httpsCallable(functionsInstance, 'getDiagnostics');
 export const resetServerStatusFn = httpsCallable(functionsInstance, 'resetServerStatus');
 export const removeDatapackFn = httpsCallable(functionsInstance, 'removeDatapack');
+// Public landing-page aggregate stats — onCall, NOT admin-gated (returns only counts).
+export const getPublicStatsFn = httpsCallable(functionsInstance, 'getPublicStats');

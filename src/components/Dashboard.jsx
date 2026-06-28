@@ -8,7 +8,13 @@ export default function Dashboard({ servers, onOpenServer, onCreateClick, toggle
     <div className="animate-in fade-in duration-300">
       <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-4 mb-8">
         <div>
-          <h2 className="text-3xl font-bold mb-2">{t('ourServers')}</h2>
+          <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
+            {/* heading is dynamic by role: admin sees all, client sees only their own */}
+            {userRole === 'admin' ? t('allServers') : t('yourServers')}
+            <span className="text-base font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-0.5">
+              {servers.length}
+            </span>
+          </h2>
           <p className="text-zinc-400">{t('manageDesc')}</p>
         </div>
         {userRole === 'admin' && (

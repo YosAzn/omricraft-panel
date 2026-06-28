@@ -231,12 +231,25 @@ export default function AddonsTab({ server, toggleAddon, t, allAddons, userRole 
               </div>
               {installMethod !== 'server' ? (
                 // manual / client — לא ניתן להתקין דרך הפאנל; מציגים באדג' הסבר במקום כפתור.
-                <span
-                  title={installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo')}
-                  className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg font-bold text-xs border whitespace-nowrap ${installMethod === 'client' ? 'border-teal-500/30 text-teal-400 bg-teal-500/5' : 'border-zinc-600 text-zinc-400 bg-zinc-800/40'}`}
-                >
-                  {installMethod === 'client' ? t('clientSideBadge') : t('manualBadge')}
-                </span>
+                // אם יש downloadUrl (למשל modpack ב-Modrinth) — ה-badge הידני הופך לקישור אמיתי כדי שהמשתמש יגיע להתקנה ידנית.
+                installMethod === 'manual' && item.downloadUrl ? (
+                  <a
+                    href={item.downloadUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    title={t('manualInstallInfo')}
+                    className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg font-bold text-xs border whitespace-nowrap border-zinc-600 text-zinc-300 bg-zinc-800/40 hover:bg-zinc-700/60 hover:text-white transition-colors"
+                  >
+                    {t('manualBadge')} ↗
+                  </a>
+                ) : (
+                  <span
+                    title={installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo')}
+                    className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg font-bold text-xs border whitespace-nowrap ${installMethod === 'client' ? 'border-teal-500/30 text-teal-400 bg-teal-500/5' : 'border-zinc-600 text-zinc-400 bg-zinc-800/40'}`}
+                  >
+                    {installMethod === 'client' ? t('clientSideBadge') : t('manualBadge')}
+                  </span>
+                )
               ) : userRole === 'admin' && (
                 item.paid && !isInstalled ? (
                   item.buyUrl ? (

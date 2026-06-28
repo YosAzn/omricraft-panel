@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Server, Globe, Library, Shield, Sparkles, Boxes, Puzzle,
-  Gift, SlidersHorizontal, ArrowRight, MousePointerClick, Plug, Gamepad2, LogIn
+  Gift, SlidersHorizontal, ArrowRight, MousePointerClick, Plug, Gamepad2, LogIn, Users
 } from 'lucide-react';
+import { getPublicStatsFn } from '../lib/api';
 
 // Public, no-auth-required landing page. The first thing a visitor sees.
 // Matches (and elevates) the app's zinc-950 / emerald glass language.
@@ -15,6 +16,25 @@ export default function LandingPage({
   onCreate, onPlugins, onOpenPanel, onSignIn,
 }) {
   const ArrowCta = isRtl ? ({ size }) => <ArrowRight size={size} className="rotate-180" /> : ArrowRight;
+
+  // Public aggregate stats (server count + players online). Fetched on mount via
+  // the PUBLIC getPublicStats callable. On failure / zeros we degrade gracefully
+  // (the strip simply doesn't render) — never blocks or breaks the landing page.
+  const [stats, setStats] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    getPublicStatsFn()
+      .then(res => {
+        const d = res?.data || res;
+        if (alive && d && d.success) setStats(d);
+      })
+      .catch(e => { console.error('getPublicStats failed:', e); });
+    return () => { alive = false; };
+  }, []);
+
+  // Show the strip only when we have a successful response with at least one
+  // server — zero/failed state stays hidden (neutral, no empty "0 servers").
+  const showStats = stats && stats.success && (stats.serverCount > 0 || stats.playersOnline > 0);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans overflow-x-hidden" dir={isRtl ? 'rtl' : 'ltr'}>
@@ -105,6 +125,27 @@ export default function LandingPage({
              style={{ animationDelay: '180ms' }}>
             {t('landingSubtitle')}
           </p>
+
+          {showStats && (
+            <div className="oc-rise inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-2 mb-10 rounded-full border border-zinc-800 bg-zinc-900/60 text-sm text-zinc-300"
+                 style={{ animationDelay: '210ms' }}>
+              <span className="inline-flex items-center gap-1.5">
+                <Server size={15} className="text-emerald-400" />
+                <span className="font-bold text-zinc-100">{stats.serverCount}</span>
+                <span className="text-zinc-400">{t('landingStatsServers')}</span>
+              </span>
+              <span aria-hidden className="text-zinc-700">·</span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                <Users size={15} className="text-emerald-400" />
+                <span className="font-bold text-zinc-100">{stats.playersOnline}</span>
+                <span className="text-zinc-400">{t('landingStatsPlayers')}</span>
+              </span>
+            </div>
+          )}
 
           <div className="oc-rise flex flex-col sm:flex-row items-center justify-center gap-3"
                style={{ animationDelay: '240ms' }}>

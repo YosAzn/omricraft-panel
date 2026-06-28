@@ -1219,3 +1219,36 @@ exports.removeDatapack = onCall(
     }
   }
 );
+
+// ---------------------------------------------------------------------------
+// getPublicStats — PUBLIC (no assertAdmin) aggregate-only stats for the public
+// landing page. Returns ONLY two numbers that are safe to expose to anyone:
+//   serverCount  = how many servers exist
+//   playersOnline = total players currently connected across all servers
+// NO per-server names, IPs, ports or details ever leave this function. The
+// manager-api key stays server-side (used via callManagerApi). On any failure
+// we return zeros and never throw to the public caller (graceful degrade).
+// ---------------------------------------------------------------------------
+exports.getPublicStats = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 15 },
+  async () => {
+    try {
+      const BASE_URL = managerApiUrl.value().trim();
+      const API_KEY  = managerApiKey.value().trim();
+      // /players returns { success, servers: { id: { online, count } } } — same
+      // shape getPlayersOnline consumes. We collapse it to aggregates only.
+      const result = await callManagerApi(BASE_URL, API_KEY, 'GET', '/players', null);
+      const servers = (result && result.success && result.servers) ? result.servers : {};
+      const entries = Object.values(servers);
+      const serverCount = entries.length;
+      const playersOnline = entries.reduce(
+        (sum, info) => sum + (info && Number.isFinite(info.count) ? info.count : 0), 0
+      );
+      return { success: true, serverCount, playersOnline };
+    } catch (error) {
+      // Never throw to the public caller — degrade to zeros.
+      console.error('getPublicStats failed:', error);
+      return { success: false, serverCount: 0, playersOnline: 0 };
+    }
+  }
+);
