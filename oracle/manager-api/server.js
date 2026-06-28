@@ -1853,6 +1853,396 @@ app.post('/restore-backup', async function(req, res) {
   }
 });
 
+// ===================================================================
+// War Room / חמ"ל — GET /diagnostics : auto-detect server health problems.
+// Read-only scan; each server is wrapped in its own try/catch so one bad
+// server never aborts the whole scan. Every check below is a REAL failure
+// mode diagnosed in production (stuck "starting", crash-on-boot, datapack
+// parse errors, worldgen datapacks on Bukkit, plugin enable failures, dead
+// "online" status, orphaned server dirs). Returns:
+//   { success:true, issues: [ { serverId, serverName, severity, category,
+//     title, detail, suggestion, fix:{action,label,params}|null } ] }
+// ===================================================================
+var WORLDGEN_DATAPACK_RE = /terralith|tectonic|incendium|nullscape|continents|wythers/i;
+var BUKKIT_TYPES = ['paper', 'purpur', 'folia', 'mohist', 'spigot'];
+
+// Read the LAST ~64KB of a server's logs/latest.log (tail only — full logs can be
+// hundreds of MB). Returns '' when the log is missing/unreadable.
+function tailServerLog(serverId, maxBytes) {
+  maxBytes = maxBytes || 65536;
+  var logFile = path.join(SERVERS_DIR, serverId, 'logs', 'latest.log');
+  try {
+    var st = fs.statSync(logFile);
+    var start = st.size > maxBytes ? st.size - maxBytes : 0;
+    var len = st.size - start;
+    if (len <= 0) return '';
+    var fd = fs.openSync(logFile, 'r');
+    try {
+      var buf = Buffer.alloc(len);
+      fs.readSync(fd, buf, 0, len, start);
+      return buf.toString('utf8');
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch (e) {
+    return '';
+  }
+}
+
+// True if a process with the given pid is alive (signal 0 probe).
+function pidAlive(pid) {
+  if (!pid || isNaN(pid)) return false;
+  try { process.kill(pid, 0); return true; }
+  catch (e) { return e.code === 'EPERM'; } // EPERM = exists but not ours
+}
+
+// Read server.pid (path + mtime + numeric pid) for a server, or null.
+function readServerPidInfo(serverId) {
+  var pidPath = path.join(SERVERS_DIR, serverId, 'server.pid');
+  try {
+    var st = fs.statSync(pidPath);
+    var pid = parseInt(fs.readFileSync(pidPath, 'utf8').trim(), 10);
+    return { path: pidPath, mtimeMs: st.mtimeMs, pid: Number.isFinite(pid) ? pid : null };
+  } catch (e) {
+    return null;
+  }
+}
+
+// Find the position of the LAST start marker in the log (server (re)start),
+// so "no Done after the last start" / crash checks only consider the current boot.
+function lastStartMarkerIndex(log) {
+  // Paper/Vanilla/Fabric all print "Starting minecraft server version" near boot.
+  var markers = [
+    log.lastIndexOf('Starting minecraft server version'),
+    log.lastIndexOf('Starting Minecraft server'),
+    log.lastIndexOf('Loading libraries, please wait')
+  ];
+  return Math.max.apply(null, markers);
+}
+
+// Returns the basename(s) of the offending datapack zip(s) parsed from a log
+// segment. Datapack errors reference the source as "from file/<name>.zip".
+function parseDatapackFiles(segment) {
+  var files = [];
+  var re = /from file\/([^\s"'\]]+\.zip)/g;
+  var m;
+  while ((m = re.exec(segment)) !== null) {
+    var name = path.basename(m[1]);
+    if (files.indexOf(name) === -1) files.push(name);
+  }
+  return files;
+}
+
+app.get('/diagnostics', function(req, res) {
+  var servers;
+  try {
+    servers = readServersArray();
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not read servers.json: ' + e.message });
+  }
+
+  var knownIds = {};
+  servers.forEach(function(s) { if (s && s.id) knownIds[s.id] = true; });
+
+  var issues = [];
+  var NOW = Date.now();
+  var STUCK_MS = 6 * 60 * 1000; // 6 minutes
+
+  servers.forEach(function(srv) {
+    if (!srv || !srv.id) return;
+    var serverId = srv.id;
+    var serverName = srv.displayName || srv.name || serverId;
+    try {
+      var status = srv.status || 'unknown';
+      var type = (srv.type || 'paper').toLowerCase();
+      var pidInfo = readServerPidInfo(serverId);
+      var running = isServerRunning(serverId); // game port LISTENing
+      var log = tailServerLog(serverId);
+      var startIdx = lastStartMarkerIndex(log);
+      var segment = startIdx >= 0 ? log.slice(startIdx) : log;
+      var hasDoneAfterStart = /\]: Done \(/.test(segment);
+
+      // --- Check 1: stuck-starting ---
+      // status=='starting' AND (pid mtime older than 6 min OR no "Done (" after the
+      // last start marker). Catches servers that crashed during boot but were left
+      // pinned at "starting" in the panel.
+      if (status === 'starting') {
+        var pidStale = pidInfo && (NOW - pidInfo.mtimeMs > STUCK_MS);
+        if (pidStale || !hasDoneAfterStart) {
+          issues.push({
+            serverId: serverId, serverName: serverName,
+            severity: 'error', category: 'stuck-starting',
+            title: 'שרת תקוע במצב "מתחיל"',
+            detail: pidStale
+              ? 'הסטטוס "starting" כבר יותר מ-6 דקות (server.pid לא התעדכן) ואין שורת "Done (" בלוג מאז ההפעלה האחרונה.'
+              : 'הסטטוס "starting" אך אין שורת "Done (" בלוג מאז ההפעלה האחרונה — ייתכן שההפעלה נכשלה.',
+            suggestion: 'אפס את הסטטוס ל-stopped ונסה להפעיל מחדש.',
+            fix: { action: 'reset-status', label: 'אפס ל-stopped', params: {} }
+          });
+        }
+      }
+
+      // --- Check 2: status-mismatch ---
+      // status=='online' but no live process (pid file missing / pid not running)
+      // AND the game port is not LISTENing. The panel thinks it's up; it isn't.
+      if (status === 'online') {
+        var pidRunning = pidInfo && pidInfo.pid && pidAlive(pidInfo.pid);
+        if (!pidRunning && !running) {
+          issues.push({
+            serverId: serverId, serverName: serverName,
+            severity: 'warning', category: 'status-mismatch',
+            title: 'סטטוס "online" אך השרת לא רץ',
+            detail: 'הפאנל מציג "online" אך אין תהליך חי' +
+              (pidInfo ? ' (pid ' + pidInfo.pid + ' לא פעיל)' : ' (אין server.pid)') +
+              ' ופורט המשחק לא מאזין.',
+            suggestion: 'אפס את הסטטוס ל-stopped.',
+            fix: { action: 'reset-status', label: 'אפס ל-stopped', params: {} }
+          });
+        }
+      }
+
+      // --- Check 3: boot-failed ---
+      // Fatal crash markers with no later "Done (" in the same boot segment.
+      if (!hasDoneAfterStart && (
+            /Failed to start the minecraft server/.test(segment) ||
+            /Encountered an unexpected exception/.test(segment) ||
+            /Crash report/.test(segment))) {
+        issues.push({
+          serverId: serverId, serverName: serverName,
+          severity: 'error', category: 'boot-failed',
+          title: 'השרת קרס בעלייה',
+          detail: 'הלוג מראה כשל קריטי בעת ההפעלה (לפני שהגיע ל-"Done ("). בדוק את הלוג לפרטים.',
+          suggestion: 'תקן את הסיבה (לרוב datapack/plugin בעייתי) והפעל מחדש.',
+          fix: { action: 'restart', label: 'הפעל מחדש', params: {} }
+        });
+      }
+
+      // --- Check 4: datapack-failed ---
+      // Datapack load/parse errors. Name the offending file(s) from "from file/<name>.zip".
+      if (/Couldn't load tag/.test(segment) ||
+          /Failed to load function/.test(segment) ||
+          /Couldn't parse data file/.test(segment) ||
+          /Couldn't load advancements/.test(segment)) {
+        var badFiles = parseDatapackFiles(segment);
+        var detail = badFiles.length
+          ? 'שגיאת טעינת datapack: ' + badFiles.join(', ')
+          : 'שגיאת טעינת datapack (לא זוהה קובץ ספציפי בלוג).';
+        var dpFix = null;
+        if (badFiles.length === 1) {
+          dpFix = { action: 'remove-datapack', label: 'הסר datapack', params: { file: badFiles[0] } };
+        }
+        issues.push({
+          serverId: serverId, serverName: serverName,
+          severity: 'error', category: 'datapack-failed',
+          title: 'datapack נכשל בטעינה',
+          detail: detail,
+          suggestion: badFiles.length === 1
+            ? 'הסר את ה-datapack הבעייתי או החלף בגרסה תואמת.'
+            : 'בדוק את תיקיית world/datapacks והסר את ה-datapack הבעייתי ידנית.',
+          fix: dpFix
+        });
+      }
+
+      // --- Check 5: worldgen-on-bukkit ---
+      // Worldgen datapack present in world/datapacks/ on a Bukkit-family server —
+      // Bukkit ignores vanilla worldgen datapacks, so biomes never generate.
+      if (BUKKIT_TYPES.indexOf(type) !== -1) {
+        var dpDir = path.join(SERVERS_DIR, serverId, 'world', 'datapacks');
+        var dpEntries = [];
+        try { dpEntries = fs.readdirSync(dpDir); } catch (_) { dpEntries = []; }
+        dpEntries.forEach(function(file) {
+          if (WORLDGEN_DATAPACK_RE.test(file)) {
+            issues.push({
+              serverId: serverId, serverName: serverName,
+              severity: 'warning', category: 'worldgen-on-bukkit',
+              title: 'datapack של worldgen על שרת Bukkit',
+              detail: 'הקובץ "' + file + '" הוא datapack של worldgen, אך השרת מסוג ' + type +
+                ' (Bukkit) — datapack של worldgen לא עובד על Bukkit; צריך Vanilla/Fabric; הביומות לא ייווצרו.',
+              suggestion: 'הסר את ה-datapack, או החלף את סוג השרת ל-Vanilla/Fabric.',
+              fix: { action: 'remove-datapack', label: 'הסר', params: { file: file } }
+            });
+          }
+        });
+      }
+
+      // --- Check 6: plugin-failed ---
+      // Plugin enable failures in the current boot segment. Name the plugin.
+      var pluginErrRe = /(?:Error occurred while enabling|Could not load 'plugins\/)([^\n]*)/g;
+      var pm;
+      var seenPlugins = {};
+      while ((pm = pluginErrRe.exec(segment)) !== null) {
+        // Extract a plausible plugin name from the matched tail.
+        var tail = pm[1] || '';
+        var nameMatch = tail.match(/([A-Za-z0-9_.\-]+)\s+v?[\d.]+/) || tail.match(/([A-Za-z0-9_.\-]+\.jar)/) || tail.match(/([A-Za-z0-9_.\-]{2,})/);
+        var pluginName = nameMatch ? nameMatch[1] : 'unknown';
+        if (seenPlugins[pluginName]) continue;
+        seenPlugins[pluginName] = true;
+        issues.push({
+          serverId: serverId, serverName: serverName,
+          severity: 'error', category: 'plugin-failed',
+          title: 'תוסף נכשל בהפעלה',
+          detail: 'התוסף "' + pluginName + '" נכשל בהפעלה (Error occurred while enabling / Could not load).',
+          suggestion: 'בדוק תאימות גרסה של התוסף או הסר אותו דרך לשונית התוספים.',
+          fix: null
+        });
+      }
+    } catch (e) {
+      // Defensive: one bad server must not break the whole scan.
+      console.error('[diagnostics] check failed for ' + serverId + ':', e.message);
+      issues.push({
+        serverId: serverId, serverName: serverName,
+        severity: 'info', category: 'scan-error',
+        title: 'סריקת הבריאות נכשלה לשרת זה',
+        detail: 'אירעה שגיאה בעת בדיקת השרת: ' + e.message,
+        suggestion: 'בדוק ידנית את לוג השרת.',
+        fix: null
+      });
+    }
+  });
+
+  // --- Check 7: orphan-dir ---
+  // Directories under servers/ that are NOT keys in servers.json (cruft).
+  try {
+    var dirEntries = fs.readdirSync(SERVERS_DIR, { withFileTypes: true });
+    dirEntries.forEach(function(d) {
+      if (!d.isDirectory()) return;
+      if (knownIds[d.name]) return;
+      if (!SAFE_ID.test(d.name)) return; // ignore odd names defensively
+      issues.push({
+        serverId: d.name, serverName: d.name,
+        severity: 'info', category: 'orphan-dir',
+        title: 'תיקיית שרת יתומה (cruft)',
+        detail: 'התיקייה "' + d.name + '" קיימת תחת servers/ אך אינה רשומה ב-servers.json.',
+        suggestion: 'אפשר למחוק ידנית מה-VPS אם וידאת שאין בה נתונים נחוצים.',
+        fix: null // never auto-offer deletion of data
+      });
+    });
+  } catch (e) {
+    console.error('[diagnostics] orphan-dir scan failed:', e.message);
+  }
+
+  return res.json({ success: true, issues: issues });
+});
+
+// POST /reset-status { serverId } — set status to 'stopped' in servers.json, but
+// ONLY when currently 'starting', or 'online' with a dead process. Safe: refuses
+// to touch a server that is actually running.
+app.post('/reset-status', function(req, res) {
+  var serverId = req.body.serverId;
+  if (!validateId(serverId, res)) return;
+  var arr, srv;
+  try {
+    arr = readServersArray();
+    srv = arr.find(function(s) { return s.id === serverId; });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not read servers.json: ' + e.message });
+  }
+  if (!srv) return res.status(404).json({ success: false, error: 'Server not found' });
+
+  var status = srv.status || 'unknown';
+  var pidInfo = readServerPidInfo(serverId);
+  var pidRunning = pidInfo && pidInfo.pid && pidAlive(pidInfo.pid);
+  var portRunning = isServerRunning(serverId);
+
+  var allowed = false;
+  if (status === 'starting') {
+    allowed = true;
+  } else if (status === 'online' && !pidRunning && !portRunning) {
+    allowed = true;
+  }
+  if (!allowed) {
+    return res.status(409).json({
+      success: false,
+      error: 'אי אפשר לאפס סטטוס: השרת במצב "' + status + '"' +
+        (portRunning ? ' והוא רץ בפועל (פורט מאזין)' : '') + '.'
+    });
+  }
+
+  try {
+    srv.status = 'stopped';
+    writeServersArray(arr);
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not write servers.json: ' + e.message });
+  }
+  console.log('[' + new Date().toISOString() + '] reset-status ' + serverId + ' -> stopped (was ' + status + ')');
+  return res.json({ success: true, serverId: serverId, status: 'stopped' });
+});
+
+// POST /remove-datapack { serverId, file } — delete world/datapacks/<file>.
+// THE ONLY destructive endpoint here. Strict path-safety:
+//   • `file` must be a plain basename (reject '/', '\', '..')
+//   • the resolved absolute path must be STRICTLY inside this server's
+//     world/datapacks/ (realpath the dir, compare prefix).
+// After delete: if the server is online attempt a safe RCON `reload`; otherwise
+// note a restart is needed for the change to take effect.
+app.post('/remove-datapack', async function(req, res) {
+  var serverId = req.body.serverId;
+  var file = req.body.file;
+  if (!validateId(serverId, res)) return;
+  if (!file || typeof file !== 'string') {
+    return res.status(400).json({ success: false, error: 'Missing file' });
+  }
+  // 1. basename-only guard — reject any path separators / traversal up front.
+  if (file.indexOf('/') !== -1 || file.indexOf('\\') !== -1 || file.indexOf('..') !== -1 || path.basename(file) !== file) {
+    return res.status(400).json({ success: false, error: 'Invalid file (must be a plain filename)' });
+  }
+
+  var dpDir = path.join(SERVERS_DIR, serverId, 'world', 'datapacks');
+  // 2. confirm the datapacks dir exists and resolve it to its real path.
+  var realDir;
+  try {
+    realDir = fs.realpathSync(dpDir);
+  } catch (e) {
+    return res.status(404).json({ success: false, error: 'world/datapacks not found for this server' });
+  }
+  var target = path.resolve(realDir, file);
+  // 3. the final path MUST be strictly inside the datapacks dir.
+  if (target !== path.join(realDir, file) || target.indexOf(realDir + path.sep) !== 0) {
+    return res.status(400).json({ success: false, error: 'Resolved path escapes datapacks dir' });
+  }
+  // 4. must be an existing regular file.
+  try {
+    var st = fs.statSync(target);
+    if (!st.isFile()) {
+      return res.status(400).json({ success: false, error: 'Not a file' });
+    }
+  } catch (e) {
+    return res.status(404).json({ success: false, error: 'Datapack file not found: ' + file });
+  }
+
+  try {
+    fs.unlinkSync(target);
+    console.log('[' + new Date().toISOString() + '] remove-datapack ' + serverId + ' -> deleted ' + file);
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not delete datapack: ' + e.message });
+  }
+
+  // After delete: live RCON reload if running, else flag restart.
+  var rconApplied = false;
+  var rconError = null;
+  var needsRestart = true;
+  if (isServerRunning(serverId)) {
+    try {
+      var rcon = readRcon(serverId);
+      if (rcon.pass) {
+        await rconConnect('127.0.0.1', rcon.port, rcon.pass, 'reload', 30000);
+        rconApplied = true;
+        needsRestart = false;
+      } else {
+        rconError = 'RCON password not found';
+      }
+    } catch (re) {
+      rconError = re.message;
+    }
+  }
+
+  var note = rconApplied
+    ? 'ה-datapack הוסר והשרת בוצע לו reload.'
+    : 'ה-datapack הוסר. ' + (rconError ? '(reload נכשל: ' + rconError + ') ' : '') + 'יש להפעיל מחדש כדי שהשינוי ייכנס לתוקף.';
+
+  return res.json({ success: true, serverId: serverId, file: file, rconApplied: rconApplied, needsRestart: needsRestart, note: note });
+});
+
 app.listen(PORT, '0.0.0.0', function() {
   console.log('[' + new Date().toISOString() + '] OmriCraft Manager API listening on 0.0.0.0:' + PORT);
 });

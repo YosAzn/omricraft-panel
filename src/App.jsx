@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Server, Globe, Library, Shield, Users } from 'lucide-react';
+import { Server, Globe, Library, Shield, Users, Activity } from 'lucide-react';
 
 import { signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
@@ -17,6 +17,7 @@ import Dashboard from './components/Dashboard';
 import CreateServerForm from './components/CreateServerForm';
 import GlobalRepository from './components/GlobalRepository';
 import ServerPanel from './components/ServerPanel/ServerPanel';
+import HealthTab from './components/HealthTab';
 
 export default function App() {
   // Stable admin identity is email-based (NOT the ephemeral anonymous UID).
@@ -218,6 +219,12 @@ export default function App() {
   // self-promote in the UI). The Cloud Functions independently enforce admin server-side;
   // this only gates which controls render.
   useEffect(() => { setUserRole(isAdmin ? 'admin' : 'member'); }, [isAdmin]);
+
+  // The חמ"ל view is admin-only. If admin rights are lost (e.g. sign-out) while
+  // on that view, fall back to the dashboard so the user never sees a blank page.
+  useEffect(() => {
+    if (currentView === 'health' && !isAdmin) setCurrentView('dashboard');
+  }, [isAdmin, currentView]);
 
   const visibleServers = useMemo(() => {
     if (isAdmin) return servers; // admin sees all
@@ -716,6 +723,10 @@ export default function App() {
             <div className="flex items-center gap-2">
               <NavBtn active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} icon={<Server size={18}/>} label={t('dashboard')} />
               <NavBtn active={currentView === 'repository'} onClick={() => setCurrentView('repository')} icon={<Library size={18}/>} label={t('repo')} />
+              {/* War Room / חמ"ל — admin-only health diagnostics tab */}
+              {isAdmin && (
+                <NavBtn active={currentView === 'health'} onClick={() => setCurrentView('health')} icon={<Activity size={18}/>} label={'חמ"ל'} />
+              )}
             </div>
           </div>
           
@@ -784,11 +795,16 @@ export default function App() {
         )}
 
         {currentView === 'repository' && (
-          <GlobalRepository 
+          <GlobalRepository
             t={t} allAddons={allAddons} customAddons={customAddons} userRole={userRole}
             onAdd={handleAddCustomAddon}
             onDelete={handleDeleteCustomAddon}
           />
+        )}
+
+        {/* War Room / חמ"ל — admin-only (UI gate; Cloud Functions enforce admin server-side) */}
+        {currentView === 'health' && isAdmin && (
+          <HealthTab />
         )}
       </main>
     </div>

@@ -1149,3 +1149,73 @@ exports.restoreBackup = onCall(
     }
   }
 );
+
+// ---------------------------------------------------------------------------
+// War Room / חמ"ל — getDiagnostics (ADMIN-ONLY): runs the health scan on the
+// VPS (Manager API GET /diagnostics) and returns the list of detected issues.
+// Read-only: no server state is changed by this call.
+// ---------------------------------------------------------------------------
+exports.getDiagnostics = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 60 },
+  async (request) => {
+    assertAdmin(request);
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      return await callManagerApi(BASE_URL, API_KEY, 'GET', '/diagnostics', null);
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// resetServerStatus (ADMIN-ONLY) — sets a stuck server's status to 'stopped' in
+// servers.json via Manager API /reset-status. The Manager API refuses to reset a
+// server that is actually running, so this is safe.
+// ---------------------------------------------------------------------------
+exports.resetServerStatus = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 20 },
+  async (request) => {
+    assertAdmin(request);
+    const { serverId } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      return await callManagerApi(BASE_URL, API_KEY, 'POST', '/reset-status', { serverId });
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// removeDatapack (ADMIN-ONLY) — deletes a single datapack zip from a server's
+// world/datapacks/ via Manager API /remove-datapack (DESTRUCTIVE). The Manager
+// API enforces strict path-safety: file must be a plain basename strictly inside
+// that server's datapacks dir. We re-validate the basename here too (defence in
+// depth). On a running server the backend attempts a live RCON reload.
+// ---------------------------------------------------------------------------
+exports.removeDatapack = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 60 },
+  async (request) => {
+    assertAdmin(request);
+    const { serverId, file } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    if (!file || typeof file !== 'string' || file.includes('/') || file.includes('\\') || file.includes('..')) {
+      return { success: false, error: 'Invalid file' };
+    }
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      return await callManagerApi(BASE_URL, API_KEY, 'POST', '/remove-datapack', { serverId, file });
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);

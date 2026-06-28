@@ -35,3 +35,7 @@ export const updateServerMemoryFn = httpsCallable(functionsInstance, 'updateServ
 export const backupServerFn = httpsCallable(functionsInstance, 'backupServer');
 export const listBackupsFn = httpsCallable(functionsInstance, 'listBackups');
 export const restoreBackupFn = httpsCallable(functionsInstance, 'restoreBackup');
+// War Room / חמ"ל — health diagnostics (admin-only)
+export const getDiagnosticsFn = httpsCallable(functionsInstance, 'getDiagnostics');
+export const resetServerStatusFn = httpsCallable(functionsInstance, 'resetServerStatus');
+export const removeDatapackFn = httpsCallable(functionsInstance, 'removeDatapack');
