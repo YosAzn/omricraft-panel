@@ -151,7 +151,31 @@ export const DICT = {
     landingStep3: "מתחברים ומשחקים",
     landingStep3Desc: "מקבלים כתובת ‎*.omricraft.com‎ ומתחברים מהמשחק. השרת מתעורר לבד.",
     landingFooterCredit: "אירוח Minecraft, מתוצרת בית.",
-    landingGetStarted: "מתחילים עכשיו"
+    landingGetStarted: "מתחילים עכשיו",
+
+    // --- Dashboard overview ---
+    dashGreeting: "ברוך הבא לוח הבקרה",
+    dashGreetingAdmin: "שלום עמרי, מבט-על על המערכת",
+    dashStatTotalServers: "סך השרתים",
+    dashStatOnlineNow: "פעילים עכשיו",
+    dashStatPlayersOnline: "שחקנים מחוברים",
+    dashStatOpenIssues: "תקלות חמ\"ל פתוחות",
+    dashServersGlance: "השרתים במבט מהיר",
+    dashHamalSummary: "סיכום חמ\"ל",
+    dashHamalAllOk: "אין בעיות — הכל תקין ✅",
+    dashHamalOpenFull: "פתח חמ\"ל מלא",
+    dashHamalMore: "ועוד {n} בעיות",
+    dashUpdatesTitle: "עדכונים זמינים",
+    dashUpdatesAllCurrent: "כל השרתים מעודכנים ✅",
+    dashUpdateAvailable: "עדכון זמין",
+    dashUpdateCurrent: "נוכחית",
+    dashUpdateLatest: "אחרונה",
+    dashQuickActions: "פעולות מהירות",
+    dashQuickCreate: "צור שרת",
+    dashQuickPlugins: "תוספים ופלאגינים",
+    dashQuickBackups: "גיבויים",
+    dashLoading: "טוען...",
+    dashAddons: "תוספים מותקנים"
   },
   en: {
     appTitle: "OmriCraft",
@@ -304,6 +328,30 @@ export const DICT = {
     landingStep3: "Connect & play",
     landingStep3Desc: "Get a *.omricraft.com address and join from the game. The server wakes on its own.",
     landingFooterCredit: "Minecraft hosting, homemade.",
-    landingGetStarted: "Get started"
+    landingGetStarted: "Get started",
+
+    // --- Dashboard overview ---
+    dashGreeting: "Welcome to your dashboard",
+    dashGreetingAdmin: "Hi Omri, system overview",
+    dashStatTotalServers: "Total servers",
+    dashStatOnlineNow: "Online now",
+    dashStatPlayersOnline: "Players online",
+    dashStatOpenIssues: "Open War Room issues",
+    dashServersGlance: "Servers at a glance",
+    dashHamalSummary: "War Room summary",
+    dashHamalAllOk: "No issues — all healthy ✅",
+    dashHamalOpenFull: "Open full War Room",
+    dashHamalMore: "and {n} more issues",
+    dashUpdatesTitle: "Available updates",
+    dashUpdatesAllCurrent: "All servers up to date ✅",
+    dashUpdateAvailable: "Update available",
+    dashUpdateCurrent: "Current",
+    dashUpdateLatest: "Latest",
+    dashQuickActions: "Quick actions",
+    dashQuickCreate: "Create server",
+    dashQuickPlugins: "Plugins & add-ons",
+    dashQuickBackups: "Backups",
+    dashLoading: "Loading...",
+    dashAddons: "installed add-ons"
   }
 };

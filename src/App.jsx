@@ -785,8 +785,11 @@ export default function App() {
         {currentView === 'dashboard' && (
           <Dashboard
             servers={visibleServers} t={t} userRole={userRole}
+            isAdmin={isAdmin} playersData={playersData}
             onOpenServer={(id) => { setActiveServerId(id); setCurrentView('server'); }}
             onCreateClick={() => setCurrentView('create')}
+            onOpenRepository={() => setCurrentView('repository')}
+            onOpenHealth={() => setCurrentView('health')}
             toggleServerStatus={toggleServerStatus}
             onDeleteAll={deleteAllServers}
           />
