@@ -502,7 +502,8 @@ var PLUGIN_NAMES = {
   'p23':'spark','p24':'PlugManX','p25':'ExcellentEnchants','p26':'AdvancedShulkerboxes',
   'p27':'MythicMounts','p28':'ItemsAdder','p29':'GrimAC','p30':'ViaVersion',
   'p31':'InteractiveChat','p32':'Chunky','p33':'TAB','p34':'InvisibleItemFrames',
-  'p35':'ClearLag','p-chatfmt':'ChatFormatter','p-axiom':'Axiom','p-viaversion':'ViaVersion'
+  'p35':'ClearLag','p36':'nightcore',
+  'p-chatfmt':'ChatFormatter','p-axiom':'Axiom','p-viaversion':'ViaVersion'
 };
 
 app.post('/install-plugin', async function(req, res) {
@@ -537,7 +538,13 @@ var MOD_CATALOG = {
   'm3': 'create',
   'm5': 'distanthorizons',
   'm6': 'simple-voice-chat',
-  'm7': 'jei'
+  'm7': 'jei',
+  'm8': 'lithium',
+  'm9': 'ferrite-core',
+  'm10': 'c2me-fabric',
+  'm11': 'no-chat-reports'
+  // m12 Jade, m13 Xaero's Minimap, m14 ETF, m15 EMF = installMethod:'client' in the UI
+  // and never reach this endpoint.
 };
 
 app.post('/install-mod', async function(req, res) {
@@ -603,7 +610,13 @@ var TEXTURE_CATALOG = {
   't4': 'faithful-32x',
   't5': 'bare-bones',
   't6': 'visible-ores',
-  't7': 'mandalas-gui-dark-mode'
+  't7': 'mandalas-gui-dark-mode',
+  't9': 'better-leaves',
+  't10': 'dramatic-skys',
+  't11': 'default-dark-mode',
+  't12': 'new-glowing-ores',
+  't13': 'glowing-glints',
+  't14': 'low-on-fire'
 };
 
 app.post('/install-resourcepack', async function(req, res) {
@@ -1120,7 +1133,13 @@ var DATAPACK_CATALOG = {
   'd7':  { modrinthSlug: 'better-wanderingtraders' },// Wandering Trades
   'd9':  { modrinthSlug: 'hotbarcoordinates' },      // Coordinates HUD
   'd10': { modrinthSlug: 'player-drops-head' },      // Player Head Drops
-  'd11': { modrinthSlug: 'mob-heads' }               // More Mob Heads
+  'd11': { modrinthSlug: 'mob-heads' },              // More Mob Heads
+  'd12': { modrinthSlug: 'veinminer' },              // VeinMiner
+  'd13': { modrinthSlug: 'tectonic', worldgen: true },   // Tectonic — worldgen overhaul
+  'd14': { modrinthSlug: 'incendium', worldgen: true },  // Incendium — Nether worldgen overhaul
+  'd15': { modrinthSlug: 'nullscape', worldgen: true },  // Nullscape — End worldgen overhaul
+  'd16': { modrinthSlug: 'explorify' },              // Explorify — vanilla structures
+  'd17': { modrinthSlug: 'dungeons-and-taverns' }    // Dungeons and Taverns — structures
   // d1 Vanilla Tweaks (umbrella) and d8 Nether Portal Coords have no single Modrinth
   // datapack equivalent → they stay installMethod:'manual' and out of this catalog.
 };

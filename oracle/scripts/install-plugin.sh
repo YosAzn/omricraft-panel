@@ -76,6 +76,7 @@ PLUGIN_URLS["p32"]="https://cdn.modrinth.com/data/fALzjamp/versions/MdY6JATr/Chu
 PLUGIN_URLS["p33"]="https://hangarcdn.papermc.io/plugins/NEZNAMY/TAB/versions/5.0.7/PAPER/TAB%20v5.0.7.jar"
 PLUGIN_URLS["p34"]="https://cdn.modrinth.com/data/2BFDqF3g/versions/qeas7jvx/InvisibleItemFramesLite-3.2.1.jar"
 PLUGIN_URLS["p35"]="https://cdn.modrinth.com/data/KAaZvh09/versions/6Yb1ntAi/ClearLaggEnhanced-2026.5.3.jar"
+PLUGIN_URLS["p36"]="https://cdn.modrinth.com/data/Y4NRwMW5/versions/V3X0pOQr/nightcore-2.16.2.jar"
 PLUGIN_URLS["p-axiom"]="https://cdn.modrinth.com/data/evkiwA7V/versions/mSS9faHn/AxiomPaperPlugin-5.0.4-for-MC1.21.11.jar"
 PLUGIN_URLS["p-chatfmt"]="https://github.com/EternalCodeTeam/ChatFormatter/releases/download/v1.3.5/ChatFormatter.v1.3.5.jar"
 PLUGIN_URLS["p-viaversion"]="https://hangarcdn.papermc.io/plugins/ViaVersion/ViaVersion/versions/5.9.1/PAPER/ViaVersion-5.9.1.jar"

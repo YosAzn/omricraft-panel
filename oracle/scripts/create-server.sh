@@ -166,7 +166,11 @@ MOD_SLUGS["m3"]="create"             # server-required
 MOD_SLUGS["m5"]="distanthorizons"    # server-optional (LOD)
 MOD_SLUGS["m6"]="simple-voice-chat"  # server-optional (proximity chat)
 MOD_SLUGS["m7"]="jei"                # server-optional (recipe viewer)
-# m1 Sodium, m2 Iris, m4 Litematica = client-only → not server mods (see report).
+MOD_SLUGS["m8"]="lithium"            # server perf (Fabric/NeoForge/Quilt — install-mod.sh skips loud on Forge)
+MOD_SLUGS["m9"]="ferrite-core"       # server RAM optimizer
+MOD_SLUGS["m10"]="c2me-fabric"       # parallel chunk gen (Fabric only — skips loud on other loaders)
+MOD_SLUGS["m11"]="no-chat-reports"   # privacy
+# m1 Sodium, m2 Iris, m4 Litematica, m12 Jade, m13 Xaero's, m14 ETF, m15 EMF = client-only → not server mods.
 
 if [ "$TYPE" = "fabric" ] || [ "$TYPE" = "forge" ] || [ "$TYPE" = "neoforge" ]; then
   if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
@@ -226,6 +230,7 @@ PLUGIN_URLS["p30"]="https://hangarcdn.papermc.io/plugins/ViaVersion/ViaVersion/v
 PLUGIN_URLS["p32"]="https://cdn.modrinth.com/data/fALzjamp/versions/MdY6JATr/Chunky-Bukkit-1.5.3.jar"
 PLUGIN_URLS["p33"]="https://hangarcdn.papermc.io/plugins/NEZNAMY/TAB/versions/5.0.7/PAPER/TAB%20v5.0.7.jar"
 PLUGIN_URLS["p35"]="https://cdn.modrinth.com/data/KAaZvh09/versions/6Yb1ntAi/ClearLaggEnhanced-2026.5.3.jar"
+PLUGIN_URLS["p36"]="https://cdn.modrinth.com/data/Y4NRwMW5/versions/V3X0pOQr/nightcore-2.16.2.jar"
 PLUGIN_URLS["p-chatfmt"]="https://github.com/EternalCodeTeam/ChatFormatter/releases/download/v1.3.5/ChatFormatter.v1.3.5.jar"
 PLUGIN_URLS["p-axiom"]="https://cdn.modrinth.com/data/evkiwA7V/versions/mSS9faHn/AxiomPaperPlugin-5.0.4-for-MC1.21.11.jar"
 # ViaVersion is auto-included from templates/plugins (already installed)
@@ -275,6 +280,12 @@ DATAPACK_SLUGS["d7"]="better-wanderingtraders"    # Wandering Trades — improve
 DATAPACK_SLUGS["d9"]="hotbarcoordinates"          # Coordinates HUD above the hotbar
 DATAPACK_SLUGS["d10"]="player-drops-head"         # Player Head Drops
 DATAPACK_SLUGS["d11"]="mob-heads"                 # More Mob Heads
+DATAPACK_SLUGS["d12"]="veinminer"                 # VeinMiner — break a whole ore/log vein at once
+DATAPACK_SLUGS["d13"]="tectonic"                  # worldgen overhaul (terrain)
+DATAPACK_SLUGS["d14"]="incendium"                 # worldgen overhaul (Nether)
+DATAPACK_SLUGS["d15"]="nullscape"                 # worldgen overhaul (End)
+DATAPACK_SLUGS["d16"]="explorify"                 # extra vanilla structures
+DATAPACK_SLUGS["d17"]="dungeons-and-taverns"      # extra structures
 # d1 Vanilla Tweaks (umbrella collection) and d8 Nether Portal Coords have NO single
 # Modrinth datapack equivalent — they stay installMethod:'manual' in the UI and are
 # absent from this map, so they never reach create-server.sh as server installs.
@@ -286,6 +297,9 @@ DATAPACK_SLUGS["d11"]="mob-heads"                 # More Mob Heads
 # the world type is 'default'.
 declare -A WORLDGEN_DATAPACKS
 WORLDGEN_DATAPACKS["d2"]=1
+WORLDGEN_DATAPACKS["d13"]=1   # Tectonic — overworld terrain overhaul
+WORLDGEN_DATAPACKS["d14"]=1   # Incendium — Nether overhaul
+WORLDGEN_DATAPACKS["d15"]=1   # Nullscape — End overhaul
 
 mkdir -p "$SERVER_DIR/datapacks-pending"
 
@@ -330,6 +344,12 @@ TEXTURE_SLUGS["t4"]="faithful-32x"                # Faithful 32x
 TEXTURE_SLUGS["t5"]="bare-bones"                  # Bare Bones
 TEXTURE_SLUGS["t6"]="visible-ores"                # Visible Ores
 TEXTURE_SLUGS["t7"]="mandalas-gui-dark-mode"      # Dark UI
+TEXTURE_SLUGS["t9"]="better-leaves"               # Motschen's Better Leaves
+TEXTURE_SLUGS["t10"]="dramatic-skys"              # Dramatic Skys
+TEXTURE_SLUGS["t11"]="default-dark-mode"          # Default Dark Mode
+TEXTURE_SLUGS["t12"]="new-glowing-ores"           # New Glowing Ores
+TEXTURE_SLUGS["t13"]="glowing-glints"             # Enchantment Outlines
+TEXTURE_SLUGS["t14"]="low-on-fire"                # Low On Fire
 
 if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
   while IFS= read -r addonId; do

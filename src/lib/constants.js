@@ -60,6 +60,18 @@ export const DEFAULT_ADDONS = [
   { id: 'm5', name: 'Distant Horizons', desc: 'מגדיל את טווח הראייה משמעותית בלי להעמיס על המחשב', type: 'mods', modrinthSlug: 'distanthorizons', downloads: '8M', rating: 4.6, reviews: 4200 },
   { id: 'm6', name: 'Simple Voice Chat', desc: 'צ\'אט קולי מובנה במשחק לפי מרחק שחקנים (Proximity Chat)', type: 'mods', modrinthSlug: 'simple-voice-chat', downloads: '25M', rating: 4.8, reviews: 16000 },
   { id: 'm7', name: 'Just Enough Items (JEI)', desc: 'מציג את כל הפריטים והמתכונים במשחק', type: 'mods', modrinthSlug: 'jei', downloads: '150M', rating: 4.9, reviews: 90000 },
+  // Server-side performance/utility mods — install-mod.sh resolves the build for the
+  // server's loader+version; loaders that lack a build (e.g. Lithium has no Forge build,
+  // C2ME is Fabric-only) fail loud + skip, never install an incompatible jar.
+  { id: 'm8', name: 'Lithium', desc: 'מנוע אופטימיזציה לשרת - משפר ביצועי טיק, AI של מובים ופיזיקה בלי לשנות gameplay (Fabric/NeoForge/Quilt)', type: 'mods', modrinthSlug: 'lithium', downloads: '20M', rating: 4.9, reviews: 14000 },
+  { id: 'm9', name: 'FerriteCore', desc: 'מצמצם דרמטית את צריכת הזיכרון (RAM) של השרת בלי שום השפעה על המשחק', type: 'mods', modrinthSlug: 'ferrite-core', downloads: '30M', rating: 4.9, reviews: 12000 },
+  { id: 'm10', name: 'C2ME', desc: 'מאיץ טעינה ויצירת צ\'אנקים במקביל (multi-thread) - פחות לאגים כשחוקרים אזורים חדשים (Fabric בלבד)', type: 'mods', modrinthSlug: 'c2me-fabric', downloads: '8M', rating: 4.7, reviews: 4200 },
+  { id: 'm11', name: 'No Chat Reports', desc: 'מסיר את מערכת דיווחי הצ\'אט של מוג\'אנג ומשפר פרטיות בשרת', type: 'mods', modrinthSlug: 'no-chat-reports', downloads: '10M', rating: 4.8, reviews: 9000 },
+  // Client-side mods — installMethod:'client' (badge only, never reaches the VPS installer).
+  { id: 'm12', name: 'Jade', desc: 'מציג מידע על הבלוק/המוב שמסתכלים עליו (שם, חיים, כלי נדרש) בראש המסך', type: 'mods', installMethod: 'client', downloads: '40M', rating: 4.8, reviews: 13000 },
+  { id: 'm13', name: 'Xaero\'s Minimap', desc: 'מפת מיני בפינת המסך עם סימון שחקנים, מובים ונקודות ציון - ניווט קל בעולם', type: 'mods', installMethod: 'client', downloads: '30M', rating: 4.8, reviews: 11000 },
+  { id: 'm14', name: 'Entity Texture Features (ETF)', desc: 'מפעיל את אנימציות הטקסטורות של Fresh Animations בצד-הלקוח (התחליף המודרני ל-OptiFine, יחד עם EMF)', type: 'mods', installMethod: 'client', requires: ['m15'], downloads: '20M', rating: 4.9, reviews: 8000 },
+  { id: 'm15', name: 'Entity Model Features (EMF)', desc: 'משלים את ETF - מפעיל את שינויי המודל/האנימציה של Fresh Animations בצד-הלקוח', type: 'mods', installMethod: 'client', requires: ['m14'], downloads: '12M', rating: 4.9, reviews: 5000 },
 
   // --- Plugins (Paper) ---
   { id: 'p1', name: 'EssentialsX', desc: 'פקודות בסיסיות לשרת (spawn, home, tpa, warp)', type: 'plugins', downloads: '10M', rating: 4.7, reviews: 12500 },
@@ -77,7 +89,7 @@ export const DEFAULT_ADDONS = [
   { id: 'p15', name: 'PowerRanks', desc: 'מערכת דרגות והרשאות קלה להגדרה מתוך המשחק', type: 'plugins', downloads: '1.2M', rating: 4.4, reviews: 900 },
   { id: 'p16', name: 'ChatControl', desc: 'סינון ספאם, קללות ושליטה מתקדמת בצ\'אט', type: 'plugins', downloads: '3M', rating: 4.5, reviews: 2400 },
   { id: 'p17', name: 'Towny Advanced', desc: 'מערכת ערים ואומות שמאפשרת לשחקנים לנהל שטחים (בדיוק כמו בנייטפול)', type: 'plugins', downloads: '8M', rating: 4.8, reviews: 14000 },
-  { id: 'p18', name: 'Slimefun 4', desc: 'מוסיף מכונות, גנרטורים וקסמים בלי צורך במודים! חווית הישרדות מתקדמת', type: 'plugins', downloads: '6M', rating: 4.9, reviews: 21000 },
+  { id: 'p18', name: 'Slimefun 4', desc: 'מוסיף מכונות, גנרטורים וקסמים בלי צורך במודים! חווית הישרדות מתקדמת (דורש Vault לכלכלה ולהרשאות של המכונות/חנויות)', type: 'plugins', requires: ['p5'], downloads: '6M', rating: 4.9, reviews: 21000 },
   { id: 'p19', name: 'Aurelium Skills', desc: 'מערכת סקילים ורמות RPG - לחימה, חציבה, פארקור ועוד הרבה', type: 'plugins', downloads: '4M', rating: 4.9, reviews: 8500 },
   { id: 'p20', name: 'AuctionHouse', desc: 'שוק עולמי שבו שחקנים מוכרים וקונים פריטים אחד מהשני (מערכת כלכלה) (דורש Vault + פלאגין כלכלה)', type: 'plugins', requires: ['p5'], downloads: '9M', rating: 4.8, reviews: 11000 },
   { id: 'p21', name: 'MythicMobs', desc: 'מאפשר ליצור בוסים ומפלצות מותאמים אישית עם כוחות מיוחדים (כמו בנייטפול)', type: 'plugins', downloads: '7M', rating: 4.9, reviews: 16000, paid: true, buyUrl: 'https://mythiccraft.io/index.php?resources/mythicmobs.1/' },
@@ -86,15 +98,15 @@ export const DEFAULT_ADDONS = [
   // --- ניהול ביצועים וכישופים (סגנון נייטפול) ---
   { id: 'p23', name: 'Spark', desc: 'חובה לשרתים מרובי פלאגינים - מנתח ביצועים שמאבחן בדיוק איזה פלאגין גורם ללאגים', type: 'plugins', downloads: '14M', rating: 4.9, reviews: 22000 },
   { id: 'p24', name: 'PlugManX', desc: 'מאפשר להפעיל, לכבות ולרענן פלאגינים ספציפיים מתוך המשחק בלי לעשות ריסטארט לשרת', type: 'plugins', downloads: '3M', rating: 4.8, reviews: 5400 },
-  { id: 'p25', name: 'ExcellentEnchants', desc: 'מוסיף עשרות כישופים חדשים ומיוחדים (כמו Refill/Replenish, Telekinesis, ריחוף ועוד)', type: 'plugins', downloads: '2.5M', rating: 4.8, reviews: 3900 },
+  { id: 'p25', name: 'ExcellentEnchants', desc: 'מוסיף עשרות כישופים חדשים ומיוחדים (כמו Refill/Replenish, Telekinesis, ריחוף ועוד) (דורש את ספריית NightCore — בלעדיה הפלאגין לא עולה)', type: 'plugins', requires: ['p36'], downloads: '2.5M', rating: 4.8, reviews: 3900 },
   { id: 'p26', name: 'AdvancedShulkerboxes', desc: 'פותח שאלקרים מהיד, שואב אליהם חפצים אוטומטית ומוסיף יכולות מתקדמות (Refill)', type: 'plugins', downloads: '1.8M', rating: 4.7, reviews: 2100 },
 
   // --- תוספות RPG, חיות רכיבה ואנטי-צ'יט (חדש) ---
   { id: 'p27', name: 'MythicMounts', desc: 'חיות רכיבה מיוחדות! מאפשר לרכוב על אפיגאסט (Epigast), לשים לו הארנס (רתמה) עם כישוף Soul Speed שככל שרמתו גבוהה יותר, החיה טסה מהר יותר! (דורש MythicMobs)', type: 'plugins', requires: ['p21'], downloads: '1.5M', rating: 4.8, reviews: 4200, paid: true, buyUrl: 'https://mythiccraft.io/index.php?resources/' },
-  { id: 'p28', name: 'ItemsAdder', desc: 'הוספת אלפי חפצים, נשקים, רהיטים ובלוקים חדשים לשרת (כולל טקסטורות) בלי שאף שחקן יצטרך להוריד מודים (דורש ProtocolLib)', type: 'plugins', downloads: '4.5M', rating: 4.9, reviews: 18000, paid: true, buyUrl: 'https://itemsadder.devs.beer/' },
+  { id: 'p28', name: 'ItemsAdder', desc: 'הוספת אלפי חפצים, נשקים, רהיטים ובלוקים חדשים לשרת (כולל טקסטורות) בלי שאף שחקן יצטרך להוריד מודים (דורש ProtocolLib — אינו ב-Modrinth, התקנה ידנית מ-SpigotMC)', type: 'plugins', requires: ['p37'], downloads: '4.5M', rating: 4.9, reviews: 18000, paid: true, buyUrl: 'https://itemsadder.devs.beer/' },
   { id: 'p29', name: 'Grim AntiCheat', desc: 'מערכת האנטי-צ\'יט (נגד האקרים) המתקדמת בעולם כיום. חוסמת צ\'יטים מבלי לפגוע בשחקנים רגילים', type: 'plugins', downloads: '8M', rating: 4.9, reviews: 25000 },
   { id: 'p30', name: 'ViaVersion', desc: 'חובה! מאפשר לשחקנים מגרסאות מיינקראפט ישנות או חדשות יותר (מ-1.8 עד 1.26) להיכנס לשרת שלך בלי בעיות', type: 'plugins', downloads: '45M', rating: 4.9, reviews: 150000 },
-  { id: 'p31', name: 'InteractiveChat', desc: 'משדרג את הצ\'אט: שחקנים יכולים לכתוב [item] או [inv] כדי להראות את הנשק או התיק שלהם לכולם בצ\'אט', type: 'plugins', downloads: '6M', rating: 4.8, reviews: 9200 },
+  { id: 'p31', name: 'InteractiveChat', desc: 'משדרג את הצ\'אט: שחקנים יכולים לכתוב [item] או [inv] כדי להראות את הנשק או התיק שלהם לכולם בצ\'אט (דורש ProtocolLib (ידני, אינו ב-Modrinth) + PlaceholderAPI + Vault)', type: 'plugins', requires: ['p37', 'p14', 'p5'], downloads: '6M', rating: 4.8, reviews: 9200 },
   { id: 'p32', name: 'Chunky', desc: 'כלי חובה לשרתים פתוחים: טוען את כל העולם מראש! מונע לחלוטין את הלאגים שנוצרים כששחקנים חוקרים אזורים חדשים', type: 'plugins', downloads: '12M', rating: 4.9, reviews: 14000 },
 
   // --- כלים ועיצוב ---
@@ -106,18 +118,30 @@ export const DEFAULT_ADDONS = [
   { id: 'p34', name: 'InvisibleItemFrames', desc: 'מאפשר להפוך מסגרות של חפצים (Item Frames) לבלתי נראות. מעולה לעיצוב חדרים וחנויות בלי לראות את העץ של המסגרת!', type: 'plugins', downloads: '1.2M', rating: 4.8, reviews: 2100 },
   { id: 'p35', name: 'ClearLag', desc: 'פלאגין חובה לשרתים עמוסים: מנקה אוטומטית חפצים שזרוקים על הרצפה, מוחק מובים מיותרים שנתקעו, ומונע קריסות (Crash) כשיש עומס.', type: 'plugins', downloads: '22M', rating: 4.7, reviews: 35000 },
 
+  // --- ספריות תלות (dependency libraries) ---
+  // p36 NightCore — ספריית הליבה של מפתח ExcellentEnchants (p25); מותקנת אוטומטית מ-Modrinth.
+  // p37 ProtocolLib — אינו ב-Modrinth (מופץ דרך SpigotMC) → installMethod:'manual', אין התקנה אוטומטית בשרת.
+  { id: 'p36', name: 'NightCore', desc: 'ספריית ליבה הכרחית לפלאגינים של אותו מפתח (כמו ExcellentEnchants) — בלעדיה הם לא עולים', type: 'plugins', downloads: '2.5M', rating: 4.8, reviews: 3900 },
+  { id: 'p37', name: 'ProtocolLib', desc: 'ספריית פאקטים הכרחית לפלאגינים כמו ItemsAdder ו-InteractiveChat (אינו ב-Modrinth — מופץ דרך SpigotMC, התקנה ידנית)', type: 'plugins', installMethod: 'manual', downloads: '50M', rating: 4.9, reviews: 60000 },
+
   // --- Datapacks ---
   // installMethod: 'server' = מותקן בשרת דרך installDatapack endpoint. 'manual' = אין URL מתארח → הורדה ידנית.
   { id: 'd1', name: 'Vanilla Tweaks', desc: 'אוסף שיפורים קטנים ונוחים למשחק הרגיל', type: 'datapacks', installMethod: 'manual', downloads: '2M', rating: 4.8, reviews: 3200 },
-  { id: 'd2', name: 'Terralith', desc: 'משנה לחלוטין את יצירת העולם, ביומות והרים ללא בלוקים חדשים', type: 'datapacks', installMethod: 'server', modrinthSlug: 'terralith', worldgenOverhaul: true, downloads: '4M', rating: 4.7, reviews: 5100 },
+  { id: 'd2', name: 'Terralith', desc: 'משנה לחלוטין את יצירת העולם, ביומות והרים ללא בלוקים חדשים (datapack של worldgen — עובד רק על Vanilla/Fabric/Forge/NeoForge; שרתי Bukkit כמו Paper/Purpur/Folia מתעלמים מביומות worldgen של datapack, וצריך להחיל אותו על עולם חדש)', type: 'datapacks', installMethod: 'server', modrinthSlug: 'terralith', worldgenOverhaul: true, downloads: '4M', rating: 4.7, reviews: 5100 },
   { id: 'd4', name: 'Multiplayer Sleep', desc: 'מספיק שחקן אחד במיטה כדי להעביר את הלילה', type: 'datapacks', installMethod: 'server', modrinthSlug: 'serversleep', downloads: '3M', rating: 4.9, reviews: 4500 },
-  { id: 'd6', name: 'Mini Blocks', desc: 'מאפשר להשיג גרסאות מיניאטוריות של בלוקים כראשים', type: 'datapacks', installMethod: 'server', modrinthSlug: 'mini-blocks-datapack', downloads: '1.5M', rating: 4.6, reviews: 1200 },
+  { id: 'd6', name: 'Mini Blocks', desc: 'מאפשר להשיג גרסאות מיניאטוריות של בלוקים כראשים (datapack של function/loot — פועל על כל סוג שרת שתומך datapacks, כולל Paper)', type: 'datapacks', installMethod: 'server', modrinthSlug: 'mini-blocks-datapack', downloads: '1.5M', rating: 4.6, reviews: 1200 },
   { id: 'd7', name: 'Wandering Trades', desc: 'משפר את החפצים שמוכר הסוחר הנודד ומציע בלוקים מיניאטוריים', type: 'datapacks', installMethod: 'server', modrinthSlug: 'better-wanderingtraders', downloads: '1.2M', rating: 4.5, reviews: 900 },
   { id: 'd8', name: 'Nether Portal Coords', desc: 'מסייע בחישוב מדויק של מיקומי פורטלים בנדר', type: 'datapacks', installMethod: 'manual', downloads: '800K', rating: 4.7, reviews: 600 },
   { id: 'd9', name: 'Coordinates HUD', desc: 'מציג קואורדינטות וזמן בצורה נוחה מעל ה-Hotbar', type: 'datapacks', installMethod: 'server', modrinthSlug: 'hotbarcoordinates', downloads: '2.5M', rating: 4.8, reviews: 2200 },
   { id: 'd10', name: 'Player Head Drops', desc: 'שחקנים מפילים את הראש שלהם כשהם מתים מחיצים או שחקנים', type: 'datapacks', installMethod: 'server', modrinthSlug: 'player-drops-head', downloads: '2.1M', rating: 4.6, reviews: 1700 },
   { id: 'd11', name: 'More Mob Heads', desc: 'כל המובים במשחק יכולים להפיל את הראש שלהם למטרות קישוט', type: 'datapacks', installMethod: 'server', modrinthSlug: 'mob-heads', downloads: '2.8M', rating: 4.7, reviews: 2500 },
-  
+  { id: 'd12', name: 'VeinMiner', desc: 'כורה את כל גוש העפרה/העץ בבת אחת בשבירה אחת - חוסך זמן חציבה אדיר', type: 'datapacks', installMethod: 'server', modrinthSlug: 'veinminer', downloads: '2M', rating: 4.8, reviews: 3000 },
+  { id: 'd13', name: 'Tectonic', desc: 'שדרוג עולם דרמטי - הרים ענקיים, נהרות ועמקים עמוקים, בלי בלוקים חדשים (datapack של worldgen — עובד רק על Vanilla/Fabric/Forge/NeoForge; להחלה על עולם חדש)', type: 'datapacks', installMethod: 'server', modrinthSlug: 'tectonic', worldgenOverhaul: true, downloads: '1.5M', rating: 4.7, reviews: 2100 },
+  { id: 'd14', name: 'Incendium', desc: 'שדרוג מלא לנדר (Nether) - ביומות, מבנים ובוסים חדשים מסוכנים (datapack של worldgen — עובד רק על Vanilla/Fabric/Forge/NeoForge; להחלה על עולם חדש)', type: 'datapacks', installMethod: 'server', modrinthSlug: 'incendium', worldgenOverhaul: true, downloads: '1.8M', rating: 4.8, reviews: 2400 },
+  { id: 'd15', name: 'Nullscape', desc: 'הופך את העולם הסופי (End) לאזור אטמוספרי ומסתורי עם ביומות חדשות (datapack של worldgen — עובד רק על Vanilla/Fabric/Forge/NeoForge; להחלה על עולם חדש)', type: 'datapacks', installMethod: 'server', modrinthSlug: 'nullscape', worldgenOverhaul: true, downloads: '1.3M', rating: 4.7, reviews: 1600 },
+  { id: 'd16', name: 'Explorify', desc: 'מוסיף עשרות מבנים ווניליים חדשים לחקירה בלי לשנות את תחושת המשחק', type: 'datapacks', installMethod: 'server', modrinthSlug: 'explorify', downloads: '2.2M', rating: 4.8, reviews: 2700 },
+  { id: 'd17', name: 'Dungeons and Taverns', desc: 'מבוכים, פונדקים ומבנים חדשים מלאי שלל והרפתקאות בכל רחבי העולם', type: 'datapacks', installMethod: 'server', modrinthSlug: 'dungeons-and-taverns', downloads: '2.4M', rating: 4.9, reviews: 3100 },
+
   // --- Modpacks ---
   // installMethod: 'manual' — modpacks are multi-file (mods+configs); the single-jar
   // installer can't deploy them. Shown with a manual badge so the UI never promises a
@@ -127,12 +151,18 @@ export const DEFAULT_ADDONS = [
   
   // --- Textures ---
   // installMethod: 'client' = resource/texture packs מותקנים בצד-הלקוח (אצל השחקן), לא בשרת. אין URL מתארח כרגע.
-  { id: 't1', name: 'Custom Hats Pack', desc: 'מוסיף כתרים, כובעי קסם ופריטים שניתן לשים על הראש לטובת מראה ייחודי (בדומה לנייטפול)', type: 'textures', installMethod: 'server', modrinthSlug: 'elibruhs-custom-hats-pack', downloads: '1.2M', rating: 4.8, reviews: 4500 },
+  { id: 't1', name: 'Custom Hats Pack', desc: 'מוסיף כתרים, כובעי קסם ופריטים שניתן לשים על הראש לטובת מראה ייחודי (בדומה לנייטפול) (חבילת מרקם בצד-הלקוח — מוחלת בשרת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'elibruhs-custom-hats-pack', downloads: '1.2M', rating: 4.8, reviews: 4500 },
   { id: 't2', name: 'Golden Pumpkin Pie', desc: 'מודל תלת-ממדי מיוחד שהופך את פשטידת הדלעת הרגילה לפשטידת זהב נוצצת', type: 'textures', installMethod: 'client', downloads: '800K', rating: 4.6, reviews: 2100 },
   { id: 't3', name: 'Fresh Animations', desc: 'אנימציות תנועה מציאותיות, חלקות ומצחיקות לכל המפלצות והחיות במשחק (דורש בצד-הלקוח את המודים ETF + EMF, או OptiFine, כדי שהאנימציות יפעלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'fresh-animations', downloads: '15M', rating: 4.9, reviews: 45000 },
-  { id: 't4', name: 'Faithful 32x', desc: 'הטקסטורה הקלאסית והמוכרת של מיינקראפט ברזולוציה כפולה וחדה הרבה יותר', type: 'textures', installMethod: 'server', modrinthSlug: 'faithful-32x', downloads: '50M', rating: 4.8, reviews: 120000 },
-  { id: 't5', name: 'Bare Bones', desc: 'טקסטורה חלקה ונקייה שגורמת למשחק להיראות כמו הטריילרים הרשמיים של מיינקראפט', type: 'textures', installMethod: 'server', modrinthSlug: 'bare-bones', downloads: '22M', rating: 4.9, reviews: 60000 },
-  { id: 't6', name: 'Visible Ores', desc: 'גורם למחצבים (יהלומים, ברזל) לזהור בחושך, מושלם למערות עמוקות', type: 'textures', installMethod: 'server', modrinthSlug: 'visible-ores', downloads: '9.5M', rating: 4.8, reviews: 25000 },
-  { id: 't7', name: 'Dark UI', desc: 'משנה את כל התפריטים במשחק לעיצוב כהה ונוח לעיניים (Dark Mode)', type: 'textures', installMethod: 'server', modrinthSlug: 'mandalas-gui-dark-mode', downloads: '18M', rating: 4.9, reviews: 41000 },
+  { id: 't4', name: 'Faithful 32x', desc: 'הטקסטורה הקלאסית והמוכרת של מיינקראפט ברזולוציה כפולה וחדה הרבה יותר (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'faithful-32x', downloads: '50M', rating: 4.8, reviews: 120000 },
+  { id: 't5', name: 'Bare Bones', desc: 'טקסטורה חלקה ונקייה שגורמת למשחק להיראות כמו הטריילרים הרשמיים של מיינקראפט (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'bare-bones', downloads: '22M', rating: 4.9, reviews: 60000 },
+  { id: 't6', name: 'Visible Ores', desc: 'גורם למחצבים (יהלומים, ברזל) לזהור בחושך, מושלם למערות עמוקות (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'visible-ores', downloads: '9.5M', rating: 4.8, reviews: 25000 },
+  { id: 't7', name: 'Dark UI', desc: 'משנה את כל התפריטים במשחק לעיצוב כהה ונוח לעיניים (Dark Mode) (חבילת מרקם בצד-הלקוח שמשנה את ה-GUI אצל השחקן — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'mandalas-gui-dark-mode', downloads: '18M', rating: 4.9, reviews: 41000 },
   { id: 't8', name: 'Shulker Box Tooltip', desc: 'מאפשר לראות את כל התכולה של השאלקרים ברחרוף עם העכבר בתוך התיק, בלי להניח אותם', type: 'textures', installMethod: 'client', downloads: '35M', rating: 4.9, reviews: 85000 },
+  { id: 't9', name: 'Motschen\'s Better Leaves', desc: 'הופך את העלים של העצים לסבוכים, מלאים ויפהפיים - שדרוג ויזואלי ענק לטבע (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'better-leaves', downloads: '5M', rating: 4.8, reviews: 9000 },
+  { id: 't10', name: 'Dramatic Skys', desc: 'שמיים ריאליסטיים ודרמטיים עם עננים, שקיעות וירח מרהיבים (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'dramatic-skys', downloads: '3M', rating: 4.7, reviews: 5000 },
+  { id: 't11', name: 'Default Dark Mode', desc: 'מצב כהה לכל ממשק המשחק - נוח לעיניים, שומר על הסגנון הווניל המקורי (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'default-dark-mode', downloads: '8M', rating: 4.8, reviews: 12000 },
+  { id: 't12', name: 'New Glowing Ores', desc: 'כל המחצבים זוהרים בחושך - קל לאתר יהלומים וברזל במערות עמוקות (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'new-glowing-ores', downloads: '4M', rating: 4.7, reviews: 6000 },
+  { id: 't13', name: 'Enchantment Outlines', desc: 'מוסיף מסגרת זוהרת לפריטים מכושפים כדי שיבלטו במלאי (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'glowing-glints', downloads: '2.5M', rating: 4.7, reviews: 3500 },
+  { id: 't14', name: 'Low On Fire', desc: 'מנמיך את אנימציית האש שמכסה את המסך כשנשרפים - שדה ראייה צלול בקרב (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'low-on-fire', downloads: '6M', rating: 4.8, reviews: 8000 },
 ];
