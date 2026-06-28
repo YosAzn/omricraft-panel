@@ -18,6 +18,7 @@ import CreateServerForm from './components/CreateServerForm';
 import GlobalRepository from './components/GlobalRepository';
 import ServerPanel from './components/ServerPanel/ServerPanel';
 import HealthTab from './components/HealthTab';
+import LandingPage from './components/LandingPage';
 
 export default function App() {
   // Stable admin identity is email-based (NOT the ephemeral anonymous UID).
@@ -32,7 +33,9 @@ export default function App() {
   const t = (key) => DICT[lang][key] || key;
   const isRtl = lang === 'he';
 
-  const [currentView, setCurrentView] = useState('dashboard');
+  // Public landing page is the DEFAULT entry view — the first thing a visitor sees.
+  // Anonymous visitors can browse it; CTAs route into the existing dashboard/create/repo.
+  const [currentView, setCurrentView] = useState('landing');
   const [activeServerId, setActiveServerId] = useState(null);
   
   // Verified Paper versions ONLY. Never list versions Paper can't build (e.g. 26.x):
@@ -708,13 +711,35 @@ export default function App() {
     }
   };
 
+  // CTA from the landing page: signed-in (incl. anonymous) → go straight to create;
+  // fully signed-out → trigger Google sign-in (anonymous auth normally runs on load,
+  // so authUser is almost always present and this falls through to the create view).
+  const handleLandingCreate = () => {
+    if (authUser) setCurrentView('create');
+    else signInAsAdmin();
+  };
+
+  // ===== PUBLIC LANDING PAGE — default entry view, renders for anonymous visitors =====
+  if (currentView === 'landing') {
+    return (
+      <LandingPage
+        t={t} lang={lang} setLang={setLang} isRtl={isRtl}
+        authUser={authUser} isAdmin={isAdmin} adminEmail={adminEmail}
+        onCreate={handleLandingCreate}
+        onPlugins={() => setCurrentView('repository')}
+        onOpenPanel={() => setCurrentView('dashboard')}
+        onSignIn={signInAsAdmin}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans" dir={isRtl ? "rtl" : "ltr"}>
       <nav className="bg-zinc-900 border-b border-zinc-800 p-4 sticky top-0 z-20 shadow-lg">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
           
           <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-start">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('dashboard')}>
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')} title={t('appTitle')}>
               <div className="bg-green-600 p-2 rounded-lg"><Server size={24} className="text-white" /></div>
               <h1 className="text-2xl font-black tracking-tight bg-gradient-to-l from-green-400 to-emerald-600 bg-clip-text text-transparent hidden sm:block">
                 {t('appTitle')}
