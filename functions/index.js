@@ -59,7 +59,7 @@ function callManagerApi(baseUrl, apiKey, method, endpoint, body) {
 
     const options = {
       hostname: url.hostname,
-      port: url.port || 80,
+      port: url.port || (url.protocol === 'https:' ? 443 : 80),
       path: url.pathname,
       method,
       headers: {
@@ -70,7 +70,10 @@ function callManagerApi(baseUrl, apiKey, method, endpoint, body) {
       timeout: 110000
     };
 
-    const req = http.request(options, (res) => {
+    // Pick http/https by the BASE_URL protocol — MANAGER_API_URL is now the TLS
+    // endpoint (https://api.omricraft.com); http kept for backward-compat/rollback.
+    const lib = url.protocol === 'https:' ? https : http;
+    const req = lib.request(options, (res) => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
