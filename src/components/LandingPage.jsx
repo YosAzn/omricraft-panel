@@ -4,6 +4,7 @@ import {
   Gift, SlidersHorizontal, ArrowRight, MousePointerClick, Plug, Gamepad2, LogIn, Users
 } from 'lucide-react';
 import { getPublicStatsFn } from '../lib/api';
+import SideCreepers from './SideCreepers';
 
 // Public, no-auth-required landing page. The first thing a visitor sees.
 // Matches (and elevates) the app's zinc-950 / emerald glass language.
@@ -45,6 +46,9 @@ export default function LandingPage({
         <div className="oc-orb absolute -top-24 start-[8%] h-72 w-72 rounded-full bg-emerald-500/20 blur-[90px]" />
         <div className="oc-orb-slow absolute top-[40%] end-[6%] h-80 w-80 rounded-full bg-green-600/10 blur-[100px]" />
       </div>
+
+      {/* Faint edge decoration (fixed, z-0, pointer-events:none) behind landing content */}
+      <SideCreepers />
 
       {/* keyframes scoped to the landing page */}
       <style>{`

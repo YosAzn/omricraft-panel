@@ -19,6 +19,7 @@ import GlobalRepository from './components/GlobalRepository';
 import ServerPanel from './components/ServerPanel/ServerPanel';
 import HealthTab from './components/HealthTab';
 import LandingPage from './components/LandingPage';
+import SideCreepers from './components/SideCreepers';
 
 export default function App() {
   // Stable admin identity is email-based (NOT the ephemeral anonymous UID).
@@ -735,6 +736,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans" dir={isRtl ? "rtl" : "ltr"}>
+      {/* Faint edge decoration behind ALL content (fixed, z-0, pointer-events:none) */}
+      <SideCreepers />
       <nav className="bg-zinc-900 border-b border-zinc-800 p-4 sticky top-0 z-20 shadow-lg">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
           
@@ -781,7 +784,7 @@ export default function App() {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 relative">
+      <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 relative z-10">
         {currentView === 'dashboard' && (
           <Dashboard
             servers={visibleServers} t={t} userRole={userRole}
