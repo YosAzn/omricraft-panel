@@ -53,3 +53,9 @@ export const suggestModpackFn = httpsCallable(functionsInstance, 'suggestModpack
 // Admin-only AI Texture Generator — prompt → 256×256 image (free Pollinations or
 // Gemini/Imagen with graceful free fallback). Client downscales to 16×16.
 export const generateTextureFn = httpsCallable(functionsInstance, 'generateTexture');
+// Admin-only Datapack Builder — theme → real Modrinth datapacks (free, keyless).
+export const suggestDatapacksFn = httpsCallable(functionsInstance, 'suggestDatapacks');
+// Admin-only Datapack Builder — prompt → a NEW AI-generated datapack (free
+// Pollinations text or Gemini, with graceful free fallback). The client zips the
+// returned files (pack.mcmeta carries the correct injected datapack pack_format).
+export const generateDatapackFn = httpsCallable(functionsInstance, 'generateDatapack');

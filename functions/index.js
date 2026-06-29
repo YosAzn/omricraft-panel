@@ -1762,6 +1762,252 @@ exports.suggestModpack = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// suggestDatapacks — ADMIN-only. Free, keyless Modrinth search for REAL datapacks
+// matching a theme (mirrors suggestModpack but project_type:datapack). Returns up
+// to 12 datapacks { slug, title, description, downloads, url }. The category facet
+// reuse from suggestModpack does NOT apply (datapack categories differ), so this is
+// a query-only search by theme + version facet. Never throws except on empty theme.
+// ---------------------------------------------------------------------------
+async function modrinthDatapackSearch(theme, mcVersion, limit) {
+  const facets = [['project_type:datapack']];
+  if (mcVersion && /^[0-9][0-9.]{1,12}$/.test(mcVersion)) facets.push([`versions:${mcVersion}`]);
+  const url = 'https://api.modrinth.com/v2/search'
+    + `?query=${encodeURIComponent(String(theme || '').trim())}`
+    + `&facets=${encodeURIComponent(JSON.stringify(facets))}`
+    + '&index=downloads'
+    + `&limit=${Math.max(1, Math.min(12, Number(limit) || 12))}`;
+  const j = await getJsonSafe(url);
+  const hits = Array.isArray(j?.hits) ? j.hits : [];
+  return hits.map(h => {
+    const slug = h.slug || h.project_id;
+    return {
+      slug,
+      title: h.title || slug,
+      description: shortDesc(h.description),
+      downloads: typeof h.downloads === 'number' ? h.downloads : 0,
+      // datapacks live under /datapack/<slug> on Modrinth (not /mod/).
+      url: `https://modrinth.com/datapack/${slug}`,
+    };
+  });
+}
+
+exports.suggestDatapacks = onCall(
+  { region: "us-central1", timeoutSeconds: 60 },
+  async (request) => {
+    assertAdmin(request);
+    const { theme, mcVersion } = request.data || {};
+    const cleanTheme = String(theme || '').trim();
+    const ver = String(mcVersion || '1.21.11').trim();
+    if (!cleanTheme) {
+      throw new HttpsError('invalid-argument', 'theme is required');
+    }
+    const datapacks = await modrinthDatapackSearch(cleanTheme, ver, 12);
+    return { success: true, theme: cleanTheme, mcVersion: ver, datapacks };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// generateDatapack — ADMIN-only. AI-generates a NEW, simple datapack from a prompt.
+//   model 'free' (default): Pollinations TEXT (keyless free LLM).
+//   model 'gemini'        : Gemini (gemini-2.5-flash) if key set, else free + flag.
+// The LLM is asked for ONLY a JSON object { namespace, description, files[] }; we
+// parse it defensively (tolerate code fences / leading prose). We then INJECT our
+// OWN pack.mcmeta with the CORRECT datapack pack_format for mcVersion (the free
+// model returns a wrong format like "12"; the real datapack format for 1.21.11 is
+// 94, NOT the resource-pack 75) — any pack.mcmeta the LLM produced is dropped.
+// Returns { success, namespace, description, files:[{path,content}], usedFallback?,
+// reason? }. Download-only; the client zips it. Never throws except on empty prompt.
+// ---------------------------------------------------------------------------
+
+// Authoritative DATAPACK pack_format per MC version (source: misode/mcmeta
+// summary/versions data_pack_version). DISTINCT from resource-pack formats.
+// 1.21.11 => 94 (resource-pack would be 75 — the format the task warned about).
+const DATAPACK_FORMATS = {
+  '1.21.11': 94, '1.21.10': 88, '1.21.9': 88, '1.21.8': 81, '1.21.7': 81,
+  '1.21.6': 80, '1.21.5': 71, '1.21.4': 61, '1.21.3': 57, '1.21.2': 57,
+  '1.21.1': 48, '1.21': 48,
+};
+// Default to the panel's target version's datapack format when unknown.
+const DEFAULT_DATAPACK_FORMAT = 94;
+
+function datapackFormatFor(mcVersion) {
+  return DATAPACK_FORMATS[String(mcVersion || '').trim()] || DEFAULT_DATAPACK_FORMAT;
+}
+
+// Build the strict instruction handed to either LLM.
+function datapackInstruction(prompt, mcVersion) {
+  return `You are a Minecraft Java Edition datapack generator. Output ONLY a single JSON object `
+    + `(no markdown, no code fences, no prose) with EXACTLY this shape:\n`
+    + `{ "namespace": "lowercase_id", "description": "one short line", `
+    + `"files": [ { "path": "data/<namespace>/...", "content": "<full file text>" } ] }\n`
+    + `Build a SIMPLE, VALID datapack for Minecraft ${mcVersion} matching: "${String(prompt || '').trim()}".\n`
+    + `Favor robust, well-understood types: function files (data/<ns>/function/*.mcfunction), `
+    + `recipes (data/<ns>/recipe/*.json), loot tables (data/<ns>/loot_table/*.json), and the load/tick `
+    + `function tags (data/minecraft/tags/function/load.json and tick.json) when using functions. `
+    + `Use the modern 1.21+ singular folder names (function, recipe, loot_table, tags/function). `
+    + `Do NOT include a pack.mcmeta — it is added automatically. Keep it to a handful of files. `
+    + `Every "content" must be a valid string (JSON files as compact JSON text).`;
+}
+
+// Defensive JSON extraction from an LLM reply: strip code fences, then take the
+// first {...} balanced-ish span. Returns the parsed object or null.
+function parseLlmJson(text) {
+  let s = String(text || '').trim();
+  // Strip ```json ... ``` or ``` ... ``` fences.
+  s = s.replace(/^```[a-zA-Z]*\s*/m, '').replace(/```\s*$/m, '').trim();
+  // Slice from the first { to the last } to drop any leading/trailing prose.
+  const a = s.indexOf('{');
+  const b = s.lastIndexOf('}');
+  if (a === -1 || b === -1 || b <= a) return null;
+  const candidate = s.slice(a, b + 1);
+  try { return JSON.parse(candidate); } catch { /* fall through */ }
+  return null;
+}
+
+// Normalize the parsed object → a safe { namespace, description, files[] }.
+// Drops any LLM-provided pack.mcmeta (we inject our own). Throws on no usable files.
+function normalizeDatapack(obj, fallbackPrompt) {
+  const o = obj && typeof obj === 'object' ? obj : {};
+  let ns = String(o.namespace || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 32);
+  if (!ns) ns = 'custom_' + slugify(fallbackPrompt).replace(/-/g, '_').slice(0, 16) || 'custom_pack';
+  if (!ns) ns = 'custom_pack';
+  const description = String(o.description || `AI datapack: ${String(fallbackPrompt || '').trim()}`).slice(0, 160);
+  const rawFiles = Array.isArray(o.files) ? o.files : [];
+  const files = [];
+  for (const f of rawFiles) {
+    if (!f || typeof f !== 'object') continue;
+    let p = String(f.path || '').replace(/\\/g, '/').replace(/^\/+/, '').trim();
+    // Drop any LLM pack.mcmeta — we inject our own with the correct format.
+    if (!p || p.toLowerCase() === 'pack.mcmeta') continue;
+    // Path-safety: no traversal, must live under data/ or the root namespace dir.
+    if (p.includes('..')) continue;
+    const content = typeof f.content === 'string'
+      ? f.content
+      : (f.content != null ? JSON.stringify(f.content) : '');
+    if (!content) continue;
+    files.push({ path: p, content });
+    if (files.length >= 40) break;
+  }
+  return { namespace: ns, description, files };
+}
+
+// Ask Pollinations TEXT (free, keyless) for the datapack JSON. Returns the raw
+// text, or null on failure. GET https://text.pollinations.ai/<urlencoded prompt>.
+async function pollinationsDatapackText(prompt, mcVersion) {
+  const url = 'https://text.pollinations.ai/'
+    + encodeURIComponent(datapackInstruction(prompt, mcVersion));
+  const r = await getBinarySafe(url);
+  if (!r || !r.buffer.length) return null;
+  return r.buffer.toString('utf8');
+}
+
+// Ask Gemini (gemini-2.5-flash) for the datapack JSON. Returns raw text. Throws on
+// transport/HTTP/parse error so the caller's try/catch can fall back to free.
+function geminiDatapackText(apiKey, prompt, mcVersion) {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify({
+      contents: [{ parts: [{ text: datapackInstruction(prompt, mcVersion) }] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: 2048, responseMimeType: 'application/json' },
+    });
+    const options = {
+      hostname: 'generativelanguage.googleapis.com',
+      path: `/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+      timeout: 40000,
+    };
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          return reject(new Error(`Gemini HTTP ${res.statusCode}`));
+        }
+        try {
+          const j = JSON.parse(data);
+          const text = j?.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
+          if (!text) return reject(new Error('Gemini returned no text'));
+          resolve(text);
+        } catch (e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Gemini request timed out')); });
+    req.write(payload);
+    req.end();
+  });
+}
+
+exports.generateDatapack = onCall(
+  { region: "us-central1", timeoutSeconds: 90 },
+  async (request) => {
+    assertAdmin(request);
+    const { prompt, model, mcVersion } = request.data || {};
+    const cleanPrompt = String(prompt || '').trim();
+    const ver = String(mcVersion || '1.21.11').trim();
+    if (!cleanPrompt) {
+      throw new HttpsError('invalid-argument', 'prompt is required');
+    }
+    const packFormat = datapackFormatFor(ver);
+
+    // Build the final result from raw LLM text. We ALWAYS inject our own pack.mcmeta
+    // with the correct datapack pack_format (never trust the model's value).
+    const buildFromText = (text) => {
+      const parsed = parseLlmJson(text);
+      if (!parsed) return null;
+      const { namespace, description, files } = normalizeDatapack(parsed, cleanPrompt);
+      if (!files.length) return null;
+      // Inject the authoritative pack.mcmeta FIRST so the client zips it verbatim.
+      const mcmeta = {
+        path: 'pack.mcmeta',
+        content: JSON.stringify({
+          pack: {
+            pack_format: packFormat,
+            supported_formats: { min_inclusive: packFormat, max_inclusive: packFormat },
+            description: description || `OmriCraft AI datapack (${ver})`,
+          },
+        }, null, 2),
+      };
+      return { namespace, description, files: [mcmeta, ...files], packFormat, mcVersion: ver };
+    };
+
+    // FREE path (also the universal fallback).
+    const runFree = async () => {
+      const text = await pollinationsDatapackText(cleanPrompt, ver);
+      const built = text ? buildFromText(text) : null;
+      if (!built) {
+        throw new HttpsError('unavailable', 'AI datapack service unavailable or returned invalid output, try again');
+      }
+      return { success: true, model: 'free', ...built };
+    };
+
+    if (String(model || 'free').toLowerCase() !== 'gemini') {
+      return await runFree();
+    }
+
+    // GEMINI path — graceful: empty key → free fallback; any error/invalid → free.
+    const key = readGeminiKey();
+    if (!key) {
+      const fb = await runFree();
+      return { ...fb, usedFallback: true, reason: 'no-gemini-key' };
+    }
+    try {
+      const text = await geminiDatapackText(key, cleanPrompt, ver);
+      const built = buildFromText(text);
+      if (!built) {
+        const fb = await runFree();
+        return { ...fb, usedFallback: true, reason: 'gemini-invalid' };
+      }
+      return { success: true, model: 'gemini', ...built };
+    } catch (error) {
+      console.error('generateDatapack gemini path failed, falling back to free:', error);
+      const fb = await runFree();
+      return { ...fb, usedFallback: true, reason: 'gemini-error' };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // generateTexture — ADMIN-only AI texture generator (MVP).
 // Given a free-text prompt, returns a generated 256×256 image as a base64 data
 // URL the admin downscales client-side to a 16×16 Minecraft texture. Two models:

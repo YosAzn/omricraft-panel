@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import {
   Layers, X, Plus, UploadCloud, Link as LinkIcon, Search,
-  Package, Palette, Star, Trash2, Download, Check, Sparkles, ExternalLink, Loader2
+  Package, Palette, Star, Trash2, Download, Check, Sparkles, ExternalLink, Loader2, Boxes
 } from 'lucide-react';
 
 import { TYPE_COLORS } from '../lib/constants';
 import { addonDesc } from '../lib/addonI18n';
 import { suggestModpackFn } from '../lib/api';
 import AiTextureGenerator from './AiTextureGenerator';
+import DatapackBuilder from './DatapackBuilder';
 
 export default function GlobalRepository({ allAddons, customAddons, onAdd, onDelete, t, lang, userRole }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showModpackForm, setShowModpackForm] = useState(false);
   const [showTexture, setShowTexture] = useState(false);
+  const [showDatapack, setShowDatapack] = useState(false);
   // Unified Create-Modpack panel mode: 'library' (pick repo addons) | 'ai' (Modrinth/AI).
   const [mpMode, setMpMode] = useState('library');
   const [selectedAddon, setSelectedAddon] = useState(null);
@@ -167,19 +169,25 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
              exclusive), mirroring the existing setShowX(false) pattern. */
           <div className="flex gap-2">
             <button
-              onClick={() => { setShowModpackForm(!showModpackForm); setShowAddForm(false); setShowTexture(false); }}
+              onClick={() => { setShowModpackForm(!showModpackForm); setShowAddForm(false); setShowTexture(false); setShowDatapack(false); }}
               className={`px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all border ${showModpackForm ? 'bg-purple-600 text-white border-purple-500' : 'bg-zinc-900 border-purple-500/40 hover:border-purple-500 text-purple-300'}`}
             >
               <Layers size={18}/> <span className="hidden sm:inline">{t('createModpack')}</span>
             </button>
             <button
-              onClick={() => { setShowTexture(!showTexture); setShowModpackForm(false); setShowAddForm(false); }}
+              onClick={() => { setShowDatapack(!showDatapack); setShowModpackForm(false); setShowTexture(false); setShowAddForm(false); }}
+              className={`px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all border ${showDatapack ? 'bg-pink-600 text-white border-pink-500' : 'bg-zinc-900 border-pink-500/40 hover:border-pink-500 text-pink-300'}`}
+            >
+              <Boxes size={18}/> <span className="hidden sm:inline">{t('datapackBuilder')}</span>
+            </button>
+            <button
+              onClick={() => { setShowTexture(!showTexture); setShowModpackForm(false); setShowAddForm(false); setShowDatapack(false); }}
               className={`px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all border ${showTexture ? 'bg-teal-600 text-white border-teal-500' : 'bg-zinc-900 border-teal-500/40 hover:border-teal-500 text-teal-300'}`}
             >
               <Palette size={18}/> <span className="hidden sm:inline">{t('textureGen')}</span>
             </button>
             <button
-              onClick={() => { setShowAddForm(!showAddForm); setShowModpackForm(false); setShowTexture(false); }}
+              onClick={() => { setShowAddForm(!showAddForm); setShowModpackForm(false); setShowTexture(false); setShowDatapack(false); }}
               className={`px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all border ${showAddForm ? 'bg-green-600 text-white border-green-500' : 'bg-zinc-900 border-green-500/40 hover:border-green-500 text-green-300'}`}
             >
               {showAddForm ? <X size={20}/> : <Plus size={20} />} <span className="hidden sm:inline">{showAddForm ? t('cancel') : t('addCustomAddon')}</span>
@@ -190,6 +198,9 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
 
       {/* AI Texture Generator — controlled by the row's Texture button. */}
       {userRole === 'admin' && <AiTextureGenerator t={t} open={showTexture} />}
+
+      {/* Datapack Builder — controlled by the row's Datapack button (pink). */}
+      {userRole === 'admin' && <DatapackBuilder t={t} open={showDatapack} />}
 
       {showAddForm && (
         <form onSubmit={handleAdd} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-6 animate-in slide-in-from-top-4">
@@ -233,16 +244,16 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
         /* Unified Create-Modpack panel: a mode toggle picks between the
            library flow (pick existing repo addons) and the AI/Modrinth flow
            (suggest mods from a theme). Both underlying handlers are unchanged. */
-        <div className="bg-zinc-900 border border-pink-500/30 rounded-xl p-5 mb-6 animate-in slide-in-from-top-4 shadow-[0_0_15px_rgba(236,72,153,0.1)]">
+        <div className="bg-zinc-900 border border-purple-500/30 rounded-xl p-5 mb-6 animate-in slide-in-from-top-4 shadow-[0_0_15px_rgba(168,85,247,0.1)]">
            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-             <h3 className="font-bold text-pink-400 flex items-center gap-2"><Layers size={20}/> {t('createModpack')}</h3>
+             <h3 className="font-bold text-purple-400 flex items-center gap-2"><Layers size={20}/> {t('createModpack')}</h3>
              <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800 self-start">
                {[['library', t('modpackModeLibrary')], ['ai', t('modpackModeAi')]].map(([mode, label]) => (
                  <button
                    key={mode}
                    type="button"
                    onClick={() => setMpMode(mode)}
-                   className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${mpMode === mode ? 'bg-pink-600 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+                   className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${mpMode === mode ? 'bg-purple-600 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
                  >
                    {label}
                  </button>
@@ -255,43 +266,43 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                  <div>
                     <label className="block text-xs text-zinc-400 mb-1">{t('addonName')}</label>
-                    <input required value={mpName} onChange={e=>setMpName(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white outline-none focus:border-pink-500" />
+                    <input required value={mpName} onChange={e=>setMpName(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500" />
                  </div>
                  <div>
                     <label className="block text-xs text-zinc-400 mb-1">{t('addonDesc')}</label>
-                    <input required value={mpDesc} onChange={e=>setMpDesc(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white outline-none focus:border-pink-500" />
+                    <input required value={mpDesc} onChange={e=>setMpDesc(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500" />
                  </div>
                </div>
 
                <div>
                   <div className="flex justify-between items-center mb-1">
                      <label className="block text-xs text-zinc-400">{t('selectModsForPack')} ({mpSelectedMods.length} נבחרו)</label>
-                     <button type="button" onClick={() => setQuickAdd(!quickAdd)} className="text-xs font-bold text-pink-400 hover:text-pink-300 flex items-center gap-1 transition-colors">
+                     <button type="button" onClick={() => setQuickAdd(!quickAdd)} className="text-xs font-bold text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors">
                         <Plus size={14}/> תוסף חסר במאגר? הוסף עכשיו
                      </button>
                   </div>
                   <p className="text-[11px] text-zinc-500 mb-2">{t('modpackLibraryNote')}</p>
 
                   {quickAdd && (
-                     <div className="bg-zinc-950 p-4 rounded-xl border border-pink-500/30 mb-3 animate-in fade-in">
-                        <h4 className="text-xs font-bold text-pink-400 mb-3">הוספה מהירה למאגר</h4>
+                     <div className="bg-zinc-950 p-4 rounded-xl border border-purple-500/30 mb-3 animate-in fade-in">
+                        <h4 className="text-xs font-bold text-purple-400 mb-3">הוספה מהירה למאגר</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                           <input placeholder="שם התוסף" value={qaName} onChange={e=>setQaName(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-pink-500" />
-                           <select value={qaType} onChange={e=>setQaType(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-pink-500">
+                           <input placeholder="שם התוסף" value={qaName} onChange={e=>setQaName(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-purple-500" />
+                           <select value={qaType} onChange={e=>setQaType(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-purple-500">
                               <option value="mods">{t('mods')}</option>
                               <option value="textures">{t('textures')}</option>
                            </select>
-                           <input placeholder="תיאור קצר (אופציונלי)" value={qaDesc} onChange={e=>setQaDesc(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-pink-500 sm:col-span-2" />
-                           <input placeholder="קישור להורדה" value={qaUrl} onChange={e=>setQaUrl(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-pink-500 sm:col-span-2" />
+                           <input placeholder="תיאור קצר (אופציונלי)" value={qaDesc} onChange={e=>setQaDesc(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-purple-500 sm:col-span-2" />
+                           <input placeholder="קישור להורדה" value={qaUrl} onChange={e=>setQaUrl(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-purple-500 sm:col-span-2" />
                         </div>
-                        <button type="button" onClick={handleQuickAddSubmit} className="bg-pink-600 hover:bg-pink-500 text-white text-xs px-4 py-2 rounded-lg font-bold w-full transition-colors">שמור במאגר וסמן במודפאק</button>
+                        <button type="button" onClick={handleQuickAddSubmit} className="bg-purple-600 hover:bg-purple-500 text-white text-xs px-4 py-2 rounded-lg font-bold w-full transition-colors">שמור במאגר וסמן במודפאק</button>
                      </div>
                   )}
 
                   <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-2 max-h-48 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-1">
                      {allAddons.filter(a => a.type === 'mods' || a.type === 'textures').map(a => (
                         <div key={a.id} onClick={() => toggleMpMod(a.id)} className="flex items-center gap-3 p-2 hover:bg-zinc-900 rounded-md cursor-pointer border border-transparent hover:border-zinc-800 transition-colors">
-                          <div className={`w-4 h-4 rounded flex items-center justify-center border flex-shrink-0 ${mpSelectedMods.includes(a.id) ? 'bg-pink-600 border-pink-600' : 'border-zinc-600'}`}>
+                          <div className={`w-4 h-4 rounded flex items-center justify-center border flex-shrink-0 ${mpSelectedMods.includes(a.id) ? 'bg-purple-600 border-purple-600' : 'border-zinc-600'}`}>
                             {mpSelectedMods.includes(a.id) && <Check size={12} className="text-white"/>}
                           </div>
                           <div className="truncate">
@@ -304,7 +315,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
                </div>
 
                <div className="flex justify-end mt-4">
-                 <button type="submit" disabled={mpSelectedMods.length === 0} className="bg-pink-600 hover:bg-pink-500 text-white px-6 py-2 rounded-lg font-bold w-full md:w-auto disabled:opacity-50">{t('save')}</button>
+                 <button type="submit" disabled={mpSelectedMods.length === 0} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-lg font-bold w-full md:w-auto disabled:opacity-50">{t('save')}</button>
                </div>
              </form>
            )}
@@ -374,7 +385,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
                      <button
                        type="button"
                        onClick={handleCreateModpackFromSuggestions}
-                       className="bg-pink-600 hover:bg-pink-500 text-white px-5 py-2 rounded-lg font-bold flex items-center gap-2"
+                       className="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2 rounded-lg font-bold flex items-center gap-2"
                      >
                        <Layers size={18} /> {t('createModpackFromThese')}
                      </button>
