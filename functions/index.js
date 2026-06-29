@@ -1760,3 +1760,135 @@ exports.suggestModpack = onCall(
     }
   }
 );
+
+// ---------------------------------------------------------------------------
+// generateTexture — ADMIN-only AI texture generator (MVP).
+// Given a free-text prompt, returns a generated 256×256 image as a base64 data
+// URL the admin downscales client-side to a 16×16 Minecraft texture. Two models:
+//   'free' (default, NO key): server-side fetch from Pollinations (keyless).
+//   'gemini' (optional key) : Imagen via the Generative Language API; on missing
+//                             key OR any error → falls back to the 'free' path
+//                             and flags usedFallback. NEVER throws to the caller.
+// The prompt is always suffixed to bias toward a simple, centered pixel texture.
+// ---------------------------------------------------------------------------
+
+// Binary-safe HTTP(S) GET. Resolves { buffer, contentType } or null on any
+// failure (non-2xx, transport error, timeout). Collects raw bytes (no utf-8
+// decode) so image payloads survive intact.
+function getBinarySafe(url) {
+  return new Promise((resolve) => {
+    let lib = https;
+    try { lib = new URL(url).protocol === 'http:' ? http : https; } catch { /* default https */ }
+    const req = lib.get(url, { headers: { 'User-Agent': 'OmriCraft-Panel/1.0' } }, (res) => {
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        res.resume();
+        return resolve(null);
+      }
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve({
+        buffer: Buffer.concat(chunks),
+        contentType: String(res.headers['content-type'] || 'image/jpeg'),
+      }));
+    });
+    req.on('error', () => resolve(null));
+    req.setTimeout(30000, () => { req.destroy(); resolve(null); });
+  });
+}
+
+// Compose the texture-biased prompt used by every path.
+function texturePrompt(prompt) {
+  return `${String(prompt || '').trim()}, minecraft texture, pixel art, simple, centered`;
+}
+
+// FREE path (also the universal fallback): fetch one image from Pollinations
+// (keyless) and return it as a base64 data URL, or null on failure.
+async function pollinationsTexture(prompt) {
+  const url = 'https://image.pollinations.ai/prompt/'
+    + encodeURIComponent(texturePrompt(prompt))
+    + '?width=256&height=256&nologo=true';
+  const r = await getBinarySafe(url);
+  if (!r || !r.buffer.length) return null;
+  const mime = r.contentType.split(';')[0].trim() || 'image/jpeg';
+  return `data:${mime};base64,${r.buffer.toString('base64')}`;
+}
+
+// GEMINI path: POST the prompt to the Imagen endpoint and return the first
+// generated image as a base64 data URL. Throws on transport/HTTP/parse error so
+// the caller's try/catch can fall back to free.
+function geminiTexture(apiKey, prompt) {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify({
+      instances: [{ prompt: texturePrompt(prompt) }],
+      parameters: { sampleCount: 1, aspectRatio: '1:1' },
+    });
+    const options = {
+      hostname: 'generativelanguage.googleapis.com',
+      path: `/v1beta/models/imagen-3.0-generate-002:predict?key=${encodeURIComponent(apiKey)}`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+      timeout: 40000,
+    };
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          return reject(new Error(`Imagen HTTP ${res.statusCode}`));
+        }
+        try {
+          const j = JSON.parse(data);
+          const pred = Array.isArray(j?.predictions) ? j.predictions[0] : null;
+          const b64 = pred?.bytesBase64Encoded;
+          const mime = pred?.mimeType || 'image/png';
+          if (!b64) return reject(new Error('Imagen returned no image'));
+          resolve(`data:${mime};base64,${b64}`);
+        } catch (e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Imagen request timed out')); });
+    req.write(payload);
+    req.end();
+  });
+}
+
+exports.generateTexture = onCall(
+  { region: "us-central1", timeoutSeconds: 60 },
+  async (request) => {
+    assertAdmin(request);
+    const { prompt, model } = request.data || {};
+    const cleanPrompt = String(prompt || '').trim();
+    if (!cleanPrompt) {
+      throw new HttpsError('invalid-argument', 'prompt is required');
+    }
+
+    // FREE path (also the universal fallback).
+    const runFree = async () => {
+      const image = await pollinationsTexture(cleanPrompt);
+      if (!image) {
+        throw new HttpsError('unavailable', 'Image service unavailable, try again');
+      }
+      return { success: true, image, model: 'free', prompt: cleanPrompt };
+    };
+
+    if (String(model || 'free').toLowerCase() !== 'gemini') {
+      return await runFree();
+    }
+
+    // GEMINI path — graceful: empty key → free fallback (no throw); any error → free.
+    const key = readGeminiKey();
+    if (!key) {
+      const fb = await runFree();
+      return { ...fb, usedFallback: true, reason: 'no-gemini-key' };
+    }
+    try {
+      const image = await geminiTexture(key, cleanPrompt);
+      return { success: true, image, model: 'gemini', prompt: cleanPrompt };
+    } catch (error) {
+      console.error('generateTexture gemini path failed, falling back to free:', error);
+      const fb = await runFree();
+      return { ...fb, usedFallback: true, reason: 'gemini-error' };
+    }
+  }
+);

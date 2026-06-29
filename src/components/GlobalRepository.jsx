@@ -7,6 +7,7 @@ import {
 import { TYPE_COLORS } from '../lib/constants';
 import { addonDesc } from '../lib/addonI18n';
 import { suggestModpackFn } from '../lib/api';
+import AiTextureGenerator from './AiTextureGenerator';
 
 export default function GlobalRepository({ allAddons, customAddons, onAdd, onDelete, t, lang, userRole }) {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -263,6 +264,9 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
           )}
         </div>
       )}
+
+      {/* AI Texture Generator — sibling admin tool to the Modpack Builder. */}
+      {userRole === 'admin' && <AiTextureGenerator t={t} />}
 
       {showAddForm && (
         <form onSubmit={handleAdd} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-6 animate-in slide-in-from-top-4">

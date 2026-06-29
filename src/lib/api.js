@@ -50,3 +50,6 @@ export const removeDatapackFn = httpsCallable(functionsInstance, 'removeDatapack
 export const getPublicStatsFn = httpsCallable(functionsInstance, 'getPublicStats');
 // Admin-only Modpack Builder — theme → real Modrinth mods (free or Gemini-verified).
 export const suggestModpackFn = httpsCallable(functionsInstance, 'suggestModpack');
+// Admin-only AI Texture Generator — prompt → 256×256 image (free Pollinations or
+// Gemini/Imagen with graceful free fallback). Client downscales to 16×16.
+export const generateTextureFn = httpsCallable(functionsInstance, 'generateTexture');
