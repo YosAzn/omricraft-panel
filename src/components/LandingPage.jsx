@@ -264,21 +264,25 @@ const STAT_ACCENTS = {
     hover: 'hover:border-emerald-500/40 hover:shadow-emerald-900/20',
     chip: 'bg-emerald-500/10 text-emerald-400',
     value: 'from-white to-emerald-300',
+    watermark: 'text-emerald-500/[0.13]',
   },
   sky: {
     hover: 'hover:border-sky-500/40 hover:shadow-sky-900/20',
     chip: 'bg-sky-500/10 text-sky-400',
     value: 'from-white to-sky-300',
+    watermark: 'text-sky-500/[0.13]',
   },
   amber: {
     hover: 'hover:border-amber-500/40 hover:shadow-amber-900/20',
     chip: 'bg-amber-500/10 text-amber-400',
     value: 'from-white to-amber-300',
+    watermark: 'text-amber-500/[0.13]',
   },
   violet: {
     hover: 'hover:border-violet-500/40 hover:shadow-violet-900/20',
     chip: 'bg-violet-500/10 text-violet-400',
     value: 'from-white to-violet-300',
+    watermark: 'text-violet-500/[0.13]',
   },
 };
 
@@ -287,8 +291,12 @@ const STAT_ACCENTS = {
 function StatCard({ icon, value, label, live, liveLabel, accent = 'emerald' }) {
   const a = STAT_ACCENTS[accent] || STAT_ACCENTS.emerald;
   return (
-    <div className={`relative rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 sm:p-6 hover:shadow-2xl transition-all ${a.hover}`}>
-      <div className="flex items-center justify-between mb-3">
+    <div className={`relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 sm:p-6 hover:shadow-2xl transition-all ${a.hover}`}>
+      {/* Enlarged, semi-transparent watermark of the same icon — cloned bigger, cropped in the corner */}
+      <div className={`pointer-events-none absolute -bottom-5 -end-4 ${a.watermark} select-none`} aria-hidden="true">
+        {React.cloneElement(icon, { size: 132, strokeWidth: 1.5 })}
+      </div>
+      <div className="relative flex items-center justify-between mb-3">
         <div className={`inline-flex p-3 rounded-xl ${a.chip}`}>{icon}</div>
         {live && (
           <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-emerald-400">
@@ -300,10 +308,10 @@ function StatCard({ icon, value, label, live, liveLabel, accent = 'emerald' }) {
           </span>
         )}
       </div>
-      <div className={`text-4xl sm:text-5xl font-black tracking-tighter leading-none bg-gradient-to-b ${a.value} bg-clip-text text-transparent`}>
+      <div className={`relative text-4xl sm:text-5xl font-black tracking-tighter leading-none bg-gradient-to-b ${a.value} bg-clip-text text-transparent`}>
         {value}
       </div>
-      <p className="mt-2 text-sm text-zinc-400 leading-snug">{label}</p>
+      <p className="relative mt-2 text-sm text-zinc-400 leading-snug">{label}</p>
     </div>
   );
 }
