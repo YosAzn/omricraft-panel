@@ -30,8 +30,10 @@ const TEXTURE_TARGETS = [
 const PACK_FORMAT = 75;
 const PACK_SUPPORTED_FORMATS = { min_inclusive: 46, max_inclusive: 75 };
 
-export default function AiTextureGenerator({ t }) {
-  const [open, setOpen] = useState(false);
+// `open` is controlled by the parent (GlobalRepository) so this tool toggles
+// from the unified admin tool-button row, like the other tools — no internal
+// header toggle of its own.
+export default function AiTextureGenerator({ t, open = false }) {
   const [prompt, setPrompt] = useState('');
   const [model, setModel] = useState('free'); // 'free' | 'gemini'
   const [target, setTarget] = useState(TEXTURE_TARGETS[0].path);
@@ -118,20 +120,19 @@ export default function AiTextureGenerator({ t }) {
     }
   };
 
+  // Controlled by the parent: render nothing when closed, so the row button
+  // (not an internal toggle) drives visibility like the other admin tools.
+  if (!open) return null;
+
   return (
-    <div className="bg-zinc-900 border border-teal-500/30 rounded-xl mb-6 shadow-[0_0_15px_rgba(20,184,166,0.12)] overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-5 py-4 text-left hover:bg-zinc-800/40 transition-colors"
-      >
+    <div className="bg-zinc-900 border border-teal-500/30 rounded-xl mb-6 shadow-[0_0_15px_rgba(20,184,166,0.12)] overflow-hidden animate-in slide-in-from-top-4">
+      <div className="flex items-center gap-2 px-5 pt-4">
         <Palette size={20} className="text-teal-400" />
         <span className="font-bold text-teal-300">{t('textureGen')}</span>
         <Sparkles size={15} className="text-teal-400/60 ml-auto" />
-      </button>
+      </div>
 
-      {open && (
-        <div className="px-5 pb-5 animate-in slide-in-from-top-2">
+      <div className="px-5 pb-5 pt-3 animate-in slide-in-from-top-2">
           <p className="text-xs text-zinc-400 mb-4">{t('textureGenDesc')}</p>
 
           <div className="flex flex-col md:flex-row gap-3 mb-3">
@@ -219,8 +220,7 @@ export default function AiTextureGenerator({ t }) {
               </div>
             </div>
           )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
