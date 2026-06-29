@@ -5,8 +5,9 @@ import {
 } from 'lucide-react';
 import { listFilesFn, removePluginJarFn, reloadPluginFn } from '../../lib/api';
 import { TYPE_COLORS, getInstallMethod } from '../../lib/constants';
+import { addonDesc } from '../../lib/addonI18n';
 
-export default function AddonsTab({ server, toggleAddon, t, allAddons, userRole }) {
+export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, userRole }) {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [warning, setWarning] = useState(null);
@@ -87,10 +88,14 @@ export default function AddonsTab({ server, toggleAddon, t, allAddons, userRole 
   availableFilters.push({ id: 'datapacks', name: t('datapacks') });
   availableFilters.push({ id: 'textures', name: t('textures') });
 
-  const displayAddons = relevantAddons.filter(a =>
-    (filter === 'all' || a.type === filter) &&
-    (a.name.toLowerCase().includes(search.toLowerCase()) || a.desc.toLowerCase().includes(search.toLowerCase()))
-  );
+  const displayAddons = relevantAddons.filter(a => {
+    const localized = addonDesc(a.id, lang, a.desc) || '';
+    const q = search.toLowerCase();
+    return (filter === 'all' || a.type === filter) &&
+      (a.name.toLowerCase().includes(q) ||
+       a.desc.toLowerCase().includes(q) ||
+       localized.toLowerCase().includes(q));
+  });
 
   const handleToggle = (item) => {
     const isInstalled = server.installedAddons.includes(item.id);
@@ -221,7 +226,7 @@ export default function AddonsTab({ server, toggleAddon, t, allAddons, userRole 
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-zinc-400 mt-2 leading-relaxed">{item.desc}</p>
+                  <p className="text-sm text-zinc-400 mt-2 leading-relaxed">{addonDesc(item.id, lang, item.desc)}</p>
                   <div className="flex items-center gap-1 text-[11px] text-yellow-500 mt-2">
                     <Star size={12} fill="currentColor"/>
                     <span className="font-bold">{item.rating || '5.0'}</span>

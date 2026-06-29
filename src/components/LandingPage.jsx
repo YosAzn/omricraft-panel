@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Server, Globe, Library, Shield, Sparkles, Boxes, Puzzle,
+  Server, Library, Shield, Sparkles, Boxes, Puzzle,
   Gift, SlidersHorizontal, ArrowRight, MousePointerClick, Plug, Gamepad2, LogIn, Users
 } from 'lucide-react';
 import { getPublicStatsFn } from '../lib/api';
 import SideCreepers from './SideCreepers';
+import LanguageSelector from './LanguageSelector';
 
 // Public, no-auth-required landing page. The first thing a visitor sees.
 // Matches (and elevates) the app's zinc-950 / emerald glass language.
@@ -73,14 +74,12 @@ export default function LandingPage({
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => setLang(lang === 'he' ? 'en' : 'he')}
-              className="text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5 text-sm px-2.5 py-2 rounded-full hover:bg-zinc-800/60"
+            <LanguageSelector
+              lang={lang}
+              setLang={setLang}
               title={t('language')}
-            >
-              <Globe size={16} />
-              <span className="uppercase font-bold text-xs">{lang === 'he' ? 'EN' : 'HE'}</span>
-            </button>
+              className="px-2.5 py-2 rounded-full hover:bg-zinc-800/60"
+            />
 
             {authUser && (isAdmin || !authUser.isAnonymous) ? (
               <div className="flex items-center gap-2">

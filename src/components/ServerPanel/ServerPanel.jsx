@@ -13,7 +13,7 @@ import FilesTab from './FilesTab';
 import SettingsTab from './SettingsTab';
 import BackupsTab from './BackupsTab';
 
-export default function ServerPanel({ server, onBack, toggleStatus, restartServer, toggleAddon, onDelete, updateServer, t, allAddons, userRole, mcVersions, versionMatrix = {}, syncStatus, playersData }) {
+export default function ServerPanel({ server, onBack, toggleStatus, restartServer, toggleAddon, onDelete, updateServer, t, lang, allAddons, userRole, mcVersions, versionMatrix = {}, syncStatus, playersData }) {
   const [activeTab, setActiveTab] = useState('overview');
   const hasMapPlugin = server.installedAddons.includes('p9');
 
@@ -110,7 +110,7 @@ export default function ServerPanel({ server, onBack, toggleStatus, restartServe
           {activeTab === 'overview' && <OverviewTab server={server} t={t} playersLive={(playersData || {})[server.id]} />}
           {activeTab === 'map' && <MapTab server={server} t={t} />}
           {activeTab === 'console' && <ConsoleTab server={server} t={t} userRole={userRole} />}
-          {activeTab === 'addons' && <AddonsTab server={server} toggleAddon={toggleAddon} t={t} allAddons={allAddons} userRole={userRole} />}
+          {activeTab === 'addons' && <AddonsTab server={server} toggleAddon={toggleAddon} t={t} lang={lang} allAddons={allAddons} userRole={userRole} />}
           {activeTab === 'files' && <FilesTab server={server} t={t} userRole={userRole} />}
           {activeTab === 'backups' && userRole === 'admin' && <BackupsTab server={server} t={t} userRole={userRole} syncStatus={syncStatus} />}
           {activeTab === 'settings' && userRole === 'admin' && <SettingsTab server={server} onDelete={onDelete} updateServer={updateServer} t={t} mcVersions={mcVersions} versionMatrix={versionMatrix} />}

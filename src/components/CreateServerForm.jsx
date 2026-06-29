@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { ArrowLeft, Play, Search, Check, Shield } from 'lucide-react';
 
 import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType } from '../lib/constants';
+import { addonDesc } from '../lib/addonI18n';
 import { isViaVersion } from '../lib/utils';
 import ImageUploader from './ImageUploader';
 
-export default function CreateServerForm({ onCancel, onCreate, allAddons, t, userRole, mcVersions, versionMatrix = {}, isCreatingServer = false }) {
+export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lang, userRole, mcVersions, versionMatrix = {}, isCreatingServer = false }) {
   const [name, setName] = useState('');
   const [icon, setIcon] = useState(null);
   const [software, setSoftware] = useState('paper');
@@ -44,10 +45,13 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, use
   });
 
   // סינון התוספים לפי החיפוש
-  const searchedAddons = relevantAddons.filter(a =>
-    a.name.toLowerCase().includes(addonSearch.toLowerCase()) ||
-    (a.desc && a.desc.toLowerCase().includes(addonSearch.toLowerCase()))
-  );
+  const searchedAddons = relevantAddons.filter(a => {
+    const localized = addonDesc(a.id, lang, a.desc) || '';
+    const q = addonSearch.toLowerCase();
+    return a.name.toLowerCase().includes(q) ||
+      (a.desc && a.desc.toLowerCase().includes(q)) ||
+      localized.toLowerCase().includes(q);
+  });
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -287,7 +291,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, use
                             {t(a.type)}
                           </span>
                         </div>
-                        <span className="text-xs text-zinc-400 mt-2 block leading-relaxed">{a.desc}</span>
+                        <span className="text-xs text-zinc-400 mt-2 block leading-relaxed">{addonDesc(a.id, lang, a.desc)}</span>
                         {!installable && (
                           <span className="text-[11px] text-zinc-500 mt-1.5 block leading-relaxed">
                             {installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo')}

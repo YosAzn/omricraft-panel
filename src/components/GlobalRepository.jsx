@@ -5,8 +5,9 @@ import {
 } from 'lucide-react';
 
 import { TYPE_COLORS } from '../lib/constants';
+import { addonDesc } from '../lib/addonI18n';
 
-export default function GlobalRepository({ allAddons, customAddons, onAdd, onDelete, t, userRole }) {
+export default function GlobalRepository({ allAddons, customAddons, onAdd, onDelete, t, lang, userRole }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showModpackForm, setShowModpackForm] = useState(false);
   const [selectedAddon, setSelectedAddon] = useState(null);
@@ -31,10 +32,14 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
   const [qaType, setQaType] = useState('mods');
   const [qaUrl, setQaUrl] = useState('');
 
-  const filtered = allAddons.filter(a => 
-    (filter === 'all' || a.type === filter) &&
-    (a.name.toLowerCase().includes(search.toLowerCase()) || a.desc.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtered = allAddons.filter(a => {
+    const localized = addonDesc(a.id, lang, a.desc) || '';
+    const q = search.toLowerCase();
+    return (filter === 'all' || a.type === filter) &&
+      (a.name.toLowerCase().includes(q) ||
+       (a.desc || '').toLowerCase().includes(q) ||
+       localized.toLowerCase().includes(q));
+  });
 
   const handleAdd = (e) => {
     e.preventDefault();
@@ -250,7 +255,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
                         {t(a.type) || a.type}
                      </span>
                   </div>
-                  <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2 group-hover:line-clamp-none transition-all">{a.desc}</p>
+                  <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2 group-hover:line-clamp-none transition-all">{addonDesc(a.id, lang, a.desc)}</p>
                   
                   <div className="flex items-center gap-1 text-[11px] text-yellow-500 mt-2">
                     <Star size={12} fill="currentColor"/>
@@ -290,7 +295,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
             </div>
             
             <p className="text-zinc-300 text-sm leading-relaxed mb-6 bg-zinc-950 p-4 rounded-xl border border-zinc-800">
-              {selectedAddon.desc}
+              {addonDesc(selectedAddon.id, lang, selectedAddon.desc)}
             </p>
 
             <div className="flex items-center justify-between text-sm text-zinc-400 mb-6 px-2">

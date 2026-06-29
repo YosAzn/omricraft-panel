@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Server, Globe, Library, Shield, Users, Activity } from 'lucide-react';
+import { Server, Library, Shield, Users, Activity } from 'lucide-react';
 
 import { signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
@@ -10,7 +10,7 @@ import {
   stopServerFn, getPaperVersionsFn, getVersionMatrixFn,
   installPluginFn, installDatapackFn, installModFn, installResourcepackFn, getPlayersOnlineFn, restartServerFn
 } from './lib/api';
-import { DICT } from './lib/i18n';
+import { DICT, translate, dirForLang } from './lib/i18n';
 import { DEFAULT_ADDONS, getInstallMethod } from './lib/constants';
 import { NavBtn } from './components/ui';
 import Dashboard from './components/Dashboard';
@@ -19,6 +19,7 @@ import GlobalRepository from './components/GlobalRepository';
 import ServerPanel from './components/ServerPanel/ServerPanel';
 import HealthTab from './components/HealthTab';
 import LandingPage from './components/LandingPage';
+import LanguageSelector from './components/LanguageSelector';
 import SideCreepers from './components/SideCreepers';
 
 export default function App() {
@@ -31,8 +32,11 @@ export default function App() {
   const [adminUid, setAdminUid] = useState(null);
   const [userRole, setUserRole] = useState('member');
   const [lang, setLang] = useState('he');
-  const t = (key) => DICT[lang][key] || key;
-  const isRtl = lang === 'he';
+  // translate() falls back current lang -> en -> he -> key, so the 8 partial
+  // languages never render blank while their dictionaries are still empty.
+  const t = (key) => translate(lang, key);
+  const dir = dirForLang(lang); // 'rtl' for he & ar, 'ltr' otherwise
+  const isRtl = dir === 'rtl';
 
   // Public landing page is the DEFAULT entry view — the first thing a visitor sees.
   // Anonymous visitors can browse it; CTAs route into the existing dashboard/create/repo.
@@ -223,6 +227,14 @@ export default function App() {
   // self-promote in the UI). The Cloud Functions independently enforce admin server-side;
   // this only gates which controls render.
   useEffect(() => { setUserRole(isAdmin ? 'admin' : 'member'); }, [isAdmin]);
+
+  // Reflect the active language's text direction onto the document root so the
+  // whole app — including any portal/modal rendered to <body> — flips correctly
+  // for RTL languages (he & ar). The per-view <div dir=...> stays as a fallback.
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = dir;
+  }, [lang, dir]);
 
   // The חמ"ל view is admin-only. If admin rights are lost (e.g. sign-out) while
   // on that view, fall back to the dashboard so the user never sees a blank page.
@@ -735,7 +747,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans" dir={isRtl ? "rtl" : "ltr"}>
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans" dir={dir}>
       {/* Faint edge decoration behind ALL content (fixed, z-0, pointer-events:none) */}
       <SideCreepers />
       <nav className="bg-zinc-900 border-b border-zinc-800 p-4 sticky top-0 z-20 shadow-lg">
@@ -764,9 +776,7 @@ export default function App() {
               <span className="hidden sm:inline">{userRole === 'admin' ? t('roleAdmin') : t('roleMember')}</span>
             </div>
 
-            <button onClick={() => setLang(lang === 'he' ? 'en' : 'he')} className="text-zinc-400 hover:text-white transition-colors flex items-center gap-1 text-sm px-2 py-1.5 rounded-full" title={t('language')}>
-              <Globe size={16} /> <span className="uppercase font-bold text-xs">{lang === 'he' ? 'EN' : 'HE'}</span>
-            </button>
+            <LanguageSelector lang={lang} setLang={setLang} title={t('language')} className="px-2 py-1.5 rounded-full" />
 
             {isAdmin && adminEmail ? (
               <div className="flex items-center gap-2">
@@ -801,6 +811,7 @@ export default function App() {
         {currentView === 'create' && (
           <CreateServerForm
             t={t}
+            lang={lang}
             allAddons={allAddons}
             userRole={userRole}
             mcVersions={mcVersions}
@@ -813,7 +824,7 @@ export default function App() {
 
         {currentView === 'server' && activeServer && (
           <ServerPanel
-            server={activeServer} t={t} allAddons={allAddons} userRole={userRole} mcVersions={mcVersions} versionMatrix={versionMatrix}
+            server={activeServer} t={t} lang={lang} allAddons={allAddons} userRole={userRole} mcVersions={mcVersions} versionMatrix={versionMatrix}
             onBack={() => setCurrentView('dashboard')}
             toggleStatus={() => toggleServerStatus(activeServer.id)}
             restartServer={() => restartServer(activeServer.id)}
@@ -827,7 +838,7 @@ export default function App() {
 
         {currentView === 'repository' && (
           <GlobalRepository
-            t={t} allAddons={allAddons} customAddons={customAddons} userRole={userRole}
+            t={t} lang={lang} allAddons={allAddons} customAddons={customAddons} userRole={userRole}
             onAdd={handleAddCustomAddon}
             onDelete={handleDeleteCustomAddon}
           />
