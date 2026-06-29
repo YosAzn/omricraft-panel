@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Palette, Sparkles, Loader2, Download, Image as ImageIcon } from 'lucide-react';
 import JSZip from 'jszip';
 import { generateTextureFn } from '../lib/api';
@@ -20,13 +20,15 @@ const TEXTURE_TARGETS = [
   { label: 'TNT',            path: 'block/tnt_side' },
   { label: 'Diamond Sword',  path: 'item/diamond_sword' },
   { label: 'Bow',            path: 'item/bow' },
-  { label: 'Shield',         path: 'item/shield' },
   { label: 'Apple',          path: 'item/apple' },
   { label: 'Bread',          path: 'item/bread' },
 ];
 
-// Current resource-pack format. 34 ≈ MC 1.21.x; the panel targets modern packs.
-const PACK_FORMAT = 34;
+// Resource-pack format. 75 = MC 1.21.11 (the panel's target version).
+// (34 = 1.21.0–1.21.1, 46 = 1.21.4, 75 = 1.21.11.) supported_formats widens the
+// band so 1.21.x clients don't warn "made for an older version of Minecraft".
+const PACK_FORMAT = 75;
+const PACK_SUPPORTED_FORMATS = { min_inclusive: 46, max_inclusive: 75 };
 
 export default function AiTextureGenerator({ t }) {
   const [open, setOpen] = useState(false);
@@ -56,6 +58,14 @@ export default function AiTextureGenerator({ t }) {
     img.src = dataUrl;
   };
 
+  // Pixelate AFTER the canvas mounts. On the first generation the canvas is gated
+  // behind {rawImage && ...}, so it isn't in the DOM when handleGenerate runs —
+  // driving it from an effect guarantees canvasRef.current is set before drawing.
+  useEffect(() => {
+    if (rawImage) renderPixelated(rawImage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawImage]);
+
   const handleGenerate = async () => {
     if (!prompt.trim() || loading) return;
     setLoading(true);
@@ -69,7 +79,6 @@ export default function AiTextureGenerator({ t }) {
       if (!data?.success || !data?.image) throw new Error(data?.error || t('textureGenError'));
       setUsedFallback(!!data.usedFallback);
       setRawImage(data.image);
-      renderPixelated(data.image);
     } catch (e) {
       console.error('AI texture generation failed:', e);
       setError(e?.message || t('textureGenError'));
@@ -87,7 +96,11 @@ export default function AiTextureGenerator({ t }) {
       if (!blob) throw new Error(t('textureGenError'));
       const zip = new JSZip();
       zip.file('pack.mcmeta', JSON.stringify({
-        pack: { pack_format: PACK_FORMAT, description: 'OmriCraft AI texture' },
+        pack: {
+          pack_format: PACK_FORMAT,
+          supported_formats: PACK_SUPPORTED_FORMATS,
+          description: 'OmriCraft AI texture',
+        },
       }, null, 2));
       zip.file(`assets/minecraft/textures/${target}.png`, blob);
       const out = await zip.generateAsync({ type: 'blob' });

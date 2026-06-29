@@ -55,7 +55,7 @@ export default function HealthTab({ t = (k) => k, isAdmin = false }) {
   const groups = {};
   issues.forEach((iss) => {
     const k = iss.serverId || '—';
-    if (!groups[k]) groups[k] = { serverName: iss.serverName || k, items: [] };
+    if (!groups[k]) groups[k] = { serverName: iss.serverName || k, serverSlug: iss.serverSlug || null, items: [] };
     groups[k].items.push(iss);
   });
   const groupKeys = Object.keys(groups);
@@ -144,6 +144,9 @@ export default function HealthTab({ t = (k) => k, isAdmin = false }) {
               <div className="flex items-center gap-2 mb-2 text-sm font-bold text-zinc-300">
                 <span className="w-1.5 h-4 bg-zinc-700 rounded-full" />
                 {groups[gk].serverName}
+                {groups[gk].serverSlug && groups[gk].serverSlug !== groups[gk].serverName && (
+                  <span className="text-teal-500/70 font-mono text-xs" dir="ltr">({groups[gk].serverSlug})</span>
+                )}
                 <span className="text-zinc-600 font-mono text-xs" dir="ltr">{gk}</span>
               </div>
               <div className="space-y-2">

@@ -1768,7 +1768,10 @@ exports.suggestModpack = onCall(
 //   'free' (default, NO key): server-side fetch from Pollinations (keyless).
 //   'gemini' (optional key) : Imagen via the Generative Language API; on missing
 //                             key OR any error → falls back to the 'free' path
-//                             and flags usedFallback. NEVER throws to the caller.
+//                             and flags usedFallback. Throws only on an empty
+//                             prompt (invalid-argument) or when the image backend
+//                             itself is unavailable (unavailable) — never for a
+//                             Gemini miss, which always degrades to free.
 // The prompt is always suffixed to bias toward a simple, centered pixel texture.
 // ---------------------------------------------------------------------------
 
