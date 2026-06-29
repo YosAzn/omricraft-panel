@@ -90,9 +90,11 @@ const FIGURES = [
     key: 'creeper-tnt',
     stroke: '#22c55e',
     face: 'rgba(34,197,94,0.14)',
-    // Tight frame around the creeper body (x278..402) plus the TNT block that now
-    // sits at its FEET to the right (reaches ~x470). Generous top/bottom headroom
-    // for the walk + float + glow so nothing clips.
+    // Tight frame around the creeper body (scaled legs reach ~x393) plus ONE TNT
+    // block standing ON THE FLOOR just right of the right leg. The TntBlock local
+    // space is x150..270 / y88..208; at scale 0.66 it reads at ~half the body width.
+    // translate(297,222): block-bottom (local y208) lands on the floor (~y359) and
+    // its right edge reaches ~x475. Generous top/bottom headroom for float + glow.
     viewBox: '258 4 232 362',
     render: ({ glowId, tntGlowId }) => (
       <>
@@ -101,8 +103,9 @@ const FIGURES = [
             <CreeperBody />
           </g>
         </g>
-        {/* TNT sits AT the creeper's feet, beside the leg rects (bottom-aligned) */}
-        <g className="cfloat" transform="translate(302,215) scale(0.62)">
+        {/* ONE TNT on the floor at the creeper's feet, bottom-aligned with the legs
+            (~y359), immediately right of the right leg — clearly visible + labelled */}
+        <g className="cfloat" transform="translate(297,222) scale(0.66)">
           <Tnt tntGlowId={tntGlowId} />
         </g>
       </>
@@ -127,6 +130,7 @@ const FIGURES = [
     key: 'sheep',
     stroke: '#eef2f7',
     face: 'rgba(238,242,247,0.10)',
+    walks: true,
     // Tightened so the sheep renders as large/prominent as the creeper. Frame the
     // figure (x120..244 / y124..210) snugly with float+glow headroom top/bottom.
     viewBox: '104 84 158 172',
@@ -159,6 +163,7 @@ const FIGURES = [
     key: 'pig',
     stroke: '#f9a8d4',
     face: 'rgba(249,168,212,0.12)',
+    walks: true,
     // Tightened to match the creeper's prominence. Content x384..550 / y124..210;
     // frame snugly with headroom for the walk + float + glow.
     viewBox: '366 84 200 172',
@@ -190,6 +195,7 @@ const FIGURES = [
     key: 'steve',
     stroke: '#eef2f7',
     face: 'rgba(238,242,247,0.10)',
+    walks: true,
     // Tightened so Steve renders as large as the creeper. Content x180..332 /
     // y30..336; padded for the swinging arm/pickaxe + walk + float + glow so the
     // head & raised pickaxe never clip.
@@ -228,28 +234,39 @@ const FIGURES = [
   },
   {
     key: 'multi-tnt',
-    stroke: '#f87171',
-    face: 'rgba(248,113,113,0.12)',
-    // A little pile of three TNT blocks: two on the ground + one resting on top.
-    // Each block is the shared TntBlock primitive (local x150..270 / y88..208 ≈
-    // 120×120). Placed content spans ~x131..318 / y90..289; frame snugly with
-    // float + glow headroom on all sides.
-    viewBox: '116 64 206 254',
-    render: ({ tntGlowId }) => (
-      <g filter={`url(#${tntGlowId})`} className="cfloat">
-        {/* ground-left block (full size, only this one keeps the label) */}
-        <g transform="translate(8,118) scale(0.82)">
-          <TntBlock showLabel />
+    stroke: '#22c55e',
+    face: 'rgba(34,197,94,0.14)',
+    // A creeper SURROUNDED by 3 TNT blocks at its feet (stays put — no walk).
+    // CreeperBody is scaled 1.1x like the other creepers (legs land at ~x287..393,
+    // floor ~y359). Three TntBlock instances (local x150..270 / y88..208) cluster at
+    // the base: LEFT of the legs (~x180..247), RIGHT of the legs (~x393..460), and
+    // one slightly FORWARD + lower at center (~x300..372). All bottom-aligned near
+    // the floor and ALL labelled. Wide viewBox frames the whole base + glow headroom.
+    viewBox: '156 0 328 392',
+    render: ({ glowId, tntGlowId }) => (
+      <>
+        {/* TNT to the LEFT and RIGHT of the legs (drawn behind/beside the body) */}
+        <g filter={`url(#${tntGlowId})`} className="cfloat">
+          <g transform="translate(98,246) scale(0.55)">
+            <TntBlock showLabel />
+          </g>
+          <g transform="translate(311,246) scale(0.55)">
+            <TntBlock showLabel />
+          </g>
         </g>
-        {/* ground-right block, a touch smaller, overlapping to the right */}
-        <g transform="translate(118,128) scale(0.74)">
-          <TntBlock showLabel={false} />
+        {/* the creeper itself — same 1.1x enlargement as the other creepers */}
+        <g filter={`url(#${glowId})`} className="cfloat">
+          <g transform="translate(340,198) scale(1.1) translate(-340,-198)">
+            <CreeperBody />
+          </g>
         </g>
-        {/* top block resting on the seam between the two */}
-        <g transform="translate(66,28) scale(0.7)">
-          <TntBlock showLabel={false} />
+        {/* third TNT slightly FORWARD + lower at center, painted on top of the legs */}
+        <g filter={`url(#${tntGlowId})`} className="cfloat">
+          <g transform="translate(210,247) scale(0.6)">
+            <TntBlock showLabel />
+          </g>
         </g>
-      </g>
+      </>
     ),
   },
 ];
@@ -408,8 +425,11 @@ export default function SideCreepers() {
            so left exits to the screen-left and right exits to the screen-right.
            A subtle body rock is layered in for a walking feel. Left & right are
            staggered (different durations) so they don't step in lockstep. */
-        .side-creepers .oc-side.left svg { animation: ocWalk 13s ease-in-out infinite; }
-        .side-creepers .oc-side.right svg { animation: ocWalk 15.5s ease-in-out 1.5s infinite; }
+        /* Only WALKING figures (animals + Steve) walk off-screen and back. Creepers
+           carry/are-surrounded-by TNT and must STAY PUT — they get the float bob
+           only. The walk class is added to the side wrapper per current figure. */
+        .side-creepers .oc-side.left.walk svg { animation: ocWalk 13s ease-in-out infinite; }
+        .side-creepers .oc-side.right.walk svg { animation: ocWalk 15.5s ease-in-out 1.5s infinite; }
 
         /* staggered draw-in delays (drive both the draw + the flash) */
         .side-creepers .ln.d1 { animation-delay: 0s, 1.6s; }
@@ -470,10 +490,10 @@ export default function SideCreepers() {
         }
       `}</style>
 
-      <div className="oc-side left">
+      <div className={`oc-side left${leftFig.walks ? ' walk' : ''}`}>
         <Figure key={`left-${left}-${tick}`} fig={leftFig} side="l" />
       </div>
-      <div className="oc-side right">
+      <div className={`oc-side right${rightFig.walks ? ' walk' : ''}`}>
         <Figure key={`right-${right}-${tick}`} fig={rightFig} side="r" />
       </div>
     </div>
