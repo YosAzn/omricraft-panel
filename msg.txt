@@ -1,0 +1,17 @@
+feat(client-req): tell players which client loader to install per server type
+
+Modded server types (Fabric/Forge/NeoForge/Mohist) need a matching client
+loader on the PLAYER's PC to join — we can't install on their machine. Add
+clear, version-aware guidance + official download links; reassure that
+vanilla/Bukkit types need no client mod.
+
+- constants: CLIENT_LOADERS map (all 8 types) + getClientLoader()
+- ClientRequirements.jsx: reusable collapsible "how players join" card (he+en)
+- CreateServerForm: shows the card up front for modded types (creator sees it)
+- OverviewTab: card the owner can read & share with players
+- Q7 manual installs: manual datapacks (Vanilla Tweaks, Nether Portal Coords)
+  now carry a downloadUrl and render the same "download for your PC" link as
+  client items, in the create-form addon picker
+- i18n: he+en strings (other langs fall back via translate())
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

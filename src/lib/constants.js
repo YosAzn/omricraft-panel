@@ -38,6 +38,30 @@ export const SOFTWARE_TYPES = [
   { id: 'mohist',    name: 'Mohist',    type: 'hybrid',   desc: 'Forge + Bukkit plugins יחד' },
 ];
 
+// --- Client (player-side) loader requirements per server type ---
+// The SERVER-side loader is auto-installed on the VPS. This map tells the PLAYER
+// what THEY need on their own PC to JOIN the server — we can't touch their machine.
+//   needsLoader:false → join with the normal vanilla client (plugins are server-side).
+//   needsLoader:true  → install the matching loader for the server's MC version
+//                       (the UI states the exact version the build must match).
+//   conditional:true  → Mohist hybrid: Forge client only for Forge MODS; plain
+//                       vanilla is enough for Bukkit PLUGINS.
+// `label` is shown verbatim; `noteKey` resolves an i18n string for the longer note.
+export const CLIENT_LOADERS = {
+  vanilla:  { label: 'Vanilla',  installerUrl: null,                                  needsLoader: false, noteKey: 'clientReqVanilla' },
+  paper:    { label: 'Vanilla',  installerUrl: null,                                  needsLoader: false, noteKey: 'clientReqVanilla' },
+  purpur:   { label: 'Vanilla',  installerUrl: null,                                  needsLoader: false, noteKey: 'clientReqVanilla' },
+  folia:    { label: 'Vanilla',  installerUrl: null,                                  needsLoader: false, noteKey: 'clientReqVanilla' },
+  fabric:   { label: 'Fabric Loader (+ Fabric API)', installerUrl: 'https://fabricmc.net/use/installer/',  needsLoader: true,  noteKey: 'clientReqFabric' },
+  forge:    { label: 'Forge',    installerUrl: 'https://files.minecraftforge.net/',   needsLoader: true,  noteKey: 'clientReqForge' },
+  neoforge: { label: 'NeoForge', installerUrl: 'https://neoforged.net/',              needsLoader: true,  noteKey: 'clientReqNeoForge' },
+  mohist:   { label: 'Forge',    installerUrl: 'https://files.minecraftforge.net/',   needsLoader: true,  conditional: true, noteKey: 'clientReqMohist' },
+};
+
+// Returns the client-loader requirement for a software type (defaults to vanilla/no-loader).
+export const getClientLoader = (software) =>
+  CLIENT_LOADERS[software] || CLIENT_LOADERS.vanilla;
+
 // Per-type version allow-list. When a software type can only run a subset of MC
 // versions, list them here; the create form (and SettingsTab) intersect the global
 // version list with this. Mohist only publishes builds for 1.20.1 (no 1.21.x), so
@@ -140,12 +164,12 @@ export const DEFAULT_ADDONS = [
 
   // --- Datapacks ---
   // installMethod: 'server' = מותקן בשרת דרך installDatapack endpoint. 'manual' = אין URL מתארח → הורדה ידנית.
-  { id: 'd1', name: 'Vanilla Tweaks', desc: 'אוסף שיפורים קטנים ונוחים למשחק הרגיל', type: 'datapacks', installMethod: 'manual', downloads: '2M', rating: 4.8, reviews: 3200 },
+  { id: 'd1', name: 'Vanilla Tweaks', desc: 'אוסף שיפורים קטנים ונוחים למשחק הרגיל', type: 'datapacks', installMethod: 'manual', downloadUrl: 'https://vanillatweaks.net/picker/datapacks/', downloads: '2M', rating: 4.8, reviews: 3200 },
   { id: 'd2', name: 'Terralith', desc: 'משנה לחלוטין את יצירת העולם, ביומות והרים ללא בלוקים חדשים (datapack של worldgen — עובד רק על Vanilla/Fabric/Forge/NeoForge; שרתי Bukkit כמו Paper/Purpur/Folia מתעלמים מביומות worldgen של datapack, וצריך להחיל אותו על עולם חדש)', type: 'datapacks', installMethod: 'server', modrinthSlug: 'terralith', worldgenOverhaul: true, downloads: '4M', rating: 4.7, reviews: 5100 },
   { id: 'd4', name: 'Multiplayer Sleep', desc: 'מספיק שחקן אחד במיטה כדי להעביר את הלילה', type: 'datapacks', installMethod: 'server', modrinthSlug: 'serversleep', downloads: '3M', rating: 4.9, reviews: 4500 },
   { id: 'd6', name: 'Mini Blocks', desc: 'מאפשר להשיג גרסאות מיניאטוריות של בלוקים כראשים (datapack של function/loot — פועל על כל סוג שרת שתומך datapacks, כולל Paper)', type: 'datapacks', installMethod: 'server', modrinthSlug: 'mini-blocks-datapack', downloads: '1.5M', rating: 4.6, reviews: 1200 },
   { id: 'd7', name: 'Wandering Trades', desc: 'משפר את החפצים שמוכר הסוחר הנודד ומציע בלוקים מיניאטוריים', type: 'datapacks', installMethod: 'server', modrinthSlug: 'better-wanderingtraders', downloads: '1.2M', rating: 4.5, reviews: 900 },
-  { id: 'd8', name: 'Nether Portal Coords', desc: 'מסייע בחישוב מדויק של מיקומי פורטלים בנדר', type: 'datapacks', installMethod: 'manual', downloads: '800K', rating: 4.7, reviews: 600 },
+  { id: 'd8', name: 'Nether Portal Coords', desc: 'מסייע בחישוב מדויק של מיקומי פורטלים בנדר', type: 'datapacks', installMethod: 'manual', downloadUrl: 'https://modrinth.com/datapack/nether-portal-coords', downloads: '800K', rating: 4.7, reviews: 600 },
   { id: 'd9', name: 'Coordinates HUD', desc: 'מציג קואורדינטות וזמן בצורה נוחה מעל ה-Hotbar', type: 'datapacks', installMethod: 'server', modrinthSlug: 'hotbarcoordinates', downloads: '2.5M', rating: 4.8, reviews: 2200 },
   { id: 'd10', name: 'Player Head Drops', desc: 'שחקנים מפילים את הראש שלהם כשהם מתים מחיצים או שחקנים', type: 'datapacks', installMethod: 'server', modrinthSlug: 'player-drops-head', downloads: '2.1M', rating: 4.6, reviews: 1700 },
   { id: 'd11', name: 'More Mob Heads', desc: 'כל המובים במשחק יכולים להפיל את הראש שלהם למטרות קישוט', type: 'datapacks', installMethod: 'server', modrinthSlug: 'mob-heads', downloads: '2.8M', rating: 4.7, reviews: 2500 },

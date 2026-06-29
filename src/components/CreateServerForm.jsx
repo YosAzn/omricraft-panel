@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Play, Search, Check, Shield } from 'lucide-react';
 
-import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType, isBukkitBased, isWorldgenDatapack } from '../lib/constants';
+import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType, isBukkitBased, isWorldgenDatapack, getClientLoader } from '../lib/constants';
 import { addonDesc } from '../lib/addonI18n';
 import { isViaVersion } from '../lib/utils';
 import ImageUploader from './ImageUploader';
 import { ClientDownloadLink, ClientDepsChooser } from './AddonClientExtras';
+import ClientRequirements from './ClientRequirements';
 
 export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lang, userRole, isAdmin = false, mcVersions, versionMatrix = {}, isCreatingServer = false }) {
   const [name, setName] = useState('');
@@ -171,6 +172,13 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                   שים לב: זו גרסה חדשה יותר ממה ש-Paper בנה. כאן תקבל את <b>התוכן</b> המלא של {version}. (Paper מוגבל ל-1.21.11; לתוכן 26.x בחר Purpur/Fabric.)
                 </p>
               )}
+              {/* Tell the creator up front what loader players will need on their PC —
+                  only for modded types (vanilla/Bukkit need no client loader). */}
+              {getClientLoader(software).needsLoader && (
+                <div className="mt-3">
+                  <ClientRequirements type={software} version={version} t={t} defaultOpen compact />
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-bold text-zinc-400 mb-2">{t('gamemode')}</label>
@@ -310,6 +318,9 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                             {t(a.type)}
                           </span>
                           {installMethod === 'client' && a.clientUrl && <ClientDownloadLink url={a.clientUrl} t={t} />}
+                          {/* Manual items (e.g. datapacks/modpacks that can't auto-install) get the
+                              same "download for your PC" link when a source URL exists. */}
+                          {installMethod === 'manual' && a.downloadUrl && <ClientDownloadLink url={a.downloadUrl} t={t} />}
                         </div>
                         <span className="text-xs text-zinc-400 mt-2 block leading-relaxed">{addonDesc(a.id, lang, a.desc)}</span>
                         {worldgenBlocked && (

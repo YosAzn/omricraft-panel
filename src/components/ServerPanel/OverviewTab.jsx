@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users } from 'lucide-react';
 import { getServerStatsFn } from '../../lib/api';
+import ClientRequirements from '../ClientRequirements';
 
 // Maps every worldType value (matches the create/settings <select>) to its i18n key.
 const WORLD_TYPE_KEYS = {
@@ -76,6 +77,10 @@ export default function OverviewTab({ server, t, playersLive }) {
           </div>
         </div>
       </div>
+
+      {/* What players need on THEIR PC to join — collapsible, owner can read & share.
+          Vanilla/Bukkit show a reassuring "no loader needed"; modded show the loader + link. */}
+      <ClientRequirements type={server.software} version={server.version} t={t} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-xl">
