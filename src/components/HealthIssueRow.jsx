@@ -65,6 +65,28 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false }) {
     setFixing(false);
   };
 
+  // Remove one specific installed datapack — used by the per-file buttons the
+  // diagnostics attaches via issue.removableDatapacks when the log named no file.
+  const removeOne = async (file) => {
+    if (fixing) return;
+    const ok = window.confirm(
+      `למחוק את ה-datapack "${file}" מהשרת "${issue.serverName}"?\n\nהקובץ יימחק מתיקיית world/datapacks. לא ניתן לבטל.`
+    );
+    if (!ok) return;
+    setFixing(true);
+    try {
+      const res = await removeDatapackFn({ serverId: issue.serverId, file });
+      const d = res.data || res;
+      if (!d.success) throw new Error(d.error || 'הפעולה נכשלה');
+      if (d.note) alert(d.note);
+      if (typeof onFixed === 'function') await onFixed();
+    } catch (e) {
+      console.error('removeOne failed:', e);
+      alert(`התיקון נכשל: ${e.message}`);
+    }
+    setFixing(false);
+  };
+
   return (
     <div className={`border ${sev.ring} ${sev.bg} rounded-xl p-4`}>
       <div className="flex items-start gap-3">
@@ -86,15 +108,31 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false }) {
             <div className="text-xs text-zinc-500 mt-1.5">💡 {issue.suggestion}</div>
           )}
         </div>
-        {issue.fix && (
-          <button
-            onClick={applyFix}
-            disabled={fixing}
-            className="bg-zinc-800 hover:bg-rose-600 text-zinc-200 hover:text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 flex-shrink-0 whitespace-nowrap"
-          >
-            {fixing ? <RefreshCw size={14} className="animate-spin" /> : <Wrench size={14} />}
-            {issue.fix.label}
-          </button>
+        {(issue.fix || (issue.removableDatapacks && issue.removableDatapacks.length > 0)) && (
+          <div className="flex flex-col gap-1.5 flex-shrink-0">
+            {issue.fix && (
+              <button
+                onClick={applyFix}
+                disabled={fixing}
+                className="bg-zinc-800 hover:bg-rose-600 text-zinc-200 hover:text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {fixing ? <RefreshCw size={14} className="animate-spin" /> : <Wrench size={14} />}
+                {issue.fix.label}
+              </button>
+            )}
+            {(issue.removableDatapacks || []).map((file) => (
+              <button
+                key={file}
+                onClick={() => removeOne(file)}
+                disabled={fixing}
+                title={file}
+                className="bg-zinc-800 hover:bg-rose-600 text-zinc-200 hover:text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {fixing ? <RefreshCw size={14} className="animate-spin" /> : <Wrench size={14} />}
+                <span className="max-w-[150px] truncate">הסר {file}</span>
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>

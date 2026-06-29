@@ -2020,28 +2020,39 @@ app.get('/diagnostics', function(req, res) {
       }
 
       // --- Check 4: datapack-failed ---
-      // Datapack load/parse errors. Name the offending file(s) from "from file/<name>.zip".
+      // Datapack load/parse errors. Some name the file ("from file/<name>.zip"); many name
+      // only the datapack NAMESPACE (e.g. "mob_heads:…") which can't be mapped to a zip. So
+      // when nothing is parsed we list the actually-installed datapack zips and offer to
+      // remove each — the issue is always actionable, never a dead-end message.
       if (/Couldn't load tag/.test(segment) ||
           /Failed to load function/.test(segment) ||
           /Couldn't parse data file/.test(segment) ||
           /Couldn't load advancements/.test(segment)) {
         var badFiles = parseDatapackFiles(segment);
+        var installedDp = [];
+        if (badFiles.length === 0) {
+          try {
+            fs.readdirSync(path.join(SERVERS_DIR, serverId, 'world', 'datapacks')).forEach(function(f) {
+              if (/\.zip$/i.test(f)) installedDp.push(f);
+            });
+          } catch (_) { installedDp = []; }
+        }
+        var removableDatapacks = badFiles.length ? badFiles : installedDp;
         var detail = badFiles.length
           ? 'שגיאת טעינת datapack: ' + badFiles.join(', ')
-          : 'שגיאת טעינת datapack (לא זוהה קובץ ספציפי בלוג).';
-        var dpFix = null;
-        if (badFiles.length === 1) {
-          dpFix = { action: 'remove-datapack', label: 'הסר datapack', params: { file: badFiles[0] } };
-        }
+          : (installedDp.length
+              ? 'שגיאת טעינת datapack. הלוג לא נקב בשם הקובץ — הסר את ה-datapack הבעייתי מהמותקנים:'
+              : 'שגיאת טעינת datapack (לא זוהה קובץ ספציפי בלוג).');
         issues.push({
           serverId: serverId, serverName: serverName, serverSlug: serverSlug,
           severity: 'error', category: 'datapack-failed',
           title: 'datapack נכשל בטעינה',
           detail: detail,
-          suggestion: badFiles.length === 1
-            ? 'הסר את ה-datapack הבעייתי או החלף בגרסה תואמת.'
+          suggestion: removableDatapacks.length
+            ? 'הסר את ה-datapack הבעייתי (כפתור), או החלף בגרסה תואמת.'
             : 'בדוק את תיקיית world/datapacks והסר את ה-datapack הבעייתי ידנית.',
-          fix: dpFix
+          fix: null,
+          removableDatapacks: removableDatapacks
         });
       }
 
