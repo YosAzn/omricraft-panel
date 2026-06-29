@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   Server, Library, Shield, Sparkles, Boxes, Puzzle,
-  Gift, SlidersHorizontal, ArrowRight, Plug, Gamepad2, LogIn, Users
+  Gift, SlidersHorizontal, ArrowRight, Plug, Gamepad2, LogIn, Users,
+  Rocket, BookOpen, Layers3
 } from 'lucide-react';
 import { getPublicStatsFn } from '../lib/api';
 import { SERVER_TYPE_COUNT, ADDON_CATALOG_COUNT, roundedFloorPlus } from '../lib/constants';
@@ -133,19 +134,41 @@ export default function LandingPage({
             {t('landingSubtitle')}
           </p>
 
-          <div className="oc-rise flex flex-col sm:flex-row items-center justify-center gap-3"
+          <div className="oc-rise flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3.5"
                style={{ animationDelay: '240ms' }}>
+            {/* PRIMARY — special: emerald gradient + glow + shine sweep, slightly larger */}
             <button
               onClick={onCreate}
-              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-green-600 hover:bg-green-500 text-white text-lg font-bold px-8 py-4 rounded-2xl transition-all shadow-xl shadow-green-900/40 hover:shadow-green-700/40 hover:-translate-y-0.5"
+              className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-3 overflow-hidden text-white text-xl font-black px-10 py-5 rounded-2xl transition-all
+                         bg-gradient-to-br from-emerald-400 via-green-500 to-emerald-600 ring-1 ring-emerald-300/40
+                         shadow-[0_10px_40px_-8px_rgba(16,185,129,0.7)] hover:shadow-[0_16px_50px_-6px_rgba(16,185,129,0.85)]
+                         hover:-translate-y-1 hover:brightness-110 active:translate-y-0 sm:scale-[1.04]"
             >
-              {t('landingCtaCreate')}
-              <ArrowCta size={20} />
+              {/* shine sweep on hover */}
+              <span aria-hidden className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 transition-transform duration-700 group-hover:translate-x-full" />
+              <Rocket size={26} className="relative drop-shadow" />
+              <span className="relative">{t('landingCtaCreate')}</span>
+              <ArrowCta size={22} />
             </button>
+
+            {/* NEW — plugins / add-ons, distinct violet accent */}
+            <button
+              onClick={onPlugins}
+              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2.5 text-violet-50 text-lg font-bold px-8 py-4 rounded-2xl transition-all
+                         border border-violet-500/40 bg-violet-500/15 hover:bg-violet-500/25 hover:border-violet-400/60
+                         shadow-lg shadow-violet-950/40 hover:-translate-y-0.5"
+            >
+              <Layers3 size={24} className="text-violet-300 group-hover:text-violet-200 transition-colors" />
+              {t('landingCtaPlugins')}
+            </button>
+
+            {/* SECONDARY — how it works, neutral outline + amber-tinted icon */}
             <a
               href="#how-it-works"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-zinc-300 hover:text-white text-lg font-bold px-8 py-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/80 hover:border-zinc-700 transition-all"
+              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2.5 text-zinc-200 hover:text-white text-lg font-bold px-8 py-4 rounded-2xl transition-all
+                         border border-zinc-700/80 bg-zinc-900/60 hover:bg-zinc-800/80 hover:border-amber-500/40"
             >
+              <BookOpen size={24} className="text-amber-300/90 group-hover:text-amber-200 transition-colors" />
               {t('landingHowItWorks')}
             </a>
           </div>
@@ -157,24 +180,28 @@ export default function LandingPage({
         <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
             <StatCard
-              icon={<Server size={22} />}
+              accent="emerald"
+              icon={<Server size={28} />}
               value={fmtLive(serverCount)}
               label={t('landingStatsServers')}
             />
             <StatCard
-              icon={<Users size={22} />}
+              accent="sky"
+              icon={<Users size={28} />}
               value={fmtLive(playersOnline)}
               label={t('landingStatsPlayers')}
               live
               liveLabel={t('landingStatsLive')}
             />
             <StatCard
-              icon={<Boxes size={22} />}
+              accent="amber"
+              icon={<Boxes size={28} />}
               value={SERVER_TYPE_COUNT}
               label={t('landingStatsTypes')}
             />
             <StatCard
-              icon={<Library size={22} />}
+              accent="violet"
+              icon={<Library size={28} />}
               value={roundedFloorPlus(ADDON_CATALOG_COUNT)}
               label={t('landingStatsAddons')}
             />
@@ -231,12 +258,38 @@ export default function LandingPage({
 
 // --- Sub-components (kept in-file: tiny, single-purpose, only used here) ---
 
-// Big bold social-proof stat card. `live` adds a pulsing emerald dot + "live" label.
-function StatCard({ icon, value, label, live, liveLabel }) {
+// Per-accent class sets — full literal class names so Tailwind keeps them at build time.
+const STAT_ACCENTS = {
+  emerald: {
+    hover: 'hover:border-emerald-500/40 hover:shadow-emerald-900/20',
+    chip: 'bg-emerald-500/10 text-emerald-400',
+    value: 'from-white to-emerald-300',
+  },
+  sky: {
+    hover: 'hover:border-sky-500/40 hover:shadow-sky-900/20',
+    chip: 'bg-sky-500/10 text-sky-400',
+    value: 'from-white to-sky-300',
+  },
+  amber: {
+    hover: 'hover:border-amber-500/40 hover:shadow-amber-900/20',
+    chip: 'bg-amber-500/10 text-amber-400',
+    value: 'from-white to-amber-300',
+  },
+  violet: {
+    hover: 'hover:border-violet-500/40 hover:shadow-violet-900/20',
+    chip: 'bg-violet-500/10 text-violet-400',
+    value: 'from-white to-violet-300',
+  },
+};
+
+// Big bold social-proof stat card. `accent` colors the chip + value gradient + hover.
+// `live` adds a pulsing dot + "live" label (kept emerald — it's a status, not a theme).
+function StatCard({ icon, value, label, live, liveLabel, accent = 'emerald' }) {
+  const a = STAT_ACCENTS[accent] || STAT_ACCENTS.emerald;
   return (
-    <div className="relative rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 sm:p-6 hover:border-emerald-500/40 hover:shadow-2xl hover:shadow-emerald-900/20 transition-all">
+    <div className={`relative rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 sm:p-6 hover:shadow-2xl transition-all ${a.hover}`}>
       <div className="flex items-center justify-between mb-3">
-        <div className="inline-flex p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400">{icon}</div>
+        <div className={`inline-flex p-3 rounded-xl ${a.chip}`}>{icon}</div>
         {live && (
           <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-emerald-400">
             <span className="relative flex h-2 w-2">
@@ -247,7 +300,7 @@ function StatCard({ icon, value, label, live, liveLabel }) {
           </span>
         )}
       </div>
-      <div className="text-4xl sm:text-5xl font-black tracking-tighter leading-none bg-gradient-to-b from-white to-emerald-300 bg-clip-text text-transparent">
+      <div className={`text-4xl sm:text-5xl font-black tracking-tighter leading-none bg-gradient-to-b ${a.value} bg-clip-text text-transparent`}>
         {value}
       </div>
       <p className="mt-2 text-sm text-zinc-400 leading-snug">{label}</p>
@@ -267,11 +320,12 @@ function WhyItem({ icon, title, desc }) {
 
 function StepCard({ n, icon, title, desc }) {
   return (
-    <div className="relative rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 hover:border-emerald-500/30 transition-colors">
-      <span className="absolute top-5 end-5 text-5xl font-black text-zinc-800/80 select-none leading-none">{n}</span>
-      <div className="inline-flex p-3 rounded-xl bg-emerald-500/10 text-emerald-400 mb-4">{icon}</div>
-      <h3 className="text-lg font-bold mb-1.5">{title}</h3>
-      <p className="text-sm text-zinc-400 leading-relaxed">{desc}</p>
+    <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 hover:border-emerald-500/30 transition-colors">
+      {/* BIG step number — bold ghost numeral, much larger than before */}
+      <span className="absolute -top-2 end-3 text-[7rem] sm:text-[8rem] font-black text-zinc-800/70 select-none leading-none pointer-events-none">{n}</span>
+      <div className="relative inline-flex p-3 rounded-xl bg-emerald-500/10 text-emerald-400 mb-4">{icon}</div>
+      <h3 className="relative text-lg font-bold mb-1.5">{title}</h3>
+      <p className="relative text-sm text-zinc-400 leading-relaxed">{desc}</p>
     </div>
   );
 }
