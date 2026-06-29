@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
   Server, Trash2, Plus, Package, HardDrive, RefreshCw, Square, Play, Shield,
-  Users, Activity, AlertCircle, AlertTriangle, Info, ArrowUpCircle, Library,
-  Database, ChevronRight, CheckCircle2
+  Users, Activity, AlertCircle, AlertTriangle, Info, ArrowUpCircle,
+  ChevronRight, CheckCircle2, Search
 } from 'lucide-react';
-import { getPublicStatsFn, getDiagnosticsFn, getVersionMatrixFn } from '../lib/api';
+import { getDiagnosticsFn, getVersionMatrixFn } from '../lib/api';
 
 // Numeric MC-version compare (newest-first): "1.21.11" must rank above "1.21.9".
 // String compare gets this wrong, so we tuple-compare integer segments.
@@ -50,23 +50,10 @@ function StatCard({ icon: Icon, label, value, loading, accent = 'emerald' }) {
 
 export default function Dashboard({
   servers, onOpenServer, onCreateClick, toggleServerStatus, onDeleteAll, t, userRole,
-  playersData = {}, isAdmin = false, onOpenRepository, onOpenHealth,
+  playersData = {}, isAdmin = false, onOpenHealth,
 }) {
-  // --- Public aggregate stats (online servers + players online) ---
-  // PUBLIC callable {success, serverCount, playersOnline}. On failure → null (dash).
-  const [publicStats, setPublicStats] = useState(null);
-  const [publicStatsLoading, setPublicStatsLoading] = useState(true);
-  useEffect(() => {
-    let alive = true;
-    getPublicStatsFn()
-      .then(res => {
-        const d = res?.data || res;
-        if (alive && d && d.success) setPublicStats(d);
-      })
-      .catch(e => { console.error('Dashboard getPublicStats failed:', e); })
-      .finally(() => { if (alive) setPublicStatsLoading(false); });
-    return () => { alive = false; };
-  }, []);
+  // Client-side server search (filters the visible servers grid by name).
+  const [serverSearch, setServerSearch] = useState('');
 
   // --- חמ"ל diagnostics (ADMIN ONLY) — fetched ONCE, reused by both the stat card
   //     and the summary card below (no double-call). {success, issues:[...]}. ---
@@ -115,17 +102,33 @@ export default function Dashboard({
     return info && Number.isFinite(info.count) ? info.count : null;
   };
 
-  // Total online servers + players, derived locally as a safe fallback when the
-  // public stat fetch hasn't resolved (real numbers only — never invented).
-  const onlineCount = servers.filter(s => s.status === 'online').length;
-  const localPlayers = servers.reduce((sum, s) => {
-    const c = playerCountFor(s);
-    return sum + (Number.isFinite(c) ? c : 0);
-  }, 0);
+  // --- Per-user stat cards (REAL, scoped to the servers this user can see) ---
+  // These describe the user's own servers — NOT the global/public landing stat.
+  const onlineServers = servers.filter(s => s.status === 'online');
 
-  // Stat-card values: prefer the public aggregate, fall back to derived locals.
-  const onlineNowValue = publicStats ? publicStats.serverCount : onlineCount;
-  const playersOnlineValue = publicStats ? publicStats.playersOnline : localPlayers;
+  // "Servers online" = how many of THIS user's servers are online right now.
+  const totalServersValue = servers.length;
+  const onlineNowValue = onlineServers.length;
+
+  // "Players online" = sum of player counts across the user's ONLINE servers.
+  // 0 online servers → a real 0. Online servers but no count known yet →
+  // neutral dash (null), never an invented number.
+  const knownOnlinePlayerCounts = onlineServers
+    .map(playerCountFor)
+    .filter(Number.isFinite);
+  const playersOnlineValue =
+    onlineServers.length === 0
+      ? 0
+      : knownOnlinePlayerCounts.length === 0
+      ? null
+      : knownOnlinePlayerCounts.reduce((sum, c) => sum + c, 0);
+
+  // Servers shown in the at-a-glance grid, filtered by the search box (by name,
+  // case-insensitive). Empty query → all visible servers.
+  const search = serverSearch.trim().toLowerCase();
+  const filteredServers = search
+    ? servers.filter(s => (s.name || '').toLowerCase().includes(search))
+    : servers;
 
   // חמ"ל counts (admin only). null while loading / unavailable → dash.
   const issues = diagnostics || [];
@@ -171,14 +174,6 @@ export default function Dashboard({
         </div>
         {userRole === 'admin' && (
           <div className="flex gap-2">
-            {servers.length > 0 && (
-              <button
-                onClick={onDeleteAll}
-                className="bg-red-900/40 hover:bg-red-800/60 text-red-400 border border-red-800/40 px-4 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-all"
-              >
-                <Trash2 size={16} /> <span>מחק הכל</span>
-              </button>
-            )}
             <button
               onClick={onCreateClick}
               className="bg-green-600 hover:bg-green-500 text-white px-5 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-900/20"
@@ -189,40 +184,15 @@ export default function Dashboard({
         )}
       </div>
 
-      {/* ===== Stat cards (section 1) — all REAL numbers, dash on failure ===== */}
+      {/* ===== Stat cards (section 1) — REAL, scoped to the user's servers ===== */}
       <div className={`grid grid-cols-2 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4 mb-8`}>
-        <StatCard icon={Server} label={t('dashStatTotalServers')} value={servers.length} accent="emerald" />
-        <StatCard icon={Activity} label={t('dashStatOnlineNow')} value={onlineNowValue} loading={publicStatsLoading && !publicStats} accent="emerald" />
-        <StatCard icon={Users} label={t('dashStatPlayersOnline')} value={playersOnlineValue} loading={publicStatsLoading && !publicStats} accent="sky" />
+        <StatCard icon={Server} label={t('dashStatTotalServers')} value={totalServersValue} accent="emerald" />
+        <StatCard icon={Activity} label={t('dashStatOnlineNow')} value={onlineNowValue} accent="emerald" />
+        <StatCard icon={Users} label={t('dashStatPlayersOnline')} value={playersOnlineValue} accent="sky" />
         {isAdmin && (
           <StatCard icon={AlertTriangle} label={t('dashStatOpenIssues')} value={issueCount} loading={diagLoading && diagnostics === null} accent={issueCount > 0 ? 'rose' : 'emerald'} />
         )}
       </div>
-
-      {/* ===== Quick actions (section 5) — only wired to existing handlers ===== */}
-      {userRole === 'admin' && (
-        <div className="mb-8">
-          <h3 className="text-sm font-bold text-zinc-400 mb-3">{t('dashQuickActions')}</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button onClick={onCreateClick} className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/30 rounded-2xl p-4 flex items-center gap-3 transition-all text-start">
-              <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center flex-shrink-0"><Plus size={20} /></div>
-              <span className="font-bold text-zinc-100">{t('dashQuickCreate')}</span>
-            </button>
-            <button onClick={onOpenRepository} className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/30 rounded-2xl p-4 flex items-center gap-3 transition-all text-start">
-              <div className="w-10 h-10 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center flex-shrink-0"><Library size={20} /></div>
-              <span className="font-bold text-zinc-100">{t('dashQuickPlugins')}</span>
-            </button>
-            <button
-              onClick={() => { if (servers.length > 0) onOpenServer(servers[0].id); }}
-              disabled={servers.length === 0}
-              className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/30 rounded-2xl p-4 flex items-center gap-3 transition-all text-start disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <div className="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center flex-shrink-0"><Database size={20} /></div>
-              <span className="font-bold text-zinc-100">{t('dashQuickBackups')}</span>
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ===== חמ"ל summary (section 3) — ADMIN ONLY, reuses fetched diagnostics ===== */}
       {isAdmin && (
@@ -300,8 +270,33 @@ export default function Dashboard({
       )}
 
       {/* ===== Servers at-a-glance (section 2) — existing grid, enhanced with
-              real player counts. Keeps onOpenServer / toggleServerStatus. ===== */}
-      <h3 className="text-sm font-bold text-zinc-400 mb-3">{t('dashServersGlance')}</h3>
+              real player counts. Keeps onOpenServer / toggleServerStatus.
+              Section header carries the search box + admin "delete all". ===== */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+        <h3 className="text-sm font-bold text-zinc-400">{t('dashServersGlance')}</h3>
+        {servers.length > 0 && (
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search size={15} className="absolute top-1/2 -translate-y-1/2 start-3 text-zinc-500 pointer-events-none" />
+              <input
+                type="text"
+                value={serverSearch}
+                onChange={(e) => setServerSearch(e.target.value)}
+                placeholder={t('dashSearchServer')}
+                className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500/40 focus:outline-none rounded-lg ps-9 pe-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 w-full sm:w-56"
+              />
+            </div>
+            {userRole === 'admin' && (
+              <button
+                onClick={onDeleteAll}
+                className="bg-red-900/40 hover:bg-red-800/60 text-red-400 border border-red-800/40 px-3 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-all whitespace-nowrap"
+              >
+                <Trash2 size={16} /> <span>מחק הכל</span>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
       {servers.length === 0 ? (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center">
           <Server className="mx-auto text-zinc-600 mb-4" size={48} />
@@ -313,9 +308,13 @@ export default function Dashboard({
             </button>
           )}
         </div>
+      ) : filteredServers.length === 0 ? (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center text-zinc-500 text-sm">
+          {t('noResults')}
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {servers.map(server => {
+          {filteredServers.map(server => {
             const playerCount = playerCountFor(server);
             return (
             <div key={server.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-zinc-700 transition-colors group flex flex-col relative">
