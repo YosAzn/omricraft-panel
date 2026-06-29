@@ -95,7 +95,8 @@ const FIGURES = [
     key: 'creeper',
     stroke: '#22c55e',
     face: 'rgba(34,197,94,0.14)',
-    viewBox: '266 30 148 326',
+    // viewBox padded (esp. top) so the 1.1x scale + float + glow never clip the head
+    viewBox: '260 4 158 362',
     // enlarged: scale the body up slightly around its centre
     render: ({ glowId }) => (
       <g filter={`url(#${glowId})`} className="cfloat">
