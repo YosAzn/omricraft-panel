@@ -204,7 +204,7 @@ const FIGURES = [
 function figureCss(fig) {
   const k = fig.key;
   return `
-    .oc-fig.${k} .ln {
+    .oc-fig.${k} .ln:not(.tnt) {
       stroke: ${fig.stroke};
       stroke-dasharray: 720;
       stroke-dashoffset: 720;
@@ -301,7 +301,7 @@ export default function SideCreepers() {
           inset: 0;
           pointer-events: none;
           z-index: 0;
-          opacity: 0.2;
+          opacity: 0.4;
         }
         .side-creepers .oc-side {
           position: fixed;
@@ -312,14 +312,15 @@ export default function SideCreepers() {
           align-items: center;
           justify-content: center;
         }
-        /* Moved INWARD from the edges (closer to the content column) but kept in
-           the dead gutter so it never overlaps centered content. */
+        /* Hug the centered content column (max-w-6xl = 1152px → half 576px): the
+           figure sits in the gutter right next to the text with a ~12px gap — as
+           central as possible — clamped so it never runs off-screen. */
         .side-creepers .oc-side.left {
-          left: 3vw;
+          left: max(8px, calc(50vw - 778px));
           transform: translateY(-50%);
         }
         .side-creepers .oc-side.right {
-          right: 3vw;
+          right: max(8px, calc(50vw - 778px));
           transform: translateY(-50%) scaleX(-1);
         }
         .side-creepers svg {
@@ -335,7 +336,13 @@ export default function SideCreepers() {
           stroke-linejoin: round;
           stroke-linecap: round;
         }
-        .side-creepers .ln.tnt { stroke: #f87171; }
+        .side-creepers .ln.tnt {
+          stroke: #f87171;
+          stroke-dasharray: 720; stroke-dashoffset: 720;
+          animation: ocDrawTnt 1.5s ease forwards, ocFlashTnt 4.6s ease-in-out 1.6s infinite;
+        }
+        @keyframes ocDrawTnt { to { stroke-dashoffset: 0; } }
+        @keyframes ocFlashTnt { 0%,88%,100% { stroke: #f87171; } 93% { stroke: #fecaca; stroke-width: 3.9; } }
         .side-creepers .ln.streak { stroke-width: 1.4; opacity: 0.45; }
 
         .side-creepers .cfloat { animation: ocSideFloat 4.6s ease-in-out infinite; }
@@ -354,12 +361,10 @@ export default function SideCreepers() {
 
         /* RESPONSIVE: full size >= 1536px; scaled down on 1280–1536px;
            completely HIDDEN below 1280px so it can never cover content. */
-        @media (min-width: 1280px) and (max-width: 1535px) {
-          .side-creepers .oc-side { width: 150px; }
-          .side-creepers .oc-side.left { left: 1.5vw; }
-          .side-creepers .oc-side.right { right: 1.5vw; }
-        }
-        @media (max-width: 1279px) {
+        /* The content column is a fixed 1152px (max-w-6xl); a ~190px figure fits in
+           the side gutter without covering text only on wide screens. Below 1536px
+           the gutter is too narrow, so hide it entirely — never cover the text. */
+        @media (max-width: 1535px) {
           .side-creepers { display: none; }
         }
 
