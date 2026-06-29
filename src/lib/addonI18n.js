@@ -30,6 +30,7 @@ export const addonDescriptions = {
     m13: 'מפת מיני בפינת המסך עם סימון שחקנים, מובים ונקודות ציון - ניווט קל בעולם',
     m14: 'מפעיל את אנימציות הטקסטורות של Fresh Animations בצד-הלקוח (התחליף המודרני ל-OptiFine, יחד עם EMF)',
     m15: 'משלים את ETF - מפעיל את שינויי המודל/האנימציה של Fresh Animations בצד-הלקוח',
+    m16: 'שדרוג ביצועים ותאורה קלאסי בצד-הלקוח, עם תמיכה בשיידרים ובאנימציות מותאמות (התחליף הוותיק ל-ETF+EMF; מותקן אצל השחקן)',
 
     // --- Plugins ---
     p1: 'פקודות בסיסיות לשרת (spawn, home, tpa, warp)',
@@ -130,6 +131,7 @@ export const addonDescriptions = {
     m13: 'A minimap in the screen corner with player, mob and waypoint markers - easy navigation',
     m14: 'Enables Fresh Animations texture animations on the client side (the modern OptiFine replacement, together with EMF)',
     m15: 'Complements ETF - enables the model/animation changes of Fresh Animations on the client side',
+    m16: 'A classic client-side performance and lighting upgrade with shader and custom-animation support (the veteran alternative to ETF+EMF; installed on the player\'s game)',
 
     // --- Plugins ---
     p1: 'Essential server commands (spawn, home, tpa, warp)',

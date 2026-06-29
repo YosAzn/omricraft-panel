@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Play, Search, Check, Shield } from 'lucide-react';
 
-import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType } from '../lib/constants';
+import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType, isBukkitBased, isWorldgenDatapack } from '../lib/constants';
 import { addonDesc } from '../lib/addonI18n';
 import { isViaVersion } from '../lib/utils';
 import ImageUploader from './ImageUploader';
+import { ClientDownloadLink, ClientDepsChooser } from './AddonClientExtras';
 
 export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lang, userRole, isAdmin = false, mcVersions, versionMatrix = {}, isCreatingServer = false }) {
   const [name, setName] = useState('');
@@ -62,7 +63,8 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
     // hosted URL. Sending them would promise an install that never happens (same bug AddonsTab fixed).
     const serverInstallable = selectedAddons.filter(id => {
       const addon = allAddons.find(a => a.id === id);
-      return getInstallMethod(addon) === 'server';
+      // Drop worldgen-overhaul datapacks on Bukkit — they'd be ignored by the engine.
+      return getInstallMethod(addon) === 'server' && !isWorldgenBlocked(addon);
     });
     onCreate({
       name, icon, software, version, gamemode, worldType, ops: opsArray,
@@ -71,10 +73,16 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
     });
   };
 
+  // Worldgen-overhaul datapacks (Terralith etc.) don't work on Bukkit-based servers —
+  // they need a Mojang-engine loader. On Bukkit we render them greyed + non-selectable.
+  const bukkit = isBukkitBased(software);
+  const isWorldgenBlocked = (addon) => bukkit && isWorldgenDatapack(addon);
+
   // Only 'server' addons are selectable — client/manual show an info badge instead (no false promise).
   const toggleSelection = (id) => {
     const addon = allAddons.find(a => a.id === id);
     if (getInstallMethod(addon) !== 'server') return;
+    if (isWorldgenBlocked(addon)) return; // greyed on Bukkit — not selectable
     setSelectedAddons(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]);
   };
 
@@ -273,13 +281,19 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-2 max-h-56 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2">
                  {searchedAddons.map(a => {
                     const installMethod = getInstallMethod(a); // 'server' | 'manual' | 'client'
-                    const installable = installMethod === 'server';
+                    const worldgenBlocked = isWorldgenBlocked(a);
+                    const installable = installMethod === 'server' && !worldgenBlocked;
                     const checked = selectedAddons.includes(a.id);
                     return (
                     <div key={a.id} onClick={() => toggleSelection(a.id)}
-                      title={installable ? undefined : (installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo'))}
-                      className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${installable ? 'cursor-pointer' : 'cursor-default'} ${checked ? 'bg-green-500/5 border-green-500/50' : 'bg-zinc-900 border-transparent hover:border-zinc-700'}`}>
-                      {installable ? (
+                      title={worldgenBlocked ? t('worldgenBukkitNote') : (installable ? undefined : (installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo')))}
+                      className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${installable ? 'cursor-pointer' : 'cursor-default'} ${worldgenBlocked ? 'opacity-50' : ''} ${checked ? 'bg-green-500/5 border-green-500/50' : 'bg-zinc-900 border-transparent hover:border-zinc-700'}`}>
+                      {worldgenBlocked ? (
+                        // Worldgen datapack on a Bukkit server — greyed, not selectable.
+                        <span className="mt-0.5 text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border flex-shrink-0 whitespace-nowrap border-zinc-700 text-zinc-500 bg-zinc-800/40">
+                          {t('datapacks')}
+                        </span>
+                      ) : installable ? (
                         <div className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center border flex-shrink-0 ${checked ? 'bg-green-600 border-green-600' : 'border-zinc-600'}`}>
                           {checked && <Check size={14} className="text-white"/>}
                         </div>
@@ -295,12 +309,21 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                           <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border ${TYPE_COLORS[a.type]}`}>
                             {t(a.type)}
                           </span>
+                          {installMethod === 'client' && a.clientUrl && <ClientDownloadLink url={a.clientUrl} t={t} />}
                         </div>
                         <span className="text-xs text-zinc-400 mt-2 block leading-relaxed">{addonDesc(a.id, lang, a.desc)}</span>
-                        {!installable && (
+                        {worldgenBlocked && (
+                          <span className="text-[11px] text-amber-400/80 mt-1.5 block leading-relaxed">
+                            {t('worldgenBukkitNote')}
+                          </span>
+                        )}
+                        {!installable && !worldgenBlocked && (
                           <span className="text-[11px] text-zinc-500 mt-1.5 block leading-relaxed">
                             {installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo')}
                           </span>
+                        )}
+                        {a.clientDeps && (
+                          <ClientDepsChooser deps={a.clientDeps} allAddons={allAddons} t={t} lang={lang} addonDesc={addonDesc} />
                         )}
                       </div>
                     </div>

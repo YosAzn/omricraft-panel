@@ -7,6 +7,18 @@
 // addon ללא השדה הזה נחשב 'server'.
 export const getInstallMethod = (addon) => addon?.installMethod || 'server';
 
+// Bukkit-based server software (Paper family + Mohist hybrid + legacy spigot).
+// Worldgen-overhaul datapacks (Terralith/Tectonic/Incendium/Nullscape) do NOT work
+// on these — Bukkit ignores datapack worldgen biomes. They need a Mojang-engine
+// loader (Vanilla/Fabric/Forge/NeoForge).
+export const BUKKIT_SOFTWARE = ['paper', 'purpur', 'folia', 'mohist', 'spigot', 'bukkit'];
+export const isBukkitBased = (software) => BUKKIT_SOFTWARE.includes(software);
+
+// A worldgen-overhaul datapack (replaces overworld/nether/end generation). Flagged
+// in the catalog as worldgenOverhaul or worldgen. Used to grey these out on Bukkit.
+export const isWorldgenDatapack = (addon) =>
+  !!(addon && addon.type === 'datapacks' && (addon.worldgenOverhaul || addon.worldgen));
+
 export const TYPE_COLORS = {
   mods: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   plugins: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
@@ -53,10 +65,10 @@ export const DEFAULT_ADDONS = [
   // client-side badge like textures (no server install, no false "installed").
   // Server-installable mods carry a modrinthSlug; install-mod.sh resolves the correct
   // build for the server's loader+version via the Modrinth API (fail-loud if none).
-  { id: 'm1', name: 'Sodium', desc: 'משפר ביצועים ו-FPS בטירוף', type: 'mods', installMethod: 'client', downloads: '24M', rating: 4.9, reviews: 15400 },
-  { id: 'm2', name: 'Iris Shaders', desc: 'תמיכה בשיידרים מהממים', type: 'mods', installMethod: 'client', requires: ['m1'], downloads: '15M', rating: 4.8, reviews: 11200 },
+  { id: 'm1', name: 'Sodium', desc: 'משפר ביצועים ו-FPS בטירוף', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/sodium', downloads: '24M', rating: 4.9, reviews: 15400 },
+  { id: 'm2', name: 'Iris Shaders', desc: 'תמיכה בשיידרים מהממים', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/iris', requires: ['m1'], downloads: '15M', rating: 4.8, reviews: 11200 },
   { id: 'm3', name: 'Create', desc: 'מוד טכנולוגיה, גלגלי שיניים, אוטומציה ורכבות (Forge/NeoForge בלבד)', type: 'mods', modrinthSlug: 'create', downloads: '40M', rating: 4.9, reviews: 30000 },
-  { id: 'm4', name: 'Litematica', desc: 'מאפשר להציג סכמות ושרטוטים תלת ממדיים', type: 'mods', installMethod: 'client', downloads: '12M', rating: 4.7, reviews: 8500 },
+  { id: 'm4', name: 'Litematica', desc: 'מאפשר להציג סכמות ושרטוטים תלת ממדיים', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/litematica', downloads: '12M', rating: 4.7, reviews: 8500 },
   { id: 'm5', name: 'Distant Horizons', desc: 'מגדיל את טווח הראייה משמעותית בלי להעמיס על המחשב', type: 'mods', modrinthSlug: 'distanthorizons', downloads: '8M', rating: 4.6, reviews: 4200 },
   { id: 'm6', name: 'Simple Voice Chat', desc: 'צ\'אט קולי מובנה במשחק לפי מרחק שחקנים (Proximity Chat)', type: 'mods', modrinthSlug: 'simple-voice-chat', downloads: '25M', rating: 4.8, reviews: 16000 },
   { id: 'm7', name: 'Just Enough Items (JEI)', desc: 'מציג את כל הפריטים והמתכונים במשחק', type: 'mods', modrinthSlug: 'jei', downloads: '150M', rating: 4.9, reviews: 90000 },
@@ -68,10 +80,12 @@ export const DEFAULT_ADDONS = [
   { id: 'm10', name: 'C2ME', desc: 'מאיץ טעינה ויצירת צ\'אנקים במקביל (multi-thread) - פחות לאגים כשחוקרים אזורים חדשים (Fabric בלבד)', type: 'mods', modrinthSlug: 'c2me-fabric', downloads: '8M', rating: 4.7, reviews: 4200 },
   { id: 'm11', name: 'No Chat Reports', desc: 'מסיר את מערכת דיווחי הצ\'אט של מוג\'אנג ומשפר פרטיות בשרת', type: 'mods', modrinthSlug: 'no-chat-reports', downloads: '10M', rating: 4.8, reviews: 9000 },
   // Client-side mods — installMethod:'client' (badge only, never reaches the VPS installer).
-  { id: 'm12', name: 'Jade', desc: 'מציג מידע על הבלוק/המוב שמסתכלים עליו (שם, חיים, כלי נדרש) בראש המסך', type: 'mods', installMethod: 'client', downloads: '40M', rating: 4.8, reviews: 13000 },
-  { id: 'm13', name: 'Xaero\'s Minimap', desc: 'מפת מיני בפינת המסך עם סימון שחקנים, מובים ונקודות ציון - ניווט קל בעולם', type: 'mods', installMethod: 'client', downloads: '30M', rating: 4.8, reviews: 11000 },
-  { id: 'm14', name: 'Entity Texture Features (ETF)', desc: 'מפעיל את אנימציות הטקסטורות של Fresh Animations בצד-הלקוח (התחליף המודרני ל-OptiFine, יחד עם EMF)', type: 'mods', installMethod: 'client', requires: ['m15'], downloads: '20M', rating: 4.9, reviews: 8000 },
-  { id: 'm15', name: 'Entity Model Features (EMF)', desc: 'משלים את ETF - מפעיל את שינויי המודל/האנימציה של Fresh Animations בצד-הלקוח', type: 'mods', installMethod: 'client', requires: ['m14'], downloads: '12M', rating: 4.9, reviews: 5000 },
+  { id: 'm12', name: 'Jade', desc: 'מציג מידע על הבלוק/המוב שמסתכלים עליו (שם, חיים, כלי נדרש) בראש המסך', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/jade', downloads: '40M', rating: 4.8, reviews: 13000 },
+  { id: 'm13', name: 'Xaero\'s Minimap', desc: 'מפת מיני בפינת המסך עם סימון שחקנים, מובים ונקודות ציון - ניווט קל בעולם', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/xaeros-minimap', downloads: '30M', rating: 4.8, reviews: 11000 },
+  { id: 'm14', name: 'Entity Texture Features (ETF)', desc: 'מפעיל את אנימציות הטקסטורות של Fresh Animations בצד-הלקוח (התחליף המודרני ל-OptiFine, יחד עם EMF)', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/entitytexturefeatures', requires: ['m15'], downloads: '20M', rating: 4.9, reviews: 8000 },
+  { id: 'm15', name: 'Entity Model Features (EMF)', desc: 'משלים את ETF - מפעיל את שינויי המודל/האנימציה של Fresh Animations בצד-הלקוח', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/entity-model-features', requires: ['m14'], downloads: '12M', rating: 4.9, reviews: 5000 },
+  // OptiFine — classic client-side alternative to ETF+EMF for shaders/animations. Not on Modrinth (own site), client-only.
+  { id: 'm16', name: 'OptiFine', desc: 'שדרוג ביצועים ותאורה קלאסי בצד-הלקוח, עם תמיכה בשיידרים ובאנימציות מותאמות (התחליף הוותיק ל-ETF+EMF; מותקן אצל השחקן)', type: 'mods', installMethod: 'client', clientUrl: 'https://optifine.net/downloads', downloads: '100M', rating: 4.7, reviews: 50000 },
 
   // --- Plugins (Paper) ---
   { id: 'p1', name: 'EssentialsX', desc: 'פקודות בסיסיות לשרת (spawn, home, tpa, warp)', type: 'plugins', downloads: '10M', rating: 4.7, reviews: 12500 },
@@ -159,13 +173,15 @@ export const DEFAULT_ADDONS = [
   // --- Textures ---
   // installMethod: 'client' = resource/texture packs מותקנים בצד-הלקוח (אצל השחקן), לא בשרת. אין URL מתארח כרגע.
   { id: 't1', name: 'Custom Hats Pack', desc: 'מוסיף כתרים, כובעי קסם ופריטים שניתן לשים על הראש לטובת מראה ייחודי (בדומה לנייטפול) (חבילת מרקם בצד-הלקוח — מוחלת בשרת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'elibruhs-custom-hats-pack', downloads: '1.2M', rating: 4.8, reviews: 4500 },
-  { id: 't2', name: 'Golden Pumpkin Pie', desc: 'מודל תלת-ממדי מיוחד שהופך את פשטידת הדלעת הרגילה לפשטידת זהב נוצצת', type: 'textures', installMethod: 'client', downloads: '800K', rating: 4.6, reviews: 2100 },
-  { id: 't3', name: 'Fresh Animations', desc: 'אנימציות תנועה מציאותיות, חלקות ומצחיקות לכל המפלצות והחיות במשחק (דורש בצד-הלקוח את המודים ETF + EMF, או OptiFine, כדי שהאנימציות יפעלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'fresh-animations', downloads: '15M', rating: 4.9, reviews: 45000 },
+  { id: 't2', name: 'Golden Pumpkin Pie', desc: 'מודל תלת-ממדי מיוחד שהופך את פשטידת הדלעת הרגילה לפשטידת זהב נוצצת', type: 'textures', installMethod: 'client', clientUrl: 'https://modrinth.com/resourcepack/golden-pumpkin-pie', downloads: '800K', rating: 4.6, reviews: 2100 },
+  // clientDeps — this server-applied pack only FUNCTIONS if each player also has one client option installed.
+  // Rendered as an inline "pick one" chooser (no popup); each option lists its client items + download links.
+  { id: 't3', name: 'Fresh Animations', desc: 'אנימציות תנועה מציאותיות, חלקות ומצחיקות לכל המפלצות והחיות במשחק (דורש בצד-הלקוח את המודים ETF + EMF, או OptiFine, כדי שהאנימציות יפעלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'fresh-animations', clientDeps: [{ label: 'ETF + EMF', recommended: true, ids: ['m14', 'm15'] }, { label: 'OptiFine', ids: ['m16'] }], downloads: '15M', rating: 4.9, reviews: 45000 },
   { id: 't4', name: 'Faithful 32x', desc: 'הטקסטורה הקלאסית והמוכרת של מיינקראפט ברזולוציה כפולה וחדה הרבה יותר (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'faithful-32x', downloads: '50M', rating: 4.8, reviews: 120000 },
   { id: 't5', name: 'Bare Bones', desc: 'טקסטורה חלקה ונקייה שגורמת למשחק להיראות כמו הטריילרים הרשמיים של מיינקראפט (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'bare-bones', downloads: '22M', rating: 4.9, reviews: 60000 },
   { id: 't6', name: 'Visible Ores', desc: 'גורם למחצבים (יהלומים, ברזל) לזהור בחושך, מושלם למערות עמוקות (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'visible-ores', downloads: '9.5M', rating: 4.8, reviews: 25000 },
   { id: 't7', name: 'Dark UI', desc: 'משנה את כל התפריטים במשחק לעיצוב כהה ונוח לעיניים (Dark Mode) (חבילת מרקם בצד-הלקוח שמשנה את ה-GUI אצל השחקן — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'mandalas-gui-dark-mode', downloads: '18M', rating: 4.9, reviews: 41000 },
-  { id: 't8', name: 'Shulker Box Tooltip', desc: 'מאפשר לראות את כל התכולה של השאלקרים ברחרוף עם העכבר בתוך התיק, בלי להניח אותם', type: 'textures', installMethod: 'client', downloads: '35M', rating: 4.9, reviews: 85000 },
+  { id: 't8', name: 'Shulker Box Tooltip', desc: 'מאפשר לראות את כל התכולה של השאלקרים ברחרוף עם העכבר בתוך התיק, בלי להניח אותם', type: 'textures', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/shulkerboxtooltip', downloads: '35M', rating: 4.9, reviews: 85000 },
   { id: 't9', name: 'Motschen\'s Better Leaves', desc: 'הופך את העלים של העצים לסבוכים, מלאים ויפהפיים - שדרוג ויזואלי ענק לטבע (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'better-leaves', downloads: '5M', rating: 4.8, reviews: 9000 },
   { id: 't10', name: 'Dramatic Skys', desc: 'שמיים ריאליסטיים ודרמטיים עם עננים, שקיעות וירח מרהיבים (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'dramatic-skys', downloads: '3M', rating: 4.7, reviews: 5000 },
   { id: 't11', name: 'Default Dark Mode', desc: 'מצב כהה לכל ממשק המשחק - נוח לעיניים, שומר על הסגנון הווניל המקורי (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'default-dark-mode', downloads: '8M', rating: 4.8, reviews: 12000 },
