@@ -2,9 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Activity, RefreshCw, AlertCircle, AlertTriangle, Info, Wrench, CheckCircle2 } from 'lucide-react';
 import { getDiagnosticsFn, resetServerStatusFn, removeDatapackFn, restartServerFn } from '../lib/api';
 
-// --- War Room / חמ"ל — admin-only health diagnostics ---
-// Flow: A (this component) → B getDiagnostics Cloud Function (admin-gated) →
-// C Manager API GET /diagnostics → D VPS scan → E (fix actions over RCON/files).
+// --- War Room / חמ"ל — health diagnostics (available to ALL signed-in users) ---
+// Flow: A (this component) → B getDiagnostics Cloud Function (auth-required,
+// SCOPED to the caller's servers) → C Manager API GET /diagnostics → D VPS scan →
+// E (fix actions over RCON/files). Non-admins only ever see issues for servers
+// they own (or legacy/unowned servers); the function enforces this regardless of
+// the requested scope. Admins additionally get a "mine / all" toggle.
 // All diagnostic text (title/detail/suggestion) arrives pre-translated from the
 // backend in Hebrew; this component only renders + wires the fix buttons.
 //
@@ -17,31 +20,36 @@ const SEVERITY = {
   info:    { icon: Info,          dot: '🔵', ring: 'border-sky-500/30',     bg: 'bg-sky-500/5',    text: 'text-sky-300',    iconColor: 'text-sky-400' },
 };
 
-export default function HealthTab() {
+export default function HealthTab({ t = (k) => k, isAdmin = false }) {
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(false);
   const [scanError, setScanError] = useState(null);
   const [fixingKey, setFixingKey] = useState(null);
   const [hasScanned, setHasScanned] = useState(false);
+  // Admin-only mine/all toggle. Non-admins are always forced to 'mine' (the
+  // function ignores 'all' for them anyway). Default = 'mine' for everyone.
+  const [scope, setScope] = useState('mine');
 
   const loadDiagnostics = useCallback(async () => {
     setLoading(true);
     setScanError(null);
+    // Only admins may request the full 'all' set; everyone else is scoped to 'mine'.
+    const effectiveScope = isAdmin ? scope : 'mine';
     try {
-      const res = await getDiagnosticsFn();
+      const res = await getDiagnosticsFn({ scope: effectiveScope });
       const d = res.data || res;
       if (d.success) {
         setIssues(Array.isArray(d.issues) ? d.issues : []);
       } else {
-        setScanError(d.error || 'סריקת הבריאות נכשלה');
+        setScanError(d.error || t('healthScanFailed'));
       }
     } catch (e) {
       console.error('getDiagnostics failed:', e);
-      setScanError(e.message || 'סריקת הבריאות נכשלה');
+      setScanError(e.message || t('healthScanFailed'));
     }
     setLoading(false);
     setHasScanned(true);
-  }, []);
+  }, [isAdmin, scope, t]);
 
   useEffect(() => {
     loadDiagnostics();
@@ -102,32 +110,55 @@ export default function HealthTab() {
 
   return (
     <div className="max-w-4xl mx-auto" dir="rtl">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="bg-rose-600/15 p-2 rounded-lg">
             <Activity size={22} className="text-rose-400" />
           </div>
           <div>
-            <h2 className="text-xl font-black tracking-tight">חמ"ל — בריאות שרתים</h2>
-            <p className="text-xs text-zinc-500">זיהוי אוטומטי של תקלות בכל השרתים + כפתורי תיקון</p>
+            <h2 className="text-xl font-black tracking-tight">{t('healthTitle')}</h2>
+            <p className="text-xs text-zinc-500">
+              {isAdmin && scope === 'all' ? t('healthSubtitleAll') : t('healthSubtitleMine')}
+            </p>
           </div>
         </div>
-        <button
-          onClick={loadDiagnostics}
-          disabled={loading}
-          className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          רענן
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Admin-only: flip the getDiagnostics scope between own servers and all. */}
+          {isAdmin && (
+            <div className="inline-flex rounded-lg bg-zinc-900 border border-zinc-800 p-0.5 text-xs font-bold">
+              <button
+                onClick={() => setScope('mine')}
+                disabled={loading}
+                className={`px-3 py-1.5 rounded-md transition-colors disabled:opacity-50 ${scope === 'mine' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+              >
+                {t('healthScopeMine')}
+              </button>
+              <button
+                onClick={() => setScope('all')}
+                disabled={loading}
+                className={`px-3 py-1.5 rounded-md transition-colors disabled:opacity-50 ${scope === 'all' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+              >
+                {t('healthScopeAll')}
+              </button>
+            </div>
+          )}
+          <button
+            onClick={loadDiagnostics}
+            disabled={loading}
+            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            {t('healthRefresh')}
+          </button>
+        </div>
       </div>
 
       {/* Summary counters */}
       {hasScanned && !scanError && issues.length > 0 && (
         <div className="flex items-center gap-2 mb-4 text-xs font-bold">
-          {errorCount > 0 && <span className="px-2.5 py-1 rounded-full bg-red-500/10 text-red-300">🔴 {errorCount} תקלות</span>}
-          {warnCount > 0 && <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-300">🟠 {warnCount} אזהרות</span>}
-          {infoCount > 0 && <span className="px-2.5 py-1 rounded-full bg-sky-500/10 text-sky-300">🔵 {infoCount} מידע</span>}
+          {errorCount > 0 && <span className="px-2.5 py-1 rounded-full bg-red-500/10 text-red-300">🔴 {errorCount} {t('healthErrors')}</span>}
+          {warnCount > 0 && <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-300">🟠 {warnCount} {t('healthWarnings')}</span>}
+          {infoCount > 0 && <span className="px-2.5 py-1 rounded-full bg-sky-500/10 text-sky-300">🔵 {infoCount} {t('healthInfo')}</span>}
         </div>
       )}
 
@@ -140,15 +171,18 @@ export default function HealthTab() {
       {loading && !hasScanned ? (
         <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-10 text-center text-zinc-500">
           <RefreshCw size={28} className="animate-spin mx-auto mb-3 text-zinc-600" />
-          סורק שרתים...
+          {t('healthScanning')}
         </div>
       ) : !scanError && issues.length === 0 && hasScanned ? (
         <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-10 text-center">
           <CheckCircle2 size={36} className="mx-auto mb-3 text-emerald-400" />
-          <div className="text-emerald-300 font-bold">אין בעיות פתוחות — הכל תקין ✅</div>
+          <div className="text-emerald-300 font-bold">{t('healthAllOk')}</div>
         </div>
       ) : (
-        <div className="space-y-5">
+        /* Scrollable panel — same look as the create-server addon-picker list
+           (bg-zinc-950 + bordered + max-height + overflow-y-auto). Keeps a long
+           issue list from pushing the page; fix buttons stay reachable inside. */
+        <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 max-h-[60vh] overflow-y-auto space-y-5">
           {groupKeys.map((gk) => (
             <div key={gk}>
               <div className="flex items-center gap-2 mb-2 text-sm font-bold text-zinc-300">

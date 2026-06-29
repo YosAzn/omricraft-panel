@@ -236,11 +236,8 @@ export default function App() {
     document.documentElement.dir = dir;
   }, [lang, dir]);
 
-  // The חמ"ל view is admin-only. If admin rights are lost (e.g. sign-out) while
-  // on that view, fall back to the dashboard so the user never sees a blank page.
-  useEffect(() => {
-    if (currentView === 'health' && !isAdmin) setCurrentView('dashboard');
-  }, [isAdmin, currentView]);
+  // The חמ"ל view is available to ALL signed-in users (scoped server-side). No
+  // admin redirect — the function returns only the caller's own issues.
 
   const visibleServers = useMemo(() => {
     if (isAdmin) return servers; // admin sees all
@@ -763,10 +760,11 @@ export default function App() {
             <div className="flex items-center gap-2">
               <NavBtn active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} icon={<Server size={18}/>} label={t('dashboard')} />
               <NavBtn active={currentView === 'repository'} onClick={() => setCurrentView('repository')} icon={<Library size={18}/>} label={t('repo')} />
-              {/* War Room / חמ"ל — admin-only health diagnostics tab */}
-              {isAdmin && (
-                <NavBtn active={currentView === 'health'} onClick={() => setCurrentView('health')} icon={<Activity size={18}/>} label={'חמ"ל'} />
-              )}
+              {/* War Room / חמ"ל — health diagnostics tab. Available to ALL signed-in
+                  users; the getDiagnostics function scopes issues to the caller's own
+                  servers (admins can toggle to all). Function-level scoping enforces
+                  security, so no isAdmin gate here. */}
+              <NavBtn active={currentView === 'health'} onClick={() => setCurrentView('health')} icon={<Activity size={18}/>} label={'חמ"ל'} />
             </div>
           </div>
           
@@ -844,9 +842,10 @@ export default function App() {
           />
         )}
 
-        {/* War Room / חמ"ל — admin-only (UI gate; Cloud Functions enforce admin server-side) */}
-        {currentView === 'health' && isAdmin && (
-          <HealthTab />
+        {/* War Room / חמ"ל — all signed-in users; getDiagnostics scopes issues to
+            the caller's servers (admins get a mine/all toggle). */}
+        {currentView === 'health' && (
+          <HealthTab t={t} isAdmin={isAdmin} />
         )}
       </main>
     </div>

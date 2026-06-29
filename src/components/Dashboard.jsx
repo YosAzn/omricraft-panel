@@ -55,15 +55,17 @@ export default function Dashboard({
   // Client-side server search (filters the visible servers grid by name).
   const [serverSearch, setServerSearch] = useState('');
 
-  // --- חמ"ל diagnostics (ADMIN ONLY) — fetched ONCE, reused by both the stat card
-  //     and the summary card below (no double-call). {success, issues:[...]}. ---
+  // --- חמ"ל diagnostics — fetched ONCE for EVERY signed-in user, reused by both
+  //     the stat card and the summary card below (no double-call). The function
+  //     scopes issues to the caller's own servers (admins/non-admins alike get
+  //     'mine' here; the dedicated חמ"ל tab is where admins can switch to 'all').
+  //     {success, issues:[...]}. ---
   const [diagnostics, setDiagnostics] = useState(null);
   const [diagLoading, setDiagLoading] = useState(false);
   useEffect(() => {
-    if (!isAdmin) return;
     let alive = true;
     setDiagLoading(true);
-    getDiagnosticsFn()
+    getDiagnosticsFn({ scope: 'mine' })
       .then(res => {
         const d = res?.data || res;
         if (alive && d && d.success) setDiagnostics(Array.isArray(d.issues) ? d.issues : []);
@@ -71,7 +73,7 @@ export default function Dashboard({
       .catch(e => { console.error('Dashboard getDiagnostics failed:', e); })
       .finally(() => { if (alive) setDiagLoading(false); });
     return () => { alive = false; };
-  }, [isAdmin]);
+  }, []);
 
   // --- Version matrix (REAL latest per server type) for the updates section. ---
   // {success, matrix:{ paper:[newest-first], fabric:[...], ... }}. On failure → {}.
@@ -184,18 +186,19 @@ export default function Dashboard({
         )}
       </div>
 
-      {/* ===== Stat cards (section 1) — REAL, scoped to the user's servers ===== */}
-      <div className={`grid grid-cols-2 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4 mb-8`}>
+      {/* ===== Stat cards (section 1) — REAL, scoped to the user's servers. The
+              חמ"ל open-issues card shows for ALL users (scoped to their own
+              issues by getDiagnostics({scope:'mine'})). ===== */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard icon={Server} label={t('dashStatTotalServers')} value={totalServersValue} accent="emerald" />
         <StatCard icon={Activity} label={t('dashStatOnlineNow')} value={onlineNowValue} accent="emerald" />
         <StatCard icon={Users} label={t('dashStatPlayersOnline')} value={playersOnlineValue} accent="sky" />
-        {isAdmin && (
-          <StatCard icon={AlertTriangle} label={t('dashStatOpenIssues')} value={issueCount} loading={diagLoading && diagnostics === null} accent={issueCount > 0 ? 'rose' : 'emerald'} />
-        )}
+        <StatCard icon={AlertTriangle} label={t('dashStatOpenIssues')} value={issueCount} loading={diagLoading && diagnostics === null} accent={issueCount > 0 ? 'rose' : 'emerald'} />
       </div>
 
-      {/* ===== חמ"ל summary (section 3) — ADMIN ONLY, reuses fetched diagnostics ===== */}
-      {isAdmin && (
+      {/* ===== חמ"ל summary (section 3) — ALL users, reuses fetched diagnostics
+              (scoped to the user's own issues). 'פתח חמ"ל מלא' opens HealthTab. ===== */}
+      {(
         <div className="mb-8 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold text-zinc-300 flex items-center gap-2">

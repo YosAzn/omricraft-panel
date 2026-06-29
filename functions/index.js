@@ -24,6 +24,57 @@ function assertAdmin(request) {
   }
 }
 
+// True if the authenticated caller is an OmriCraft admin (verified email in the
+// allowlist). Non-throwing — used to branch scope/permission logic for callables
+// that are NOT admin-only (e.g. getDiagnostics, owner-or-admin mutations).
+function isAdminRequest(request) {
+  const t = request.auth && request.auth.token;
+  return !!(request.auth && t && t.email && t.email_verified &&
+    ADMIN_EMAILS.includes(String(t.email || '').toLowerCase()));
+}
+
+// Require ANY authenticated caller. Returns the uid. Rejects unauthenticated.
+function requireAuth(request) {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) {
+    throw new HttpsError('unauthenticated', 'Sign-in required');
+  }
+  return uid;
+}
+
+// Returns the set of serverIds the caller may VIEW, matching the frontend's
+// visibleServers rule (App.jsx): admin → ALL servers; otherwise → servers the
+// caller strictly owns (ownerUid === uid) OR legacy servers with no ownerUid.
+// Ownership is read from Firestore (omricraft/main/servers). Returns null to
+// mean "all servers" (admin) so callers can skip filtering entirely.
+async function accessibleServerIds(request) {
+  if (isAdminRequest(request)) return null; // null = unrestricted (all servers)
+  const uid = requireAuth(request);
+  const ids = new Set();
+  const snap = await db.collection('omricraft/main/servers').get();
+  snap.forEach((doc) => {
+    const data = doc.data() || {};
+    // Legacy server (no ownerUid) is visible to everyone; otherwise strict match.
+    if (!data.ownerUid || data.ownerUid === uid) ids.add(doc.id);
+  });
+  return ids;
+}
+
+// Authorize a STATE-CHANGING action on a single server. Admins may act on any
+// server. A non-admin may act ONLY on a server they STRICTLY own (its Firestore
+// doc ownerUid === their uid). Legacy/unowned servers do NOT grant mutation
+// rights to non-admins (read-visible != writable). Throws permission-denied.
+async function assertOwnerOrAdmin(request, serverId) {
+  if (isAdminRequest(request)) return;
+  const uid = requireAuth(request);
+  const ref = db.collection('omricraft/main/servers').doc(serverId);
+  const snap = await ref.get();
+  const data = snap.exists ? (snap.data() || {}) : null;
+  if (!data || data.ownerUid !== uid) {
+    throw new HttpsError('permission-denied', 'You do not own this server');
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Hebrew transliteration for slug generation
 // ---------------------------------------------------------------------------
@@ -791,14 +842,19 @@ exports.updateServerProperties = onCall(
 );
 
 // ---------------------------------------------------------------------------
-// restartServer — dedicated restart (stop+start via single script)
+// restartServer (OWNER-OR-ADMIN) — dedicated restart (stop+start via single
+// script). State mutation: caller must be admin OR strictly own this server
+// (Firestore ownerUid === uid; legacy/unowned does NOT count). Used both from the
+// server panel and as a חמ"ל fix action, so non-admin owners must be allowed.
 // ---------------------------------------------------------------------------
 exports.restartServer = onCall(
   { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 60 },
   async (request) => {
-    assertAdmin(request);
     const { serverId } = request.data || {};
-    if (!serverId) return { success: false, error: 'Missing serverId' };
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    await assertOwnerOrAdmin(request, serverId);
     const BASE_URL = managerApiUrl.value().trim();
     const API_KEY  = managerApiKey.value().trim();
     try {
@@ -1151,18 +1207,45 @@ exports.restoreBackup = onCall(
 );
 
 // ---------------------------------------------------------------------------
-// War Room / חמ"ל — getDiagnostics (ADMIN-ONLY): runs the health scan on the
-// VPS (Manager API GET /diagnostics) and returns the list of detected issues.
-// Read-only: no server state is changed by this call.
+// War Room / חמ"ל — getDiagnostics: runs the health scan on the VPS (Manager API
+// GET /diagnostics, which returns ALL servers' issues) and returns the list of
+// detected issues SCOPED to the caller. Read-only: no server state is changed.
+//
+// Security model (the whole point of this function):
+//   - Requires an authenticated caller (rejects if no auth).
+//   - scope param: 'mine' | 'all'. Admins (verified email in ADMIN_EMAILS) with
+//     scope==='all' get EVERY server's issues; otherwise the result is filtered
+//     to issues whose serverId is in the caller's accessible set, matching the
+//     app's visibleServers rule (own server OR a legacy server with no ownerUid).
+//   - Non-admins are ALWAYS forced to the scoped set regardless of `scope`.
+//   The Manager API returns all servers; THIS function filters by accessibility.
 // ---------------------------------------------------------------------------
 exports.getDiagnostics = onCall(
   { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 60 },
   async (request) => {
-    assertAdmin(request);
+    requireAuth(request);
+    const { scope } = request.data || {};
+    const admin = isAdminRequest(request);
+    // Admin + scope:'all' => unrestricted. Everyone else => scoped to own servers.
+    const wantAll = admin && scope === 'all';
+
     const BASE_URL = managerApiUrl.value().trim();
     const API_KEY  = managerApiKey.value().trim();
     try {
-      return await callManagerApi(BASE_URL, API_KEY, 'GET', '/diagnostics', null);
+      const res = await callManagerApi(BASE_URL, API_KEY, 'GET', '/diagnostics', null);
+      if (!res || !res.success) return res;
+      const allIssues = Array.isArray(res.issues) ? res.issues : [];
+
+      if (wantAll) {
+        return { ...res, issues: allIssues, scope: 'all' };
+      }
+
+      // Filter to the caller's accessible serverIds (own + legacy-unowned).
+      const ids = await accessibleServerIds(request); // null = admin/all (won't happen here)
+      const scoped = (ids === null)
+        ? allIssues
+        : allIssues.filter((iss) => iss && ids.has(iss.serverId));
+      return { ...res, issues: scoped, scope: 'mine' };
     } catch (error) {
       return { success: false, error: error?.message || String(error) };
     }
@@ -1170,18 +1253,20 @@ exports.getDiagnostics = onCall(
 );
 
 // ---------------------------------------------------------------------------
-// resetServerStatus (ADMIN-ONLY) — sets a stuck server's status to 'stopped' in
-// servers.json via Manager API /reset-status. The Manager API refuses to reset a
-// server that is actually running, so this is safe.
+// resetServerStatus (OWNER-OR-ADMIN) — sets a stuck server's status to 'stopped'
+// in servers.json via Manager API /reset-status. State mutation: the caller must
+// be admin OR strictly own this server (Firestore ownerUid === uid; legacy/unowned
+// does NOT count). The Manager API also refuses to reset a server that is actually
+// running, so this is safe.
 // ---------------------------------------------------------------------------
 exports.resetServerStatus = onCall(
   { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 20 },
   async (request) => {
-    assertAdmin(request);
     const { serverId } = request.data || {};
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
       return { success: false, error: 'Invalid serverId' };
     }
+    await assertOwnerOrAdmin(request, serverId);
     const BASE_URL = managerApiUrl.value().trim();
     const API_KEY  = managerApiKey.value().trim();
     try {
@@ -1193,16 +1278,17 @@ exports.resetServerStatus = onCall(
 );
 
 // ---------------------------------------------------------------------------
-// removeDatapack (ADMIN-ONLY) — deletes a single datapack zip from a server's
-// world/datapacks/ via Manager API /remove-datapack (DESTRUCTIVE). The Manager
-// API enforces strict path-safety: file must be a plain basename strictly inside
-// that server's datapacks dir. We re-validate the basename here too (defence in
-// depth). On a running server the backend attempts a live RCON reload.
+// removeDatapack (OWNER-OR-ADMIN) — deletes a single datapack zip from a server's
+// world/datapacks/ via Manager API /remove-datapack (DESTRUCTIVE). State mutation:
+// the caller must be admin OR strictly own this server (Firestore ownerUid === uid;
+// legacy/unowned does NOT count). The Manager API enforces strict path-safety: file
+// must be a plain basename strictly inside that server's datapacks dir. We
+// re-validate the basename here too (defence in depth). On a running server the
+// backend attempts a live RCON reload.
 // ---------------------------------------------------------------------------
 exports.removeDatapack = onCall(
   { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 60 },
   async (request) => {
-    assertAdmin(request);
     const { serverId, file } = request.data || {};
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
       return { success: false, error: 'Invalid serverId' };
@@ -1210,6 +1296,7 @@ exports.removeDatapack = onCall(
     if (!file || typeof file !== 'string' || file.includes('/') || file.includes('\\') || file.includes('..')) {
       return { success: false, error: 'Invalid file' };
     }
+    await assertOwnerOrAdmin(request, serverId);
     const BASE_URL = managerApiUrl.value().trim();
     const API_KEY  = managerApiKey.value().trim();
     try {
