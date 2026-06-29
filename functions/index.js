@@ -8,10 +8,14 @@ const db = admin.firestore();
 
 const managerApiUrl = defineSecret("MANAGER_API_URL");
 const managerApiKey = defineSecret("MANAGER_API_KEY");
-// OPTIONAL secret. suggestModpack reads its value at call time; if it is empty/
-// unset, the Gemini path gracefully falls back to the keyless Modrinth search —
-// the function NEVER throws just because this is missing.
-const geminiKey = defineSecret("GEMINI_API_KEY");
+// GEMINI_API_KEY is OPTIONAL and read from process.env at call time — NOT bound
+// via defineSecret(), because a bound secret with no value blocks `firebase deploy
+// --non-interactive` (CI). Reading from env means: if the env var is unset/empty
+// (the default — nobody has set it), suggestModpack's Gemini path gracefully falls
+// back to the keyless Modrinth search and never throws. To enable Gemini later:
+//   firebase functions:secrets:set GEMINI_API_KEY
+// then add `geminiSecret` to suggestModpack's secrets array (a one-line change).
+const readGeminiKey = () => String(process.env.GEMINI_API_KEY || '').trim();
 
 // ---------------------------------------------------------------------------
 // Server-side admin gate. The React isAdmin check is cosmetic only — every
@@ -1704,7 +1708,7 @@ function geminiSuggestNames(apiKey, theme, mcVersion) {
 }
 
 exports.suggestModpack = onCall(
-  { region: "us-central1", secrets: [geminiKey], timeoutSeconds: 60 },
+  { region: "us-central1", timeoutSeconds: 60 },
   async (request) => {
     assertAdmin(request);
     const { theme, model, mcVersion } = request.data || {};
@@ -1725,8 +1729,7 @@ exports.suggestModpack = onCall(
     }
 
     // GEMINI path — graceful: empty key → free fallback (no throw); any error → free.
-    let key = '';
-    try { key = (geminiKey.value() || '').trim(); } catch (_) { key = ''; }
+    const key = readGeminiKey();
     if (!key) {
       const fb = await runFree();
       return { ...fb, usedFallback: true, reason: 'no-gemini-key' };
