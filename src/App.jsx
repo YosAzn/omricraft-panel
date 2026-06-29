@@ -6,7 +6,7 @@ import { collection, doc, setDoc, deleteDoc, onSnapshot, updateDoc, getDoc } fro
 
 import { auth, db } from './lib/firebase';
 import {
-  createServerFn, deleteServerFn, getServerStatusFn, startServerFn,
+  createServerFn, requestServerFn, deleteServerFn, getServerStatusFn, startServerFn,
   stopServerFn, getPaperVersionsFn, getVersionMatrixFn,
   installPluginFn, installDatapackFn, installModFn, installResourcepackFn, getPlayersOnlineFn, restartServerFn
 } from './lib/api';
@@ -398,9 +398,8 @@ export default function App() {
 
       const displayName = String(data.name || 'New Server').trim();
 
-      console.log(`Creating real server: ${displayName}`);
-
-      const result = await createServerFn({
+      // The config payload is identical for both paths (admin create + non-admin request).
+      const serverConfig = {
         displayName,
         type: data.software || 'paper',
         version: data.version || '1.21.1',
@@ -415,7 +414,24 @@ export default function App() {
         icon: smallIcon,
         isPrivate: data.isPrivate === true,
         whitelistPlayers: Array.isArray(data.whitelistPlayers) ? data.whitelistPlayers : []
-      });
+      };
+
+      // Non-admins cannot create directly — they submit a REQUEST. createServer is
+      // admin-enforced server-side regardless; this just routes the UI correctly.
+      // The server is provisioned (owned by the requester) only after an admin approves.
+      if (!isAdmin) {
+        const reqRes = await requestServerFn(serverConfig);
+        if (!reqRes.data?.success) {
+          throw new Error(reqRes.data?.error || 'Request failed');
+        }
+        alert(t('requestSent'));
+        setCurrentView('dashboard');
+        return;
+      }
+
+      console.log(`Creating real server: ${displayName}`);
+
+      const result = await createServerFn(serverConfig);
 
       if (!result.data?.success) {
         throw new Error(result.data?.error || 'Server creation failed');
@@ -460,6 +476,51 @@ export default function App() {
       creatingServerRef.current = false;
       setIsCreatingServer(false);
     }
+  };
+
+  // Called by the admin "Pending requests" UI AFTER approveServerRequest has already
+  // provisioned the server on the VPS (owned by the requester). We persist a COMPLETE
+  // Firestore server doc — mirroring the admin-create path — with ownerUid = the
+  // ORIGINAL REQUESTER (from the approve result), NOT the approving admin. The
+  // PendingRequests component handles the callable + errors; this only writes Firestore.
+  const handleApproveRequest = async (result) => {
+    if (!db || !result || !result.success || !result.id) {
+      throw new Error(result?.error || 'Invalid approval result');
+    }
+    const cfg = result.config || {};
+    const serverData = {
+      id: result.id,
+      name: result.displayName,
+      displayName: result.displayName,
+      slug: result.slug,
+      address: result.address,
+      publicHost: result.address,
+      gamePort: result.gamePort,
+      rconPort: result.rconPort,
+      backendAddress: `127.0.0.1:${result.gamePort}`,
+      // Map the stored request config to the same fields the dashboard/panel read.
+      software: cfg.type || 'paper',
+      version: cfg.version || '1.21.1',
+      gamemode: cfg.gamemode || 'survival',
+      worldType: cfg.worldType || 'default',
+      difficulty: cfg.difficulty || 'normal',
+      memoryMb: cfg.memoryMb || 2048,
+      maxPlayers: cfg.maxPlayers || 20,
+      seed: cfg.seed || '',
+      ops: Array.isArray(cfg.ops) ? cfg.ops : [],
+      installedAddons: Array.isArray(cfg.addons) ? cfg.addons : [],
+      icon: cfg.icon || '',
+      isPrivate: cfg.isPrivate === true,
+      whitelistPlayers: Array.isArray(cfg.whitelistPlayers) ? cfg.whitelistPlayers : [],
+      // Ownership goes to the REQUESTER (echoed by approveServerRequest), not the admin.
+      ownerUid: result.ownerUid || result.requesterUid || null,
+      status: 'starting',
+      players: 0,
+      needsRestart: false,
+      discordWebhook: '',
+      createdAt: new Date().toISOString()
+    };
+    await setDoc(doc(db, getServersPath(), serverData.id), serverData);
   };
 
   const deleteAllServers = async () => {
@@ -803,6 +864,7 @@ export default function App() {
             onOpenHealth={() => setCurrentView('health')}
             toggleServerStatus={toggleServerStatus}
             onDeleteAll={deleteAllServers}
+            onApproveRequest={handleApproveRequest}
           />
         )}
         
@@ -812,6 +874,7 @@ export default function App() {
             lang={lang}
             allAddons={allAddons}
             userRole={userRole}
+            isAdmin={isAdmin}
             mcVersions={mcVersions}
             versionMatrix={versionMatrix}
             onCancel={() => setCurrentView('dashboard')}

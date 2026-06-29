@@ -3,6 +3,13 @@ import { functionsInstance } from './firebase';
 
 export const sendMcCommand = httpsCallable(functionsInstance, 'sendMcCommand');
 export const createServerFn = httpsCallable(functionsInstance, 'createServer');
+// Create-server REQUEST + APPROVAL flow. requestServer = any signed-in user; the
+// three review callables are admin-enforced server-side (assertAdmin). All request
+// data flows through these admin-SDK callables — clients never read serverRequests.
+export const requestServerFn = httpsCallable(functionsInstance, 'requestServer');
+export const getPendingRequestsFn = httpsCallable(functionsInstance, 'getPendingRequests');
+export const approveServerRequestFn = httpsCallable(functionsInstance, 'approveServerRequest');
+export const denyServerRequestFn = httpsCallable(functionsInstance, 'denyServerRequest');
 export const deleteServerFn = httpsCallable(functionsInstance, 'deleteServer');
 export const updateServerIconFn = httpsCallable(functionsInstance, 'updateServerIcon');
 export const setServerPrivacyFn = httpsCallable(functionsInstance, 'setServerPrivacy');

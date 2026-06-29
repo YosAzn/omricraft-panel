@@ -191,7 +191,18 @@ export const DICT = {
     dashQuickPlugins: "תוספים ופלאגינים",
     dashQuickBackups: "גיבויים",
     dashLoading: "טוען...",
-    dashAddons: "תוספים מותקנים"
+    dashAddons: "תוספים מותקנים",
+    requestSent: "בקשתך נשלחה — ממתינה לאישור מנהל",
+    requestServerCta: "בקש שרת",
+    pendingRequests: "בקשות ממתינות",
+    pendingRequestsNone: "אין בקשות ממתינות",
+    requestApprove: "אישור",
+    requestDeny: "דחייה",
+    requestRefresh: "רענן",
+    requestBy: "מאת",
+    requestApproved: "הבקשה אושרה — השרת נוצר",
+    requestDenied: "הבקשה נדחתה",
+    requestActionFailed: "הפעולה נכשלה"
   },
   en: {
     appTitle: "OmriCraft",
@@ -384,7 +395,18 @@ export const DICT = {
     dashQuickPlugins: "Plugins & add-ons",
     dashQuickBackups: "Backups",
     dashLoading: "Loading...",
-    dashAddons: "installed add-ons"
+    dashAddons: "installed add-ons",
+    requestSent: "Request sent — awaiting admin approval",
+    requestServerCta: "Request server",
+    pendingRequests: "Pending requests",
+    pendingRequestsNone: "No pending requests",
+    requestApprove: "Approve",
+    requestDeny: "Deny",
+    requestRefresh: "Refresh",
+    requestBy: "by",
+    requestApproved: "Request approved — server created",
+    requestDenied: "Request denied",
+    requestActionFailed: "Action failed"
   },
 
   // --- New languages (additive) ---

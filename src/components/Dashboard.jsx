@@ -5,6 +5,7 @@ import {
   ChevronRight, CheckCircle2, Search
 } from 'lucide-react';
 import { getDiagnosticsFn, getVersionMatrixFn } from '../lib/api';
+import PendingRequests from './PendingRequests';
 
 // Numeric MC-version compare (newest-first): "1.21.11" must rank above "1.21.9".
 // String compare gets this wrong, so we tuple-compare integer segments.
@@ -50,7 +51,7 @@ function StatCard({ icon: Icon, label, value, loading, accent = 'emerald' }) {
 
 export default function Dashboard({
   servers, onOpenServer, onCreateClick, toggleServerStatus, onDeleteAll, t, userRole,
-  playersData = {}, isAdmin = false, onOpenHealth,
+  playersData = {}, isAdmin = false, onOpenHealth, onApproveRequest,
 }) {
   // Client-side server search (filters the visible servers grid by name).
   const [serverSearch, setServerSearch] = useState('');
@@ -174,17 +175,23 @@ export default function Dashboard({
           </h2>
           <p className="text-zinc-400">{t('manageDesc')}</p>
         </div>
-        {userRole === 'admin' && (
-          <div className="flex gap-2">
-            <button
-              onClick={onCreateClick}
-              className="bg-green-600 hover:bg-green-500 text-white px-5 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-900/20"
-            >
-              <Plus size={20} /> <span>{t('newServer')}</span>
-            </button>
-          </div>
-        )}
+        {/* Create button is ALWAYS visible to every signed-in user. Admins create
+            directly; non-admins submit a request (App.jsx routes the submit). */}
+        <div className="flex gap-2">
+          <button
+            onClick={onCreateClick}
+            className="bg-green-600 hover:bg-green-500 text-white px-5 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-900/20"
+          >
+            <Plus size={20} /> <span>{isAdmin ? t('newServer') : t('requestServerCta')}</span>
+          </button>
+        </div>
       </div>
+
+      {/* ===== Pending server requests (ADMIN only) — non-admins submit create
+              requests; admins approve/deny here. Data via admin-SDK callables. ===== */}
+      {isAdmin && (
+        <PendingRequests t={t} onApproved={onApproveRequest} />
+      )}
 
       {/* ===== Stat cards (section 1) — REAL, scoped to the user's servers. The
               חמ"ל open-issues card shows for ALL users (scoped to their own
@@ -305,11 +312,10 @@ export default function Dashboard({
           <Server className="mx-auto text-zinc-600 mb-4" size={48} />
           <h3 className="text-xl font-bold mb-2">{t('noServers')}</h3>
           <p className="text-zinc-500 mb-6">{t('noServersDesc')}</p>
-          {userRole === 'admin' && (
-            <button onClick={onCreateClick} className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-              {t('create')}
-            </button>
-          )}
+          {/* Always visible — admins create, non-admins request (routed in App.jsx). */}
+          <button onClick={onCreateClick} className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+            {isAdmin ? t('create') : t('requestServerCta')}
+          </button>
         </div>
       ) : filteredServers.length === 0 ? (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center text-zinc-500 text-sm">

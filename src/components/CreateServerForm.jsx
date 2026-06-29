@@ -6,7 +6,7 @@ import { addonDesc } from '../lib/addonI18n';
 import { isViaVersion } from '../lib/utils';
 import ImageUploader from './ImageUploader';
 
-export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lang, userRole, mcVersions, versionMatrix = {}, isCreatingServer = false }) {
+export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lang, userRole, isAdmin = false, mcVersions, versionMatrix = {}, isCreatingServer = false }) {
   const [name, setName] = useState('');
   const [icon, setIcon] = useState(null);
   const [software, setSoftware] = useState('paper');
@@ -97,8 +97,13 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
     if (list.length && !list.includes(version)) setVersion(list[0]);
   };
 
-  // Permission guard AFTER all hooks (Rules of Hooks — hooks must run unconditionally).
-  if (userRole !== 'admin') return <div className="text-center p-12 text-zinc-500">{t('noPermission')}</div>;
+  // The create form is open to ALL signed-in users. Admins create directly; non-admins
+  // submit a REQUEST (App.jsx routes the submit to requestServer based on isAdmin, and
+  // the createServer function is admin-enforced server-side regardless). The submit
+  // button label reflects which action will happen.
+  const submitLabel = isCreatingServer
+    ? (isAdmin ? 'יוצר עולם...' : '...')
+    : (isAdmin ? t('create') : t('requestServerCta'));
 
   return (
     <div className="max-w-3xl mx-auto animate-in fade-in duration-300 pb-10">
@@ -338,7 +343,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
               {t('cancel')}
             </button>
             <button type="submit" disabled={isCreatingServer || !eulaAccepted} className="bg-green-600 hover:bg-green-500 text-white px-10 py-3 rounded-xl font-bold transition-all shadow-lg shadow-green-900/20 text-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-              <Play size={20} fill="currentColor"/> {isCreatingServer ? 'יוצר עולם...' : t('create')}
+              <Play size={20} fill="currentColor"/> {submitLabel}
             </button>
           </div>
         </form>

@@ -148,7 +148,116 @@ function callManagerApi(baseUrl, apiKey, method, endpoint, body) {
 }
 
 // ---------------------------------------------------------------------------
-// createServer
+// createServerInternal — the SHARED server-creation logic (no auth check here).
+// Callers MUST authorize BEFORE calling this. Used by:
+//   - exports.createServer  (admin-only callable; today's direct create path)
+//   - exports.approveServerRequest (admin approves a non-admin's request)
+// Returns the SAME success/error shape the createServer callable always returned,
+// so the existing client contract is unchanged. When ownerUid is provided it is
+// echoed back so the caller can stamp the Firestore doc's ownerUid (e.g. an
+// approved request's server belongs to the original REQUESTER, not the admin).
+// ---------------------------------------------------------------------------
+async function createServerInternal(config) {
+  const { displayName, version, memoryMb, gamemode, difficulty, worldType, ops, maxPlayers, seed, addons, icon, isPrivate, whitelistPlayers, type, ownerUid } = config || {};
+
+  if (!displayName || typeof displayName !== 'string' || !displayName.trim()) {
+    return { success: false, error: 'displayName is required' };
+  }
+  if (displayName.length > 64) {
+    return { success: false, error: 'displayName too long (max 64 chars)' };
+  }
+
+  const BASE_URL = managerApiUrl.value().trim();
+  const API_KEY  = managerApiKey.value().trim();
+
+  // Generate slug
+  let slug = slugify(displayName);
+  if (!slug || slug.length < 2) {
+    slug = `server-${Date.now()}`;
+  }
+
+  const serverId = `server-${Date.now()}`;
+
+  // Fetch existing servers to find next free port
+  let existingServers = [];
+  try {
+    const listRes = await callManagerApi(BASE_URL, API_KEY, 'GET', '/servers', null);
+    existingServers = listRes.servers || [];
+  } catch (e) {
+    console.warn('Could not fetch existing servers for port allocation:', e.message);
+  }
+
+  // Ensure the slug is UNIQUE — two servers with the same display name would
+  // otherwise collide on the same subdomain, leaving the newer one unroutable
+  // in Velocity (the "new server shows under an old server's name" bug).
+  const usedSlugs = new Set(existingServers.map(s => s.slug).filter(Boolean));
+  if (usedSlugs.has(slug)) {
+    let i = 2;
+    while (usedSlugs.has(`${slug}-${i}`)) i++;
+    slug = `${slug}-${i}`;
+  }
+
+  // Dedupe the new port against BOTH existing game AND rcon ports, and put rcon in a
+  // separate high range (game+10000) so an rcon port can never collide with another
+  // server's game port. The old rcon=game+10 scheme overlapped after ~10 servers
+  // (server A's rcon 25576 == server B's game 25576).
+  const usedPorts = new Set();
+  for (const s of existingServers) {
+    if (s.gamePort) usedPorts.add(s.gamePort);
+    if (s.rconPort) usedPorts.add(s.rconPort);
+  }
+  let gamePort = 25566;
+  while (usedPorts.has(gamePort) || usedPorts.has(gamePort + 10000)) gamePort++;
+  const rconPort = gamePort + 10000;
+
+  console.log(`createServerInternal: id=${serverId} slug=${slug} port=${gamePort} ownerUid=${ownerUid || '(admin/default)'}`);
+
+  // Call Oracle Manager API
+  const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/create-server', {
+    serverId,
+    displayName: displayName.trim(),
+    slug,
+    type: type || 'paper',
+    version: version || '1.21.1',
+    gamePort,
+    rconPort,
+    memoryMb: memoryMb || 2048,
+    gamemode: gamemode || 'survival',
+    difficulty: difficulty || 'normal',
+    worldType: worldType || 'default',
+    maxPlayers: maxPlayers || 20,
+    seed: seed || '',
+    ops: Array.isArray(ops) ? ops : [],
+    addons: Array.isArray(addons) ? addons : [],
+    icon: icon || '',
+    isPrivate: isPrivate === true,
+    whitelistPlayers: Array.isArray(whitelistPlayers) ? whitelistPlayers : []
+  });
+
+  if (!result.success) {
+    return { success: false, error: result.error || 'Server creation failed' };
+  }
+
+  return {
+    success: true,
+    id: serverId,
+    displayName: displayName.trim(),
+    slug,
+    address: `${slug}.omricraft.com`,
+    publicHost: `${slug}.omricraft.com`,
+    gamePort,
+    rconPort,
+    // Only present when the caller passed an ownerUid (request-approval path); the
+    // direct admin createServer path leaves this undefined and behaves as before.
+    ...(ownerUid ? { ownerUid } : {}),
+    status: 'starting'
+  };
+}
+
+// ---------------------------------------------------------------------------
+// createServer — admin-only callable. Accepts an OPTIONAL ownerUid: when an admin
+// passes it (e.g. via approveServerRequest), the resulting server is OWNED by that
+// uid. Without it, behaves EXACTLY as before (no ownerUid in the response).
 // ---------------------------------------------------------------------------
 exports.createServer = onCall(
   {
@@ -158,97 +267,203 @@ exports.createServer = onCall(
   },
   async (request) => {
     assertAdmin(request);
-    const { displayName, version, memoryMb, gamemode, difficulty, worldType, ops, maxPlayers, seed, addons, icon, isPrivate, whitelistPlayers, type } = request.data || {};
+    const data = request.data || {};
+    // ownerUid is only honored from an authenticated ADMIN caller (assertAdmin above).
+    const ownerUid = (typeof data.ownerUid === 'string' && data.ownerUid.trim()) ? data.ownerUid.trim() : undefined;
+    return await createServerInternal({ ...data, ownerUid });
+  }
+);
 
-    if (!displayName || typeof displayName !== 'string' || !displayName.trim()) {
-      return { success: false, error: 'displayName is required' };
-    }
-    if (displayName.length > 64) {
-      return { success: false, error: 'displayName too long (max 64 chars)' };
-    }
+// ---------------------------------------------------------------------------
+// requestServer (ANY authenticated caller) — a non-admin submits a request to
+// create a server. Writes a pending doc to omricraft/main/serverRequests; an admin
+// later approves it (approveServerRequest) which runs the shared create logic with
+// ownerUid = the requester. The config is validated to the same shape the create
+// form sends; nothing is provisioned here. All reads/writes of serverRequests go
+// through admin-SDK callables (bypassing security rules) so firestore.rules is
+// unchanged and clients never touch the collection directly.
+// ---------------------------------------------------------------------------
+const REQUEST_VALID_TYPES = ['paper', 'purpur', 'folia', 'mohist', 'fabric', 'forge', 'neoforge', 'vanilla'];
 
-    const BASE_URL = managerApiUrl.value().trim();
-    const API_KEY  = managerApiKey.value().trim();
+exports.requestServer = onCall(
+  { region: "us-central1", timeoutSeconds: 30 },
+  async (request) => {
+    const requesterUid = requireAuth(request);
+    const d = request.data || {};
 
-    // Generate slug
-    let slug = slugify(displayName);
-    if (!slug || slug.length < 2) {
-      slug = `server-${Date.now()}`;
-    }
+    // Validate the same fields the create form sends (mirror createServerInternal).
+    const displayName = typeof d.displayName === 'string' ? d.displayName.trim() : '';
+    if (!displayName) return { success: false, error: 'displayName is required' };
+    if (displayName.length > 64) return { success: false, error: 'displayName too long (max 64 chars)' };
+    const type = REQUEST_VALID_TYPES.includes(d.type) ? d.type : 'paper';
+    const version = (typeof d.version === 'string' && /^[0-9][0-9a-z.\-+]*$/i.test(d.version)) ? d.version : '1.21.1';
+    const memNum = parseInt(d.memoryMb, 10);
+    const memoryMb = Number.isFinite(memNum) ? Math.min(Math.max(memNum, 512), 4096) : 2048;
+    const maxNum = parseInt(d.maxPlayers, 10);
+    const maxPlayers = Number.isFinite(maxNum) ? Math.min(Math.max(maxNum, 1), 100) : 20;
 
-    const serverId = `server-${Date.now()}`;
+    // Build a sanitized config snapshot. Stored as-is; provisioned only on approval.
+    const config = {
+      displayName,
+      type,
+      version,
+      memoryMb,
+      gamemode: typeof d.gamemode === 'string' ? d.gamemode : 'survival',
+      difficulty: typeof d.difficulty === 'string' ? d.difficulty : 'normal',
+      worldType: typeof d.worldType === 'string' ? d.worldType : 'default',
+      maxPlayers,
+      seed: typeof d.seed === 'string' ? d.seed : '',
+      ops: Array.isArray(d.ops) ? d.ops.filter(x => typeof x === 'string').slice(0, 50) : [],
+      addons: Array.isArray(d.addons) ? d.addons.filter(x => typeof x === 'string').slice(0, 100) : [],
+      icon: typeof d.icon === 'string' ? d.icon : '',
+      isPrivate: d.isPrivate === true,
+      whitelistPlayers: Array.isArray(d.whitelistPlayers) ? d.whitelistPlayers.filter(x => typeof x === 'string').slice(0, 200) : []
+    };
 
-    // Fetch existing servers to find next free port
-    let existingServers = [];
     try {
-      const listRes = await callManagerApi(BASE_URL, API_KEY, 'GET', '/servers', null);
-      existingServers = listRes.servers || [];
-    } catch (e) {
-      console.warn('Could not fetch existing servers for port allocation:', e.message);
+      const ref = await db.collection('omricraft/main/serverRequests').add({
+        requesterUid,
+        requesterEmail: (request.auth.token && request.auth.token.email) || null,
+        config,
+        status: 'pending',
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      console.log(`requestServer: id=${ref.id} requester=${requesterUid} name="${displayName}"`);
+      return { success: true, requestId: ref.id };
+    } catch (error) {
+      console.error('requestServer error:', error);
+      return { success: false, error: error?.message || String(error) };
     }
+  }
+);
 
-    // Ensure the slug is UNIQUE — two servers with the same display name would
-    // otherwise collide on the same subdomain, leaving the newer one unroutable
-    // in Velocity (the "new server shows under an old server's name" bug).
-    const usedSlugs = new Set(existingServers.map(s => s.slug).filter(Boolean));
-    if (usedSlugs.has(slug)) {
-      let i = 2;
-      while (usedSlugs.has(`${slug}-${i}`)) i++;
-      slug = `${slug}-${i}`;
+// ---------------------------------------------------------------------------
+// getPendingRequests (ADMIN only) — admin-SDK read of all pending server requests.
+// Returns a plain array the review UI lists. createdAt is serialized to millis so
+// it survives the callable JSON boundary.
+// ---------------------------------------------------------------------------
+exports.getPendingRequests = onCall(
+  { region: "us-central1", timeoutSeconds: 20 },
+  async (request) => {
+    assertAdmin(request);
+    try {
+      const snap = await db.collection('omricraft/main/serverRequests')
+        .where('status', '==', 'pending')
+        .get();
+      const requests = snap.docs.map((doc) => {
+        const r = doc.data() || {};
+        const cfg = r.config || {};
+        const ts = r.createdAt && typeof r.createdAt.toMillis === 'function' ? r.createdAt.toMillis() : null;
+        return {
+          id: doc.id,
+          requesterEmail: r.requesterEmail || null,
+          config: {
+            displayName: cfg.displayName || '',
+            type: cfg.type || 'paper',
+            version: cfg.version || '',
+            memoryMb: cfg.memoryMb || null,
+            gamemode: cfg.gamemode || '',
+            difficulty: cfg.difficulty || '',
+            maxPlayers: cfg.maxPlayers || null,
+            isPrivate: cfg.isPrivate === true
+          },
+          createdAt: ts
+        };
+      });
+      // Newest-first (serverTimestamp may be null momentarily right after write).
+      requests.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      return { success: true, requests };
+    } catch (error) {
+      console.error('getPendingRequests error:', error);
+      return { success: false, error: error?.message || String(error) };
     }
+  }
+);
 
-    // Dedupe the new port against BOTH existing game AND rcon ports, and put rcon in a
-    // separate high range (game+10000) so an rcon port can never collide with another
-    // server's game port. The old rcon=game+10 scheme overlapped after ~10 servers
-    // (server A's rcon 25576 == server B's game 25576).
-    const usedPorts = new Set();
-    for (const s of existingServers) {
-      if (s.gamePort) usedPorts.add(s.gamePort);
-      if (s.rconPort) usedPorts.add(s.rconPort);
+// ---------------------------------------------------------------------------
+// approveServerRequest (ADMIN only) — reads a pending request, runs the SHARED
+// create logic with the request's config + ownerUid = requesterUid (so the server
+// belongs to the requester), then marks the request approved + records the created
+// serverId. Returns the full create result so the client can write the Firestore
+// server doc (with ownerUid = requester) just like the direct create path.
+// ---------------------------------------------------------------------------
+exports.approveServerRequest = onCall(
+  {
+    region: "us-central1",
+    secrets: [managerApiUrl, managerApiKey],
+    timeoutSeconds: 120,
+  },
+  async (request) => {
+    assertAdmin(request);
+    const { requestId } = request.data || {};
+    if (!requestId || typeof requestId !== 'string') {
+      return { success: false, error: 'Invalid requestId' };
     }
-    let gamePort = 25566;
-    while (usedPorts.has(gamePort) || usedPorts.has(gamePort + 10000)) gamePort++;
-    const rconPort = gamePort + 10000;
+    const ref = db.collection('omricraft/main/serverRequests').doc(requestId);
+    let reqDoc;
+    try {
+      reqDoc = await ref.get();
+    } catch (error) {
+      console.error('approveServerRequest read error:', error);
+      return { success: false, error: error?.message || String(error) };
+    }
+    if (!reqDoc.exists) return { success: false, error: 'Request not found' };
+    const reqData = reqDoc.data() || {};
+    if (reqData.status !== 'pending') {
+      return { success: false, error: `Request already ${reqData.status || 'processed'}` };
+    }
+    const requesterUid = reqData.requesterUid;
+    if (!requesterUid) return { success: false, error: 'Request has no requesterUid' };
 
-    console.log(`createServer: id=${serverId} slug=${slug} port=${gamePort}`);
-
-    // Call Oracle Manager API
-    const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/create-server', {
-      serverId,
-      displayName: displayName.trim(),
-      slug,
-      type: type || 'paper',
-      version: version || '1.21.1',
-      gamePort,
-      rconPort,
-      memoryMb: memoryMb || 2048,
-      gamemode: gamemode || 'survival',
-      difficulty: difficulty || 'normal',
-      worldType: worldType || 'default',
-      maxPlayers: maxPlayers || 20,
-      seed: seed || '',
-      ops: Array.isArray(ops) ? ops : [],
-      addons: Array.isArray(addons) ? addons : [],
-      icon: icon || '',
-      isPrivate: isPrivate === true,
-      whitelistPlayers: Array.isArray(whitelistPlayers) ? whitelistPlayers : []
-    });
-
+    // Run the shared create logic, stamping ownerUid = the ORIGINAL requester.
+    const result = await createServerInternal({ ...(reqData.config || {}), ownerUid: requesterUid });
     if (!result.success) {
+      // Do NOT consume the request on a failed provision — leave it pending to retry.
       return { success: false, error: result.error || 'Server creation failed' };
     }
 
-    return {
-      success: true,
-      id: serverId,
-      displayName: displayName.trim(),
-      slug,
-      address: `${slug}.omricraft.com`,
-      publicHost: `${slug}.omricraft.com`,
-      gamePort,
-      rconPort,
-      status: 'starting'
-    };
+    try {
+      await ref.update({
+        status: 'approved',
+        createdServerId: result.id,
+        approvedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (error) {
+      // Server WAS created; only the request-status write failed. Surface it but
+      // still return the create result so the client can persist the server doc.
+      console.error('approveServerRequest status-update error (server already created):', error);
+    }
+    // Echo requesterUid + the original config so the client writes a COMPLETE
+    // Firestore server doc (software/version/addons/etc.) owned by the requester,
+    // mirroring the direct admin-create path.
+    return { ...result, ownerUid: requesterUid, requesterUid, config: reqData.config || {} };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// denyServerRequest (ADMIN only) — marks a pending request denied. No provisioning.
+// ---------------------------------------------------------------------------
+exports.denyServerRequest = onCall(
+  { region: "us-central1", timeoutSeconds: 20 },
+  async (request) => {
+    assertAdmin(request);
+    const { requestId } = request.data || {};
+    if (!requestId || typeof requestId !== 'string') {
+      return { success: false, error: 'Invalid requestId' };
+    }
+    try {
+      const ref = db.collection('omricraft/main/serverRequests').doc(requestId);
+      const snap = await ref.get();
+      if (!snap.exists) return { success: false, error: 'Request not found' };
+      await ref.update({
+        status: 'denied',
+        deniedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      return { success: true, requestId };
+    } catch (error) {
+      console.error('denyServerRequest error:', error);
+      return { success: false, error: error?.message || String(error) };
+    }
   }
 );
 
