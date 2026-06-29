@@ -8,6 +8,10 @@ const db = admin.firestore();
 
 const managerApiUrl = defineSecret("MANAGER_API_URL");
 const managerApiKey = defineSecret("MANAGER_API_KEY");
+// OPTIONAL secret. suggestModpack reads its value at call time; if it is empty/
+// unset, the Gemini path gracefully falls back to the keyless Modrinth search —
+// the function NEVER throws just because this is missing.
+const geminiKey = defineSecret("GEMINI_API_KEY");
 
 // ---------------------------------------------------------------------------
 // Server-side admin gate. The React isAdmin check is cosmetic only — every
@@ -1551,6 +1555,205 @@ exports.getPublicStats = onCall(
       // Never throw to the public caller — degrade to zeros.
       console.error('getPublicStats failed:', error);
       return { success: false, serverCount: 0, playersOnline: 0 };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// suggestModpack — ADMIN-only AI/heuristic Modpack Builder.
+// Given a free-text theme, returns ~8-12 REAL Modrinth mods the admin can turn
+// into a custom modpack. Two models:
+//   'free' (default, NO key): theme → Modrinth category + query → real search.
+//   'gemini' (optional key) : Gemini names ~10 mods → each VERIFIED on Modrinth.
+// The Gemini path NEVER hard-fails: if the GEMINI_API_KEY secret is empty/unset,
+// or any Gemini call errors, it falls back to the 'free' path and flags
+// usedFallback:true so the UI can show an honest note.
+// ---------------------------------------------------------------------------
+
+// Map common theme keywords (he + en) to a Modrinth category facet. First match
+// wins; null means "no category facet" (query-only search).
+const THEME_CATEGORY_MAP = [
+  { cat: 'technology',   words: ['tech', 'technology', 'machine', 'automation', 'industrial', 'factory', 'טכנולוגיה', 'מכונה', 'מכונות', 'תעשייה', 'אוטומציה'] },
+  { cat: 'magic',        words: ['magic', 'wizard', 'spell', 'arcane', 'witch', 'קסם', 'מאגיה', 'כישוף', 'מכשפה'] },
+  { cat: 'adventure',    words: ['adventure', 'rpg', 'quest', 'dungeon', 'explore', 'הרפתקה', 'הרפתקאות', 'מבוך', 'מבוכים', 'קווסט'] },
+  { cat: 'optimization', words: ['performance', 'optimization', 'optimize', 'fps', 'lag', 'fast', 'ביצועים', 'אופטימיזציה', 'מהירות'] },
+  { cat: 'food',         words: ['food', 'farming', 'cooking', 'crops', 'kitchen', 'אוכל', 'חקלאות', 'בישול', 'מטבח'] },
+  { cat: 'decoration',   words: ['decoration', 'decor', 'furniture', 'build', 'building', 'cosmetic', 'עיצוב', 'ריהוט', 'בנייה', 'קישוט'] },
+  { cat: 'mobs',         words: ['mob', 'mobs', 'creature', 'animal', 'monster', 'pet', 'יצורים', 'חיות', 'מפלצות', 'חיה'] },
+  { cat: 'worldgen',     words: ['world', 'worldgen', 'biome', 'biomes', 'terrain', 'generation', 'עולם', 'ביום', 'ביומות', 'נוף'] },
+  { cat: 'utility',      words: ['utility', 'tool', 'tools', 'quality of life', 'qol', 'helper', 'כלי', 'כלים', 'עזר', 'שירות'] },
+];
+
+// Pick the category facet for a theme (or null). Lowercase, keyword scan.
+function categoryForTheme(theme) {
+  const t = String(theme || '').toLowerCase();
+  for (const { cat, words } of THEME_CATEGORY_MAP) {
+    if (words.some(w => t.includes(w))) return cat;
+  }
+  return null;
+}
+
+// Non-throwing JSON GET (resolves null on any failure). Reused by both paths.
+function getJsonSafe(url, headers) {
+  return new Promise((resolve) => {
+    const req = https.get(url, { headers: { 'User-Agent': 'OmriCraft-Panel/1.0', ...(headers || {}) } }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch { resolve(null); }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.setTimeout(12000, () => { req.destroy(); resolve(null); });
+  });
+}
+
+// Trim a Modrinth description to a short, single-line blurb.
+function shortDesc(s) {
+  const txt = String(s || '').replace(/\s+/g, ' ').trim();
+  return txt.length > 140 ? txt.slice(0, 137) + '…' : txt;
+}
+
+// Map a Modrinth search hit → our compact mod shape.
+function mapModrinthHit(h) {
+  const slug = h.slug || h.project_id;
+  return {
+    slug,
+    title: h.title || slug,
+    description: shortDesc(h.description),
+    downloads: typeof h.downloads === 'number' ? h.downloads : 0,
+    url: `https://modrinth.com/mod/${slug}`,
+  };
+}
+
+// FREE path: build a Modrinth search from the theme (category facet + query) and
+// return up to `limit` real mods. mcVersion is sanity-checked so we never inject
+// a bad facet. Returns [] on any failure (caller decides what to do).
+async function modrinthSearch(theme, mcVersion, limit) {
+  const cat = categoryForTheme(theme);
+  const facets = [['project_type:mod']];
+  if (mcVersion && /^[0-9][0-9.]{1,12}$/.test(mcVersion)) facets.push([`versions:${mcVersion}`]);
+  if (cat) facets.push([`categories:${cat}`]);
+  const url = 'https://api.modrinth.com/v2/search'
+    + `?query=${encodeURIComponent(String(theme || '').trim())}`
+    + `&facets=${encodeURIComponent(JSON.stringify(facets))}`
+    + '&index=downloads'
+    + `&limit=${Math.max(1, Math.min(20, Number(limit) || 12))}`;
+  const j = await getJsonSafe(url);
+  const hits = Array.isArray(j?.hits) ? j.hits : [];
+  return hits.map(mapModrinthHit);
+}
+
+// Verify ONE mod name on Modrinth (by query) → first hit or null. Used to keep
+// only Gemini suggestions that resolve to a real project.
+async function verifyModOnModrinth(name, mcVersion) {
+  const facets = [['project_type:mod']];
+  if (mcVersion && /^[0-9][0-9.]{1,12}$/.test(mcVersion)) facets.push([`versions:${mcVersion}`]);
+  const url = 'https://api.modrinth.com/v2/search'
+    + `?query=${encodeURIComponent(String(name || '').trim())}`
+    + `&facets=${encodeURIComponent(JSON.stringify(facets))}`
+    + '&index=relevance&limit=1';
+  const j = await getJsonSafe(url);
+  const hit = Array.isArray(j?.hits) && j.hits.length ? j.hits[0] : null;
+  return hit ? mapModrinthHit(hit) : null;
+}
+
+// Ask Gemini for ~10 mod NAMES that fit the theme. Returns string[] (may be []).
+// POSTs to the Generative Language API. Throws on transport/HTTP error so the
+// caller's try/catch can fall back to free.
+function geminiSuggestNames(apiKey, theme, mcVersion) {
+  return new Promise((resolve, reject) => {
+    const prompt = `List exactly 10 real Minecraft Java Edition mods (as published on Modrinth) `
+      + `that fit this theme: "${String(theme || '').trim()}". Target Minecraft version ${mcVersion}. `
+      + `Reply with ONLY the mod names, one per line, no numbering, no extra text.`;
+    const payload = JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.4, maxOutputTokens: 512 },
+    });
+    const options = {
+      hostname: 'generativelanguage.googleapis.com',
+      path: `/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+      timeout: 20000,
+    };
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          return reject(new Error(`Gemini HTTP ${res.statusCode}`));
+        }
+        try {
+          const j = JSON.parse(data);
+          const text = j?.candidates?.[0]?.content?.parts?.map(p => p.text).join('\n') || '';
+          const names = text.split('\n')
+            .map(l => l.replace(/^[\s\d.)*-]+/, '').trim())
+            .filter(Boolean)
+            .slice(0, 12);
+          resolve(names);
+        } catch (e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Gemini request timed out')); });
+    req.write(payload);
+    req.end();
+  });
+}
+
+exports.suggestModpack = onCall(
+  { region: "us-central1", secrets: [geminiKey], timeoutSeconds: 60 },
+  async (request) => {
+    assertAdmin(request);
+    const { theme, model, mcVersion } = request.data || {};
+    const cleanTheme = String(theme || '').trim();
+    const ver = String(mcVersion || '1.21.11').trim();
+    if (!cleanTheme) {
+      throw new HttpsError('invalid-argument', 'theme is required');
+    }
+
+    // FREE path (also the universal fallback).
+    const runFree = async () => {
+      const mods = await modrinthSearch(cleanTheme, ver, 12);
+      return { success: true, model: 'free', theme: cleanTheme, mcVersion: ver, mods };
+    };
+
+    if (String(model || 'free').toLowerCase() !== 'gemini') {
+      return await runFree();
+    }
+
+    // GEMINI path — graceful: empty key → free fallback (no throw); any error → free.
+    let key = '';
+    try { key = (geminiKey.value() || '').trim(); } catch (_) { key = ''; }
+    if (!key) {
+      const fb = await runFree();
+      return { ...fb, usedFallback: true, reason: 'no-gemini-key' };
+    }
+
+    try {
+      const names = await geminiSuggestNames(key, cleanTheme, ver);
+      if (!names.length) {
+        const fb = await runFree();
+        return { ...fb, usedFallback: true, reason: 'gemini-empty' };
+      }
+      // Verify each name on Modrinth; keep only real, de-duplicated projects.
+      const seen = new Set();
+      const verified = [];
+      for (const name of names) {
+        const mod = await verifyModOnModrinth(name, ver);
+        if (mod && !seen.has(mod.slug)) { seen.add(mod.slug); verified.push(mod); }
+      }
+      if (!verified.length) {
+        const fb = await runFree();
+        return { ...fb, usedFallback: true, reason: 'gemini-unverified' };
+      }
+      return { success: true, model: 'gemini', theme: cleanTheme, mcVersion: ver, mods: verified };
+    } catch (error) {
+      console.error('suggestModpack gemini path failed, falling back to free:', error);
+      const fb = await runFree();
+      return { ...fb, usedFallback: true, reason: 'gemini-error' };
     }
   }
 );

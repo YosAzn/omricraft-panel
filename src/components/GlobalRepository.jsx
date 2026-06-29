@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import {
   Layers, X, Plus, UploadCloud, Link as LinkIcon, Search,
-  Package, Palette, Star, Trash2, Download, Check
+  Package, Palette, Star, Trash2, Download, Check, Sparkles, ExternalLink, Loader2
 } from 'lucide-react';
 
 import { TYPE_COLORS } from '../lib/constants';
 import { addonDesc } from '../lib/addonI18n';
+import { suggestModpackFn } from '../lib/api';
 
 export default function GlobalRepository({ allAddons, customAddons, onAdd, onDelete, t, lang, userRole }) {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -31,6 +32,67 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
   const [qaDesc, setQaDesc] = useState('');
   const [qaType, setQaType] = useState('mods');
   const [qaUrl, setQaUrl] = useState('');
+
+  // --- Modpack Builder (admin AI/heuristic) State ---
+  const [showBuilder, setShowBuilder] = useState(false);
+  const [builderTheme, setBuilderTheme] = useState('');
+  const [builderModel, setBuilderModel] = useState('free'); // 'free' | 'gemini'
+  const [builderLoading, setBuilderLoading] = useState(false);
+  const [builderError, setBuilderError] = useState('');
+  const [builderResult, setBuilderResult] = useState(null); // { mods, usedFallback, ... } | null
+  const [builderSearched, setBuilderSearched] = useState(false);
+
+  const handleBuildList = async () => {
+    if (!builderTheme.trim() || builderLoading) return;
+    setBuilderLoading(true);
+    setBuilderError('');
+    setBuilderResult(null);
+    setBuilderSearched(true);
+    try {
+      const res = await suggestModpackFn({ theme: builderTheme.trim(), model: builderModel, mcVersion: '1.21.11' });
+      const data = res?.data;
+      if (!data?.success) throw new Error(data?.error || 'הבקשה נכשלה');
+      setBuilderResult(data);
+    } catch (e) {
+      console.error('Modpack Builder failed:', e);
+      setBuilderError(e?.message || String(e));
+    } finally {
+      setBuilderLoading(false);
+    }
+  };
+
+  // Turn the suggested Modrinth mods into a custom modpack. Each suggested mod is
+  // first registered as a custom addon (stable id from its slug), mirroring the
+  // existing Quick-Add → onAdd flow, then a modpack referencing those ids is added.
+  const handleCreateModpackFromSuggestions = () => {
+    const mods = builderResult?.mods || [];
+    if (!mods.length) return;
+    const ids = mods.map(m => {
+      const id = `c_mr_${m.slug}`;
+      onAdd({
+        id,
+        name: m.title,
+        desc: m.description || `מוד מ-Modrinth (${m.slug})`,
+        type: 'mods',
+        fileUrl: m.url,
+        downloads: typeof m.downloads === 'number' ? m.downloads.toLocaleString() : 'Custom'
+      });
+      return id;
+    });
+    const themeLabel = builderResult?.theme || builderTheme.trim();
+    onAdd({
+      name: `Modpack: ${themeLabel}`.slice(0, 60),
+      desc: `${mods.length} מודים מ-Modrinth סביב הנושא "${themeLabel}"`,
+      type: 'modpacks',
+      includedAddons: ids,
+      downloads: 'Custom'
+    });
+    // Reset the builder after creating the pack.
+    setBuilderResult(null);
+    setBuilderSearched(false);
+    setBuilderTheme('');
+    setShowBuilder(false);
+  };
 
   const filtered = allAddons.filter(a => {
     const localized = addonDesc(a.id, lang, a.desc) || '';
@@ -97,14 +159,20 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
         </div>
         {userRole === 'admin' && (
           <div className="flex gap-2">
-            <button 
-              onClick={() => { setShowModpackForm(!showModpackForm); setShowAddForm(false); }}
+            <button
+              onClick={() => { setShowBuilder(!showBuilder); setShowModpackForm(false); setShowAddForm(false); }}
+              className={`px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all border ${showBuilder ? 'bg-purple-600 text-white border-purple-500' : 'bg-zinc-900 border-purple-500/40 hover:border-purple-500 text-purple-300'}`}
+            >
+              <Sparkles size={18}/> <span className="hidden sm:inline">{t('modpackBuilder')}</span>
+            </button>
+            <button
+              onClick={() => { setShowModpackForm(!showModpackForm); setShowAddForm(false); setShowBuilder(false); }}
               className={`px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all border ${showModpackForm ? 'bg-zinc-800 text-white border-zinc-700' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-600 text-zinc-300'}`}
             >
               <Layers size={18}/> <span className="hidden sm:inline">{t('createModpack')}</span>
             </button>
-            <button 
-              onClick={() => { setShowAddForm(!showAddForm); setShowModpackForm(false); }}
+            <button
+              onClick={() => { setShowAddForm(!showAddForm); setShowModpackForm(false); setShowBuilder(false); }}
               className="bg-green-600 hover:bg-green-500 text-white px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all shadow-lg"
             >
               {showAddForm ? <X size={20}/> : <Plus size={20} />} <span className="hidden sm:inline">{showAddForm ? t('cancel') : t('addCustomAddon')}</span>
@@ -112,6 +180,89 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
           </div>
         )}
       </div>
+
+      {userRole === 'admin' && showBuilder && (
+        <div className="bg-zinc-900 border border-purple-500/30 rounded-xl p-5 mb-6 animate-in slide-in-from-top-4 shadow-[0_0_15px_rgba(168,85,247,0.12)]">
+          <div className="flex items-center gap-2 mb-1">
+            <Sparkles size={20} className="text-purple-400" />
+            <h3 className="font-bold text-purple-300">{t('modpackBuilder')}</h3>
+          </div>
+          <p className="text-xs text-zinc-400 mb-4">{t('modpackBuilderDesc')}</p>
+
+          <div className="flex flex-col md:flex-row gap-3 mb-4">
+            <input
+              value={builderTheme}
+              onChange={e => setBuilderTheme(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleBuildList(); }}
+              placeholder={t('builderThemePlaceholder')}
+              className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500"
+            />
+            <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800">
+              {['free', 'gemini'].map(m => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setBuilderModel(m)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${builderModel === m ? 'bg-purple-600 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+                >
+                  {m === 'free' ? t('builderModelFree') : t('builderModelGemini')}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={handleBuildList}
+              disabled={!builderTheme.trim() || builderLoading}
+              className="bg-purple-600 hover:bg-purple-500 text-white px-5 py-2 rounded-lg font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {builderLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+              {builderLoading ? t('building') : t('buildList')}
+            </button>
+          </div>
+
+          {builderError && (
+            <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-3">{builderError}</div>
+          )}
+
+          {builderResult?.usedFallback && (
+            <div className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3">{t('geminiFallbackNote')}</div>
+          )}
+
+          {builderResult && (builderResult.mods?.length || 0) > 0 && (
+            <>
+              <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-2 max-h-72 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                {builderResult.mods.map(m => (
+                  <div key={m.slug} className="flex items-start justify-between gap-2 p-2 rounded-md border border-transparent hover:border-zinc-800 hover:bg-zinc-900 transition-colors">
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm truncate">{m.title}</div>
+                      <p className="text-[11px] text-zinc-400 line-clamp-2">{m.description}</p>
+                      <div className="text-[10px] text-zinc-500 mt-1 flex items-center gap-1">
+                        <Download size={11} /> {typeof m.downloads === 'number' ? m.downloads.toLocaleString() : m.downloads} {t('builderDownloads')}
+                      </div>
+                    </div>
+                    <a href={m.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-purple-400 hover:text-purple-300 flex-shrink-0 p-1" title={m.url}>
+                      <ExternalLink size={15} />
+                    </a>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleCreateModpackFromSuggestions}
+                  className="bg-pink-600 hover:bg-pink-500 text-white px-5 py-2 rounded-lg font-bold flex items-center gap-2"
+                >
+                  <Layers size={18} /> {t('createModpackFromThese')}
+                </button>
+              </div>
+            </>
+          )}
+
+          {builderSearched && !builderLoading && !builderError && builderResult && (builderResult.mods?.length || 0) === 0 && (
+            <div className="text-center text-zinc-500 py-6 text-sm">{t('builderNoResults')}</div>
+          )}
+        </div>
+      )}
 
       {showAddForm && (
         <form onSubmit={handleAdd} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-6 animate-in slide-in-from-top-4">

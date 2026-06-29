@@ -48,3 +48,5 @@ export const resetServerStatusFn = httpsCallable(functionsInstance, 'resetServer
 export const removeDatapackFn = httpsCallable(functionsInstance, 'removeDatapack');
 // Public landing-page aggregate stats — onCall, NOT admin-gated (returns only counts).
 export const getPublicStatsFn = httpsCallable(functionsInstance, 'getPublicStats');
+// Admin-only Modpack Builder — theme → real Modrinth mods (free or Gemini-verified).
+export const suggestModpackFn = httpsCallable(functionsInstance, 'suggestModpack');
