@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Server, Trash2, Plus, Package, HardDrive, RefreshCw, Square, Play, Shield,
-  Users, Activity, AlertCircle, AlertTriangle, Info, ArrowUpCircle,
+  Users, Activity, AlertTriangle, ArrowUpCircle,
   ChevronRight, CheckCircle2, Search
 } from 'lucide-react';
 import { getDiagnosticsFn, getVersionMatrixFn } from '../lib/api';
 import PendingRequests from './PendingRequests';
+import HealthIssueRow from './HealthIssueRow';
 
 // Numeric MC-version compare (newest-first): "1.21.11" must rank above "1.21.9".
 // String compare gets this wrong, so we tuple-compare integer segments.
@@ -17,13 +18,6 @@ const cmpVerDesc = (a, b) => {
     if (d) return d;
   }
   return 0;
-};
-
-// Severity styling for the compact חמ"ל summary (mirrors HealthTab's palette).
-const SEV = {
-  error:   { icon: AlertCircle,   ring: 'text-red-400' },
-  warning: { icon: AlertTriangle, ring: 'text-amber-400' },
-  info:    { icon: Info,          ring: 'text-sky-400' },
 };
 
 // A single stat card. value === null renders a neutral dash (never a fake 0).
@@ -63,18 +57,20 @@ export default function Dashboard({
   //     {success, issues:[...]}. ---
   const [diagnostics, setDiagnostics] = useState(null);
   const [diagLoading, setDiagLoading] = useState(false);
-  useEffect(() => {
-    let alive = true;
+  // Reusable re-scan: runs on mount AND after a fix succeeds (passed as onFixed
+  // to each HealthIssueRow) so the panel reflects the fix without a page reload.
+  const refreshDiagnostics = useCallback(async () => {
     setDiagLoading(true);
-    getDiagnosticsFn({ scope: 'mine' })
-      .then(res => {
-        const d = res?.data || res;
-        if (alive && d && d.success) setDiagnostics(Array.isArray(d.issues) ? d.issues : []);
-      })
-      .catch(e => { console.error('Dashboard getDiagnostics failed:', e); })
-      .finally(() => { if (alive) setDiagLoading(false); });
-    return () => { alive = false; };
+    try {
+      const res = await getDiagnosticsFn({ scope: 'mine' });
+      const d = res?.data || res;
+      if (d && d.success) setDiagnostics(Array.isArray(d.issues) ? d.issues : []);
+    } catch (e) {
+      console.error('Dashboard getDiagnostics failed:', e);
+    }
+    setDiagLoading(false);
   }, []);
+  useEffect(() => { refreshDiagnostics(); }, [refreshDiagnostics]);
 
   // --- Version matrix (REAL latest per server type) for the updates section. ---
   // {success, matrix:{ paper:[newest-first], fabric:[...], ... }}. On failure → {}.
@@ -133,14 +129,15 @@ export default function Dashboard({
     ? servers.filter(s => (s.name || '').toLowerCase().includes(search))
     : servers;
 
-  // חמ"ל counts (admin only). null while loading / unavailable → dash.
+  // חמ"ל counts + sorted list (scoped to the user's own servers). null while
+  // loading / unavailable → dash for the stat card.
   const issues = diagnostics || [];
   const issueCount = diagnostics === null ? null : issues.length;
-  // Show errors first, then warnings, then info — top of the summary.
+  // Show errors first, then warnings, then info — the full (scrollable) summary
+  // panel renders ALL of the user's issues in this order, each with its fix button.
   const sevRank = { error: 0, warning: 1, info: 2 };
-  const topIssues = [...issues]
-    .sort((a, b) => (sevRank[a.severity] ?? 3) - (sevRank[b.severity] ?? 3))
-    .slice(0, 3);
+  const sortedIssues = [...issues]
+    .sort((a, b) => (sevRank[a.severity] ?? 3) - (sevRank[b.severity] ?? 3));
 
   // --- Available updates (REAL — server/MC version only). For each server,
   //     compare its current version to the latest in versionMatrix[software].
@@ -203,46 +200,46 @@ export default function Dashboard({
         <StatCard icon={AlertTriangle} label={t('dashStatOpenIssues')} value={issueCount} loading={diagLoading && diagnostics === null} accent={issueCount > 0 ? 'rose' : 'emerald'} />
       </div>
 
-      {/* ===== חמ"ל summary (section 3) — ALL users, reuses fetched diagnostics
-              (scoped to the user's own issues). 'פתח חמ"ל מלא' opens HealthTab. ===== */}
-      {(
-        <div className="mb-8 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-zinc-300 flex items-center gap-2">
-              <Activity size={16} className="text-rose-400" /> {t('dashHamalSummary')}
-            </h3>
+      {/* ===== חמ"ל summary (section 3) — ALL users. This is the FULL חמ"ל
+              experience for non-admins: every issue on THEIR servers (scoped by
+              getDiagnostics({scope:'mine'})) rendered in a scrollable bordered
+              panel, each row carrying the SAME fix button as the dedicated tab
+              (reset-status / restart / remove-datapack, via <HealthIssueRow>).
+              The 'open full' link is ADMIN-only (admins also get the mine/all
+              tab); for non-admins this panel IS their full חמ"ל. ===== */}
+      <div className="mb-8 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-zinc-300 flex items-center gap-2">
+            <Activity size={16} className="text-rose-400" /> {t('dashHamalSummary')}
+          </h3>
+          {isAdmin && (
             <button onClick={onOpenHealth} className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors">
               {t('dashHamalOpenFull')} <ChevronRight size={14} className="rtl:rotate-180" />
             </button>
-          </div>
-          {diagLoading && diagnostics === null ? (
-            <div className="text-zinc-500 text-sm flex items-center gap-2"><RefreshCw size={14} className="animate-spin" /> {t('dashLoading')}</div>
-          ) : issues.length === 0 ? (
-            <div className="text-emerald-300 text-sm font-bold flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-emerald-400" /> {t('dashHamalAllOk')}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {topIssues.map((iss, idx) => {
-                const sev = SEV[iss.severity] || SEV.info;
-                const SevIcon = sev.icon;
-                return (
-                  <div key={`${iss.serverId}:${iss.category}:${idx}`} className="flex items-start gap-2.5 text-sm">
-                    <SevIcon size={16} className={`${sev.ring} flex-shrink-0 mt-0.5`} />
-                    <div className="min-w-0">
-                      <span className="font-bold text-zinc-200">{iss.title}</span>
-                      {iss.serverName && <span className="text-zinc-500 text-xs ms-2">· {iss.serverName}</span>}
-                    </div>
-                  </div>
-                );
-              })}
-              {issues.length > 3 && (
-                <div className="text-xs text-zinc-500 pt-1">{t('dashHamalMore').replace('{n}', String(issues.length - 3))}</div>
-              )}
-            </div>
           )}
         </div>
-      )}
+        {diagLoading && diagnostics === null ? (
+          <div className="text-zinc-500 text-sm flex items-center gap-2"><RefreshCw size={14} className="animate-spin" /> {t('dashLoading')}</div>
+        ) : issues.length === 0 ? (
+          <div className="text-emerald-300 text-sm font-bold flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-emerald-400" /> {t('dashHamalAllOk')}
+          </div>
+        ) : (
+          /* Scrollable panel — same look as the create-server addon-picker /
+             HealthTab list (bg-zinc-950 + bordered + max-height + overflow). The
+             flat list isn't grouped by server, so each row shows its server name. */
+          <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 max-h-[40vh] overflow-y-auto space-y-2">
+            {sortedIssues.map((iss, idx) => (
+              <HealthIssueRow
+                key={`${iss.serverId}:${iss.category}:${idx}`}
+                issue={iss}
+                onFixed={refreshDiagnostics}
+                showServer
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ===== Available updates (section 4) — REAL server/MC version only ===== */}
       {servers.length > 0 && matrix !== null && (

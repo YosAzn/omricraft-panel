@@ -236,8 +236,12 @@ export default function App() {
     document.documentElement.dir = dir;
   }, [lang, dir]);
 
-  // The חמ"ל view is available to ALL signed-in users (scoped server-side). No
-  // admin redirect — the function returns only the caller's own issues.
+  // The dedicated חמ"ל view is ADMIN-ONLY. If a non-admin is on it (e.g. role
+  // changed, or a stale view), bounce them to the dashboard — where their own
+  // scoped חמ"ל (with fix buttons) lives in the summary panel.
+  useEffect(() => {
+    if (currentView === 'health' && !isAdmin) setCurrentView('dashboard');
+  }, [currentView, isAdmin]);
 
   const visibleServers = useMemo(() => {
     if (isAdmin) return servers; // admin sees all
@@ -821,11 +825,15 @@ export default function App() {
             <div className="flex items-center gap-2">
               <NavBtn active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} icon={<Server size={18}/>} label={t('dashboard')} />
               <NavBtn active={currentView === 'repository'} onClick={() => setCurrentView('repository')} icon={<Library size={18}/>} label={t('repo')} />
-              {/* War Room / חמ"ל — health diagnostics tab. Available to ALL signed-in
-                  users; the getDiagnostics function scopes issues to the caller's own
-                  servers (admins can toggle to all). Function-level scoping enforces
-                  security, so no isAdmin gate here. */}
-              <NavBtn active={currentView === 'health'} onClick={() => setCurrentView('health')} icon={<Activity size={18}/>} label={'חמ"ל'} />
+              {/* War Room / חמ"ל — dedicated health-diagnostics tab is ADMIN-ONLY
+                  (it carries the mine/all toggle). Non-admins get the full חמ"ל
+                  experience — every issue on their own servers + fix buttons —
+                  inside the Dashboard summary panel instead. The backend stays
+                  open: getDiagnostics is callable by any authed user (scoped) and
+                  the fix callables are owner-or-admin, which powers that panel. */}
+              {isAdmin && (
+                <NavBtn active={currentView === 'health'} onClick={() => setCurrentView('health')} icon={<Activity size={18}/>} label={'חמ"ל'} />
+              )}
             </div>
           </div>
           
@@ -905,9 +913,10 @@ export default function App() {
           />
         )}
 
-        {/* War Room / חמ"ל — all signed-in users; getDiagnostics scopes issues to
-            the caller's servers (admins get a mine/all toggle). */}
-        {currentView === 'health' && (
+        {/* War Room / חמ"ל — ADMIN-ONLY dedicated tab (mine/all toggle). The
+            redirect effect below bounces non-admins back to the dashboard if they
+            ever land on this view; their חמ"ל lives in the Dashboard panel. */}
+        {currentView === 'health' && isAdmin && (
           <HealthTab t={t} isAdmin={isAdmin} />
         )}
       </main>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Activity, RefreshCw, AlertCircle, AlertTriangle, Info, Wrench, CheckCircle2 } from 'lucide-react';
-import { getDiagnosticsFn, resetServerStatusFn, removeDatapackFn, restartServerFn } from '../lib/api';
+import { Activity, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { getDiagnosticsFn } from '../lib/api';
+import HealthIssueRow from './HealthIssueRow';
 
 // --- War Room / חמ"ל — health diagnostics (available to ALL signed-in users) ---
 // Flow: A (this component) → B getDiagnostics Cloud Function (auth-required,
@@ -13,18 +14,13 @@ import { getDiagnosticsFn, resetServerStatusFn, removeDatapackFn, restartServerF
 //
 // issue = { serverId, serverName, severity:'error'|'warning'|'info', category,
 //           title, detail, suggestion, fix:{action,label,params}|null }
-
-const SEVERITY = {
-  error:   { icon: AlertCircle,   dot: '🔴', ring: 'border-red-500/30',    bg: 'bg-red-500/5',    text: 'text-red-300',    iconColor: 'text-red-400' },
-  warning: { icon: AlertTriangle, dot: '🟠', ring: 'border-amber-500/30',  bg: 'bg-amber-500/5',  text: 'text-amber-300',  iconColor: 'text-amber-400' },
-  info:    { icon: Info,          dot: '🔵', ring: 'border-sky-500/30',     bg: 'bg-sky-500/5',    text: 'text-sky-300',    iconColor: 'text-sky-400' },
-};
+// The single-issue row + fix-button wiring lives in the shared <HealthIssueRow>,
+// reused by the Dashboard summary panel so both stay identical.
 
 export default function HealthTab({ t = (k) => k, isAdmin = false }) {
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(false);
   const [scanError, setScanError] = useState(null);
-  const [fixingKey, setFixingKey] = useState(null);
   const [hasScanned, setHasScanned] = useState(false);
   // Admin-only mine/all toggle. Non-admins are always forced to 'mine' (the
   // function ignores 'all' for them anyway). Default = 'mine' for everyone.
@@ -54,46 +50,6 @@ export default function HealthTab({ t = (k) => k, isAdmin = false }) {
   useEffect(() => {
     loadDiagnostics();
   }, [loadDiagnostics]);
-
-  const applyFix = async (issue, idx) => {
-    if (!issue.fix || fixingKey) return;
-    const { action, params } = issue.fix;
-
-    // Destructive fixes require explicit confirmation.
-    if (action === 'remove-datapack') {
-      const file = params?.file || '';
-      const ok = window.confirm(
-        `למחוק את ה-datapack "${file}" מהשרת "${issue.serverName}"?\n\nהקובץ יימחק מתיקיית world/datapacks. לא ניתן לבטל.`
-      );
-      if (!ok) return;
-    }
-
-    const key = `${issue.serverId}:${issue.category}:${idx}`;
-    setFixingKey(key);
-    try {
-      let res;
-      if (action === 'reset-status') {
-        res = await resetServerStatusFn({ serverId: issue.serverId });
-      } else if (action === 'restart') {
-        res = await restartServerFn({ serverId: issue.serverId });
-      } else if (action === 'remove-datapack') {
-        res = await removeDatapackFn({ serverId: issue.serverId, file: params?.file });
-      } else {
-        throw new Error(`פעולת תיקון לא מוכרת: ${action}`);
-      }
-      const d = res.data || res;
-      if (!d.success) {
-        throw new Error(d.error || 'הפעולה נכשלה');
-      }
-      if (d.note) alert(d.note);
-      // Re-scan so the list reflects the fix.
-      await loadDiagnostics();
-    } catch (e) {
-      console.error('applyFix failed:', e);
-      alert(`התיקון נכשל: ${e.message}`);
-    }
-    setFixingKey(null);
-  };
 
   // Group issues by server for readable display.
   const groups = {};
@@ -191,37 +147,13 @@ export default function HealthTab({ t = (k) => k, isAdmin = false }) {
                 <span className="text-zinc-600 font-mono text-xs" dir="ltr">{gk}</span>
               </div>
               <div className="space-y-2">
-                {groups[gk].items.map((iss, idx) => {
-                  const sev = SEVERITY[iss.severity] || SEVERITY.info;
-                  const SevIcon = sev.icon;
-                  const key = `${iss.serverId}:${iss.category}:${idx}`;
-                  return (
-                    <div key={key} className={`border ${sev.ring} ${sev.bg} rounded-xl p-4`}>
-                      <div className="flex items-start gap-3">
-                        <SevIcon size={18} className={`${sev.iconColor} flex-shrink-0 mt-0.5`} />
-                        <div className="min-w-0 flex-1">
-                          <div className={`font-bold ${sev.text}`}>{iss.title}</div>
-                          {iss.detail && <div className="text-sm text-zinc-300 mt-1">{iss.detail}</div>}
-                          {iss.suggestion && (
-                            <div className="text-xs text-zinc-500 mt-1.5">💡 {iss.suggestion}</div>
-                          )}
-                        </div>
-                        {iss.fix && (
-                          <button
-                            onClick={() => applyFix(iss, idx)}
-                            disabled={!!fixingKey}
-                            className="bg-zinc-800 hover:bg-rose-600 text-zinc-200 hover:text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 flex-shrink-0 whitespace-nowrap"
-                          >
-                            {fixingKey === key
-                              ? <RefreshCw size={14} className="animate-spin" />
-                              : <Wrench size={14} />}
-                            {iss.fix.label}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                {groups[gk].items.map((iss, idx) => (
+                  <HealthIssueRow
+                    key={`${iss.serverId}:${iss.category}:${idx}`}
+                    issue={iss}
+                    onFixed={loadDiagnostics}
+                  />
+                ))}
               </div>
             </div>
           ))}
