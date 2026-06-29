@@ -46,11 +46,12 @@ function CreeperBody({ scale = 1, dx = 0 }) {
   );
 }
 
-// TNT block (red) — drawn next to the creeper's feet. Uses its OWN glow filter
-// (passed in) so the red glow does not blend with the green body glow.
-function Tnt({ tntGlowId }) {
+// A single TNT block primitive (red line-art) drawn in its own local space
+// (x150..270 / y88..208). `showLabel` toggles the "TNT" text — the multi-TNT
+// pile omits the label on the smaller blocks so the cluster stays legible.
+function TntBlock({ showLabel = true }) {
   return (
-    <g filter={`url(#${tntGlowId})`}>
+    <g>
       <rect className="ln tnt d2" x="150" y="118" width="90" height="90" rx="2" />
       <path className="ln tnt d3" d="M150,118 L180,88 L270,88 L240,118" />
       <path className="ln tnt d3" d="M240,118 L270,88 L270,178 L240,208" />
@@ -64,7 +65,19 @@ function Tnt({ tntGlowId }) {
       <line className="ln tnt streak d5" x1="168" y1="178" x2="168" y2="206" />
       <line className="ln tnt streak d5" x1="186" y1="178" x2="186" y2="206" />
       <line className="ln tnt streak d5" x1="222" y1="178" x2="222" y2="206" />
-      <text className="tnt-label" x="195" y="169" textAnchor="middle">TNT</text>
+      {showLabel && (
+        <text className="tnt-label" x="195" y="169" textAnchor="middle">TNT</text>
+      )}
+    </g>
+  );
+}
+
+// TNT block (red) — drawn next to the creeper's feet. Uses its OWN glow filter
+// (passed in) so the red glow does not blend with the green body glow.
+function Tnt({ tntGlowId }) {
+  return (
+    <g filter={`url(#${tntGlowId})`}>
+      <TntBlock />
     </g>
   );
 }
@@ -77,15 +90,19 @@ const FIGURES = [
     key: 'creeper-tnt',
     stroke: '#22c55e',
     face: 'rgba(34,197,94,0.14)',
-    // widen viewBox to the left so the TNT block (local x150..270) fits beside body
-    viewBox: '120 28 290 326',
+    // Tight frame around the creeper body (x278..402) plus the TNT block that now
+    // sits at its FEET to the right (reaches ~x470). Generous top/bottom headroom
+    // for the walk + float + glow so nothing clips.
+    viewBox: '258 4 232 362',
     render: ({ glowId, tntGlowId }) => (
       <>
         <g filter={`url(#${glowId})`} className="cfloat">
-          <CreeperBody />
+          <g transform="translate(340,198) scale(1.1) translate(-340,-198)">
+            <CreeperBody />
+          </g>
         </g>
-        {/* TNT sits at the creeper's feet (its own coords, already in viewBox) */}
-        <g className="cfloat" transform="translate(150,196) scale(0.62)">
+        {/* TNT sits AT the creeper's feet, beside the leg rects (bottom-aligned) */}
+        <g className="cfloat" transform="translate(302,215) scale(0.62)">
           <Tnt tntGlowId={tntGlowId} />
         </g>
       </>
@@ -110,7 +127,9 @@ const FIGURES = [
     key: 'sheep',
     stroke: '#eef2f7',
     face: 'rgba(238,242,247,0.10)',
-    viewBox: '108 108 150 110',
+    // Tightened so the sheep renders as large/prominent as the creeper. Frame the
+    // figure (x120..244 / y124..210) snugly with float+glow headroom top/bottom.
+    viewBox: '104 84 158 172',
     render: ({ glowId }) => (
       <g filter={`url(#${glowId})`} className="cfloat">
         {/* fluffy wool body */}
@@ -140,7 +159,9 @@ const FIGURES = [
     key: 'pig',
     stroke: '#f9a8d4',
     face: 'rgba(249,168,212,0.12)',
-    viewBox: '380 116 178 100',
+    // Tightened to match the creeper's prominence. Content x384..550 / y124..210;
+    // frame snugly with headroom for the walk + float + glow.
+    viewBox: '366 84 200 172',
     render: ({ glowId }) => (
       <g filter={`url(#${glowId})`} className="cfloat">
         {/* body */}
@@ -169,7 +190,10 @@ const FIGURES = [
     key: 'steve',
     stroke: '#eef2f7',
     face: 'rgba(238,242,247,0.10)',
-    viewBox: '150 30 200 326',
+    // Tightened so Steve renders as large as the creeper. Content x180..332 /
+    // y30..336; padded for the swinging arm/pickaxe + walk + float + glow so the
+    // head & raised pickaxe never clip.
+    viewBox: '158 6 184 348',
     render: ({ glowId }) => (
       <g filter={`url(#${glowId})`} className="cfloat">
         {/* head */}
@@ -185,16 +209,46 @@ const FIGURES = [
         <rect className="ln d2" x="216" y="140" width="68" height="96" rx="4" />
         {/* left arm (figure's left, hanging) */}
         <rect className="ln d2" x="180" y="142" width="30" height="92" rx="4" />
-        {/* right arm (raised, holding pickaxe) */}
-        <rect className="ln d2" x="290" y="92" width="28" height="76" rx="4" />
         {/* legs */}
         <rect className="ln d5" x="222" y="244" width="28" height="92" rx="4" />
         <rect className="ln d5" x="252" y="244" width="28" height="92" rx="4" />
-        {/* pickaxe — stick from the raised hand, angular head on top */}
-        <line className="ln pick d3" x1="304" y1="100" x2="304" y2="40" />
-        <path className="ln pick d4" d="M276,52 Q304,30 332,52" />
-        <line className="ln pick d4" x1="276" y1="52" x2="284" y2="60" />
-        <line className="ln pick d4" x1="332" y1="52" x2="324" y2="60" />
+        {/* raised arm + pickaxe — grouped so they swing together about the shoulder
+            (transform-origin ~ 304,100, the top of the raised arm). */}
+        <g className="steve-arm">
+          {/* right arm (raised, holding pickaxe) */}
+          <rect className="ln d2" x="290" y="92" width="28" height="76" rx="4" />
+          {/* pickaxe — stick from the raised hand, angular head on top */}
+          <line className="ln pick d3" x1="304" y1="100" x2="304" y2="40" />
+          <path className="ln pick d4" d="M276,52 Q304,30 332,52" />
+          <line className="ln pick d4" x1="276" y1="52" x2="284" y2="60" />
+          <line className="ln pick d4" x1="332" y1="52" x2="324" y2="60" />
+        </g>
+      </g>
+    ),
+  },
+  {
+    key: 'multi-tnt',
+    stroke: '#f87171',
+    face: 'rgba(248,113,113,0.12)',
+    // A little pile of three TNT blocks: two on the ground + one resting on top.
+    // Each block is the shared TntBlock primitive (local x150..270 / y88..208 ≈
+    // 120×120). Placed content spans ~x131..318 / y90..289; frame snugly with
+    // float + glow headroom on all sides.
+    viewBox: '116 64 206 254',
+    render: ({ tntGlowId }) => (
+      <g filter={`url(#${tntGlowId})`} className="cfloat">
+        {/* ground-left block (full size, only this one keeps the label) */}
+        <g transform="translate(8,118) scale(0.82)">
+          <TntBlock showLabel />
+        </g>
+        {/* ground-right block, a touch smaller, overlapping to the right */}
+        <g transform="translate(118,128) scale(0.74)">
+          <TntBlock showLabel={false} />
+        </g>
+        {/* top block resting on the seam between the two */}
+        <g transform="translate(66,28) scale(0.7)">
+          <TntBlock showLabel={false} />
+        </g>
       </g>
     ),
   },
@@ -250,7 +304,7 @@ function Figure({ fig, side }) {
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        {fig.key === 'creeper-tnt' && (
+        {(fig.key === 'creeper-tnt' || fig.key === 'multi-tnt') && (
           <filter id={tntGlowId} x="-40%" y="-40%" width="180%" height="180%">
             <feGaussianBlur stdDeviation="3.2" result="bt" />
             <feMerge>
@@ -348,6 +402,15 @@ export default function SideCreepers() {
 
         .side-creepers .cfloat { animation: ocSideFloat 4.6s ease-in-out infinite; }
 
+        /* WALK: the whole figure (the <svg>) translates HORIZONTALLY outward past
+           the screen edge then walks back in, looping. Both sides use the same
+           NEGATIVE local translate — the right side's parent scaleX(-1) flips it,
+           so left exits to the screen-left and right exits to the screen-right.
+           A subtle body rock is layered in for a walking feel. Left & right are
+           staggered (different durations) so they don't step in lockstep. */
+        .side-creepers .oc-side.left svg { animation: ocWalk 13s ease-in-out infinite; }
+        .side-creepers .oc-side.right svg { animation: ocWalk 15.5s ease-in-out 1.5s infinite; }
+
         /* staggered draw-in delays (drive both the draw + the flash) */
         .side-creepers .ln.d1 { animation-delay: 0s, 1.6s; }
         .side-creepers .ln.d2 { animation-delay: .16s, 1.74s; }
@@ -356,6 +419,35 @@ export default function SideCreepers() {
         .side-creepers .ln.d5 { animation-delay: .58s, 2.1s; }
 
         @keyframes ocSideFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-11px); } }
+
+        /* Walk cycle: dwell in place (figure visible + drawing) → walk OUT past the
+           edge → brief pause off-screen → walk BACK in → dwell. The small rotate
+           swings give a stride/rock so it reads as walking, not sliding. */
+        @keyframes ocWalk {
+          0%   { transform: translateX(0) rotate(0deg); }
+          14%  { transform: translateX(0) rotate(0deg); }
+          18%  { transform: translateX(-30px) rotate(-2.2deg); }
+          24%  { transform: translateX(-130px) rotate(2.2deg); }
+          30%  { transform: translateX(-260px) rotate(-2.2deg); }
+          38%  { transform: translateX(-680px) rotate(0deg); }
+          52%  { transform: translateX(-680px) rotate(0deg); }
+          60%  { transform: translateX(-260px) rotate(2.2deg); }
+          66%  { transform: translateX(-130px) rotate(-2.2deg); }
+          72%  { transform: translateX(-30px) rotate(2.2deg); }
+          78%  { transform: translateX(0) rotate(0deg); }
+          100% { transform: translateX(0) rotate(0deg); }
+        }
+
+        /* Steve swings his raised arm + pickaxe about the shoulder (mining). */
+        .side-creepers .steve-arm {
+          transform-box: fill-box;
+          transform-origin: 50% 100%;
+          animation: ocSteveArm 1.45s ease-in-out infinite;
+        }
+        @keyframes ocSteveArm {
+          0%,100% { transform: rotate(-9deg); }
+          50%     { transform: rotate(11deg); }
+        }
 
         /* per-figure stroke colours, draw + flash keyframes, label fade */
         ${FIGURES.map(figureCss).join('\n')}
@@ -371,6 +463,10 @@ export default function SideCreepers() {
 
         @media (prefers-reduced-motion: reduce) {
           .side-creepers .cfloat { animation: none; }
+          /* no walking off-screen, no arm swing → fully static when reduced */
+          .side-creepers .oc-side.left svg,
+          .side-creepers .oc-side.right svg { animation: none; transform: none; }
+          .side-creepers .steve-arm { animation: none; }
         }
       `}</style>
 
