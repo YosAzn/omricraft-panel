@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
   Server, Library, Shield, Sparkles, Boxes, Puzzle,
-  Gift, SlidersHorizontal, ArrowRight, MousePointerClick, Plug, Gamepad2, LogIn, Users
+  Gift, SlidersHorizontal, ArrowRight, Plug, Gamepad2, LogIn, Users
 } from 'lucide-react';
 import { getPublicStatsFn } from '../lib/api';
+import { SERVER_TYPE_COUNT, ADDON_CATALOG_COUNT, roundedFloorPlus } from '../lib/constants';
 import SideCreepers from './SideCreepers';
 import LanguageSelector from './LanguageSelector';
 
@@ -20,8 +21,9 @@ export default function LandingPage({
   const ArrowCta = isRtl ? ({ size }) => <ArrowRight size={size} className="rotate-180" /> : ArrowRight;
 
   // Public aggregate stats (server count + players online). Fetched on mount via
-  // the PUBLIC getPublicStats callable. On failure / zeros we degrade gracefully
-  // (the strip simply doesn't render) — never blocks or breaks the landing page.
+  // the PUBLIC getPublicStats callable. The big stat cards ALWAYS render (the two
+  // static catalog facts are always true); the two LIVE numbers show a neutral "—"
+  // until/unless the fetch succeeds — never a fabricated number, never blocks the page.
   const [stats, setStats] = useState(null);
   useEffect(() => {
     let alive = true;
@@ -34,9 +36,11 @@ export default function LandingPage({
     return () => { alive = false; };
   }, []);
 
-  // Show the strip only when we have a successful response with at least one
-  // server — zero/failed state stays hidden (neutral, no empty "0 servers").
-  const showStats = stats && stats.success && (stats.serverCount > 0 || stats.playersOnline > 0);
+  // Live numbers — null until a successful fetch. Render as a dash when unavailable.
+  const liveOk = !!(stats && stats.success);
+  const serverCount  = liveOk && typeof stats.serverCount === 'number'  ? stats.serverCount  : null;
+  const playersOnline = liveOk && typeof stats.playersOnline === 'number' ? stats.playersOnline : null;
+  const fmtLive = (n) => (n === null ? '—' : n.toLocaleString());
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans overflow-x-hidden" dir={isRtl ? 'rtl' : 'ltr'}>
@@ -129,27 +133,6 @@ export default function LandingPage({
             {t('landingSubtitle')}
           </p>
 
-          {showStats && (
-            <div className="oc-rise inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-2 mb-10 rounded-full border border-zinc-800 bg-zinc-900/60 text-sm text-zinc-300"
-                 style={{ animationDelay: '210ms' }}>
-              <span className="inline-flex items-center gap-1.5">
-                <Server size={15} className="text-emerald-400" />
-                <span className="font-bold text-zinc-100">{stats.serverCount}</span>
-                <span className="text-zinc-400">{t('landingStatsServers')}</span>
-              </span>
-              <span aria-hidden className="text-zinc-700">·</span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                </span>
-                <Users size={15} className="text-emerald-400" />
-                <span className="font-bold text-zinc-100">{stats.playersOnline}</span>
-                <span className="text-zinc-400">{t('landingStatsPlayers')}</span>
-              </span>
-            </div>
-          )}
-
           <div className="oc-rise flex flex-col sm:flex-row items-center justify-center gap-3"
                style={{ animationDelay: '240ms' }}>
             <button
@@ -168,30 +151,32 @@ export default function LandingPage({
           </div>
         </section>
 
-        {/* ===== FEATURE CTA CARDS ===== */}
+        {/* ===== LIVE STAT CARDS (social proof) ===== */}
+        {/* Two LIVE numbers (servers + players online) from getPublicStats, plus two
+            always-true static catalog facts. Live numbers degrade to "—" on failure. */}
         <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <CtaCard
-              icon={<MousePointerClick size={22} />}
-              title={t('landingCtaCreate')}
-              desc={t('landingCtaCreateSub')}
-              onClick={onCreate}
-              Arrow={ArrowCta}
-              primary
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            <StatCard
+              icon={<Server size={22} />}
+              value={fmtLive(serverCount)}
+              label={t('landingStatsServers')}
             />
-            <CtaCard
-              icon={<Library size={22} />}
-              title={t('landingCtaPlugins')}
-              desc={t('landingCtaPluginsSub')}
-              onClick={onPlugins}
-              Arrow={ArrowCta}
+            <StatCard
+              icon={<Users size={22} />}
+              value={fmtLive(playersOnline)}
+              label={t('landingStatsPlayers')}
+              live
+              liveLabel={t('landingStatsLive')}
             />
-            <CtaCard
+            <StatCard
               icon={<Boxes size={22} />}
-              title={t('landingHowItWorks')}
-              desc={t('landingCtaHowSub')}
-              href="#how-it-works"
-              Arrow={ArrowCta}
+              value={SERVER_TYPE_COUNT}
+              label={t('landingStatsTypes')}
+            />
+            <StatCard
+              icon={<Library size={22} />}
+              value={roundedFloorPlus(ADDON_CATALOG_COUNT)}
+              label={t('landingStatsAddons')}
             />
           </div>
         </section>
@@ -246,28 +231,28 @@ export default function LandingPage({
 
 // --- Sub-components (kept in-file: tiny, single-purpose, only used here) ---
 
-function CtaCard({ icon, title, desc, onClick, href, Arrow, primary }) {
-  const className =
-    'group relative w-full text-start rounded-2xl border p-6 transition-all hover:-translate-y-1 ' +
-    (primary
-      ? 'border-emerald-500/30 bg-gradient-to-br from-emerald-600/15 to-zinc-900/60 hover:border-emerald-400/50 hover:shadow-2xl hover:shadow-emerald-900/30'
-      : 'border-zinc-800 bg-zinc-900/60 hover:border-emerald-500/40 hover:shadow-2xl hover:shadow-emerald-900/20');
-
-  const inner = (
-    <>
-      <div className={`inline-flex p-3 rounded-xl mb-4 ${primary ? 'bg-emerald-500/20 text-emerald-300' : 'bg-zinc-800 text-emerald-400'} group-hover:scale-110 transition-transform`}>
-        {icon}
+// Big bold social-proof stat card. `live` adds a pulsing emerald dot + "live" label.
+function StatCard({ icon, value, label, live, liveLabel }) {
+  return (
+    <div className="relative rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5 sm:p-6 hover:border-emerald-500/40 hover:shadow-2xl hover:shadow-emerald-900/20 transition-all">
+      <div className="flex items-center justify-between mb-3">
+        <div className="inline-flex p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400">{icon}</div>
+        {live && (
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-emerald-400">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            </span>
+            {liveLabel}
+          </span>
+        )}
       </div>
-      <h3 className="text-xl font-bold mb-1.5 flex items-center gap-2">
-        {title}
-        <Arrow size={18} className="opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-emerald-400" />
-      </h3>
-      <p className="text-sm text-zinc-400 leading-relaxed">{desc}</p>
-    </>
+      <div className="text-4xl sm:text-5xl font-black tracking-tighter leading-none bg-gradient-to-b from-white to-emerald-300 bg-clip-text text-transparent">
+        {value}
+      </div>
+      <p className="mt-2 text-sm text-zinc-400 leading-snug">{label}</p>
+    </div>
   );
-
-  if (href) return <a href={href} className={className}>{inner}</a>;
-  return <button onClick={onClick} className={className}>{inner}</button>;
 }
 
 function WhyItem({ icon, title, desc }) {

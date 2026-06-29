@@ -173,3 +173,12 @@ export const DEFAULT_ADDONS = [
   { id: 't13', name: 'Enchantment Outlines', desc: 'מוסיף מסגרת זוהרת לפריטים מכושפים כדי שיבלטו במלאי (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'glowing-glints', downloads: '2.5M', rating: 4.7, reviews: 3500 },
   { id: 't14', name: 'Low On Fire', desc: 'מנמיך את אנימציית האש שמכסה את המסך כשנשרפים - שדה ראייה צלול בקרב (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'low-on-fire', downloads: '6M', rating: 4.8, reviews: 8000 },
 ];
+
+// --- Public landing-page catalog facts (derived from the real arrays above) ---
+// Static, always-true facts the landing page shows as social proof. Derived from
+// SOFTWARE_TYPES / DEFAULT_ADDONS so they stay accurate as the catalog grows.
+export const SERVER_TYPE_COUNT = SOFTWARE_TYPES.length;        // 8 (Vanilla/Paper/Purpur/Folia/Fabric/Forge/NeoForge/Mohist)
+export const ADDON_CATALOG_COUNT = DEFAULT_ADDONS.length;      // every mod/plugin/datapack/modpack/texture in the repo
+
+// Round a count DOWN to the nearest 10 for an honest "N+" label (never overstates).
+export const roundedFloorPlus = (n) => `${Math.floor((Number(n) || 0) / 10) * 10}+`;
