@@ -73,7 +73,12 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false }) {
           <div className={`font-bold ${sev.text}`}>
             {issue.title}
             {showServer && issue.serverName && (
-              <span className="text-zinc-500 text-xs font-normal ms-2">· {issue.serverName}</span>
+              <span className="text-zinc-500 text-xs font-normal ms-2">
+                · {issue.serverName}
+                {issue.serverSlug && issue.serverSlug !== issue.serverName && (
+                  <span className="text-zinc-600"> ({issue.serverSlug})</span>
+                )}
+              </span>
             )}
           </div>
           {issue.detail && <div className="text-sm text-zinc-300 mt-1">{issue.detail}</div>}

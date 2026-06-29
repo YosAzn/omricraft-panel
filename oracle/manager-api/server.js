@@ -1952,6 +1952,8 @@ app.get('/diagnostics', function(req, res) {
     if (!srv || !srv.id) return;
     var serverId = srv.id;
     var serverName = srv.displayName || srv.name || serverId;
+    // slug disambiguates same-named servers (e.g. two servers both called "HH" → hh / hh-2)
+    var serverSlug = srv.slug || serverId;
     try {
       var status = srv.status || 'unknown';
       var type = (srv.type || 'paper').toLowerCase();
@@ -1970,7 +1972,7 @@ app.get('/diagnostics', function(req, res) {
         var pidStale = pidInfo && (NOW - pidInfo.mtimeMs > STUCK_MS);
         if (pidStale || !hasDoneAfterStart) {
           issues.push({
-            serverId: serverId, serverName: serverName,
+            serverId: serverId, serverName: serverName, serverSlug: serverSlug,
             severity: 'error', category: 'stuck-starting',
             title: 'שרת תקוע במצב "מתחיל"',
             detail: pidStale
@@ -1989,7 +1991,7 @@ app.get('/diagnostics', function(req, res) {
         var pidRunning = pidInfo && pidInfo.pid && pidAlive(pidInfo.pid);
         if (!pidRunning && !running) {
           issues.push({
-            serverId: serverId, serverName: serverName,
+            serverId: serverId, serverName: serverName, serverSlug: serverSlug,
             severity: 'warning', category: 'status-mismatch',
             title: 'סטטוס "online" אך השרת לא רץ',
             detail: 'הפאנל מציג "online" אך אין תהליך חי' +
@@ -2008,7 +2010,7 @@ app.get('/diagnostics', function(req, res) {
             /Encountered an unexpected exception/.test(segment) ||
             /Crash report/.test(segment))) {
         issues.push({
-          serverId: serverId, serverName: serverName,
+          serverId: serverId, serverName: serverName, serverSlug: serverSlug,
           severity: 'error', category: 'boot-failed',
           title: 'השרת קרס בעלייה',
           detail: 'הלוג מראה כשל קריטי בעת ההפעלה (לפני שהגיע ל-"Done ("). בדוק את הלוג לפרטים.',
@@ -2032,7 +2034,7 @@ app.get('/diagnostics', function(req, res) {
           dpFix = { action: 'remove-datapack', label: 'הסר datapack', params: { file: badFiles[0] } };
         }
         issues.push({
-          serverId: serverId, serverName: serverName,
+          serverId: serverId, serverName: serverName, serverSlug: serverSlug,
           severity: 'error', category: 'datapack-failed',
           title: 'datapack נכשל בטעינה',
           detail: detail,
@@ -2053,7 +2055,7 @@ app.get('/diagnostics', function(req, res) {
         dpEntries.forEach(function(file) {
           if (WORLDGEN_DATAPACK_RE.test(file)) {
             issues.push({
-              serverId: serverId, serverName: serverName,
+              serverId: serverId, serverName: serverName, serverSlug: serverSlug,
               severity: 'warning', category: 'worldgen-on-bukkit',
               title: 'datapack של worldgen על שרת Bukkit',
               detail: 'הקובץ "' + file + '" הוא datapack של worldgen, אך השרת מסוג ' + type +
@@ -2078,7 +2080,7 @@ app.get('/diagnostics', function(req, res) {
         if (seenPlugins[pluginName]) continue;
         seenPlugins[pluginName] = true;
         issues.push({
-          serverId: serverId, serverName: serverName,
+          serverId: serverId, serverName: serverName, serverSlug: serverSlug,
           severity: 'error', category: 'plugin-failed',
           title: 'תוסף נכשל בהפעלה',
           detail: 'התוסף "' + pluginName + '" נכשל בהפעלה (Error occurred while enabling / Could not load).',
@@ -2090,7 +2092,7 @@ app.get('/diagnostics', function(req, res) {
       // Defensive: one bad server must not break the whole scan.
       console.error('[diagnostics] check failed for ' + serverId + ':', e.message);
       issues.push({
-        serverId: serverId, serverName: serverName,
+        serverId: serverId, serverName: serverName, serverSlug: serverSlug,
         severity: 'info', category: 'scan-error',
         title: 'סריקת הבריאות נכשלה לשרת זה',
         detail: 'אירעה שגיאה בעת בדיקת השרת: ' + e.message,
