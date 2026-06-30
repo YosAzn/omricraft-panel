@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   Package, RefreshCw, RefreshCcw, AlertCircle, X, Search,
-  Star, Download, Layers, Palette, Sparkles, Boxes
+  Star, Download, Layers, Palette, Sparkles, Boxes, Lock
 } from 'lucide-react';
 import { listFilesFn, removePluginJarFn, reloadPluginFn } from '../../lib/api';
-import { TYPE_COLORS, getInstallMethod, isBukkitBased, isWorldgenDatapack } from '../../lib/constants';
+import { TYPE_COLORS, getInstallMethod, isBukkitBased, isWorldgenDatapack, isCoreIncompatible, collectRequiredIds, compatibleCoresLabel } from '../../lib/constants';
 import { addonDesc } from '../../lib/addonI18n';
-import { ClientDownloadLink, ClientDepsChooser } from '../AddonClientExtras';
+import { ClientDownloadLink, RequirementsAccordion, CoreIncompatibleNote } from '../AddonClientExtras';
 
 export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, userRole }) {
   const [filter, setFilter] = useState('all');
@@ -104,6 +104,8 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
   // Worldgen-overhaul datapacks (Terralith etc.) don't work on Bukkit-based servers.
   const serverIsBukkit = isBukkitBased(server.software);
   const isWorldgenBlocked = (item) => serverIsBukkit && isWorldgenDatapack(item);
+  // Core-gating: addon's compatibleCores allow-list excludes this server's core.
+  const isCoreBlocked = (item) => isCoreIncompatible(item, server.software);
 
   const handleToggle = (item) => {
     const isInstalled = server.installedAddons.includes(item.id);
@@ -115,16 +117,14 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
       return;
     }
 
+    // Block installing an addon whose build doesn't exist for this server's core.
+    if (!isInstalled && isCoreBlocked(item)) {
+      setWarning({ type: 'conflict', message: `${t('coreIncompatibleNote')} ${compatibleCoresLabel(item)} ${t('coreIncompatibleOnly')}` });
+      setTimeout(() => setWarning(null), 5000);
+      return;
+    }
+
     if (!isInstalled) {
-      if (item.requires) {
-        const missing = item.requires.filter(req => !server.installedAddons.includes(req));
-        if (missing.length > 0) {
-          const missingNames = missing.map(m => allAddons.find(a=>a.id === m)?.name).join(', ');
-          setWarning({ type: 'dependency', message: `${t('missingDependency')} ${missingNames}` });
-          setTimeout(() => setWarning(null), 5000);
-          return;
-        }
-      }
       if (item.conflicts) {
         const conflict = item.conflicts.find(con => server.installedAddons.includes(con));
         if (conflict) {
@@ -133,6 +133,20 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
           setTimeout(() => setWarning(null), 5000);
           return;
         }
+      }
+      // Tell the user which server dependencies will be co-installed. The actual
+      // auto-install (VPS + Firestore + rollback) happens centrally in
+      // App.toggleAddonForServer, which resolves the same transitive dep set —
+      // we must NOT call toggleAddon per dep here (it would double-install and
+      // clobber the optimistic Firestore write). This is the UX notice only.
+      const missingDeps = collectRequiredIds([item.id], allAddons)
+        .filter(depId => !server.installedAddons.includes(depId))
+        .map(depId => allAddons.find(a => a.id === depId))
+        .filter(dep => dep && getInstallMethod(dep) === 'server' && !isWorldgenBlocked(dep) && !isCoreBlocked(dep));
+      if (missingDeps.length > 0) {
+        const names = missingDeps.map(d => d.name).join(', ');
+        setWarning({ type: 'dependency', message: `${t('depAutoInstallNote')} (${names})` });
+        setTimeout(() => setWarning(null), 6000);
       }
     }
     toggleAddon(item);
@@ -219,6 +233,8 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
           const badgeStyle = TYPE_COLORS[item.type] || 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20';
           const installMethod = getInstallMethod(item); // 'server' | 'manual' | 'client'
           const worldgenBlocked = isWorldgenBlocked(item);
+          const coreBlocked = isCoreBlocked(item);
+          const greyed = worldgenBlocked || coreBlocked;
 
           let IconComp = Package;
           if (item.type === 'modpacks') IconComp = Layers;
@@ -227,7 +243,7 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
           if (item.type === 'client-mods') IconComp = Boxes;
 
           return (
-            <div key={item.id} className={`bg-zinc-950 border border-zinc-800 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-zinc-700 transition-all ${worldgenBlocked ? 'opacity-50' : ''}`}>
+            <div key={item.id} className={`bg-zinc-950 border border-zinc-800 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-zinc-700 transition-all ${greyed ? 'opacity-50' : ''}`}>
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-zinc-900 rounded-lg flex items-center justify-center border border-zinc-800 flex-shrink-0 relative">
                   <IconComp size={24} className={isInstalled ? (item.type === 'textures' ? 'text-teal-500' : 'text-green-500') : 'text-zinc-600'} />
@@ -249,17 +265,26 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
                   {worldgenBlocked && (
                     <p className="text-[11px] text-amber-400/80 mt-1.5 leading-relaxed">{t('worldgenBukkitNote')}</p>
                   )}
+                  {coreBlocked && (
+                    <p className="mt-1.5"><CoreIncompatibleNote addon={item} t={t} /></p>
+                  )}
                   <div className="flex items-center gap-1 text-[11px] text-yellow-500 mt-2">
                     <Star size={12} fill="currentColor"/>
                     <span className="font-bold">{item.rating || '5.0'}</span>
                     <span className="text-zinc-500">({item.reviews || 0})</span>
                   </div>
-                  {item.clientDeps && (
-                    <ClientDepsChooser deps={item.clientDeps} allAddons={allAddons} t={t} lang={lang} addonDesc={addonDesc} />
-                  )}
+                  <RequirementsAccordion addon={item} allAddons={allAddons} t={t} lang={lang} addonDesc={addonDesc} />
                 </div>
               </div>
-              {worldgenBlocked ? (
+              {coreBlocked ? (
+                // Addon's build doesn't exist for this server's core — neutral disabled state (lock, not a recolor).
+                <span
+                  title={`${t('coreIncompatibleNote')} ${compatibleCoresLabel(item)} ${t('coreIncompatibleOnly')}`}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg font-bold text-xs border whitespace-nowrap border-zinc-700 text-zinc-500 bg-zinc-800/40 cursor-not-allowed"
+                >
+                  <Lock size={13} /> {compatibleCoresLabel(item)} {t('coreIncompatibleOnly')}
+                </span>
+              ) : worldgenBlocked ? (
                 // Worldgen datapack on Bukkit — not installable; show disabled state.
                 <span
                   title={t('worldgenBukkitNote')}

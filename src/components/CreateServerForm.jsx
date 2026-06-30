@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Play, Search, Check, Shield } from 'lucide-react';
+import { ArrowLeft, Play, Search, Check, Shield, Lock } from 'lucide-react';
 
-import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType, isBukkitBased, isWorldgenDatapack, getClientLoader } from '../lib/constants';
+import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType, isBukkitBased, isWorldgenDatapack, getClientLoader, isCoreIncompatible, collectRequiredIds } from '../lib/constants';
 import { addonDesc } from '../lib/addonI18n';
 import { isViaVersion } from '../lib/utils';
 import ImageUploader from './ImageUploader';
-import { ClientDownloadLink, ClientDepsChooser } from './AddonClientExtras';
+import { ClientDownloadLink, RequirementsAccordion, CoreIncompatibleNote } from './AddonClientExtras';
 import ClientRequirements from './ClientRequirements';
 
 export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lang, userRole, isAdmin = false, mcVersions, versionMatrix = {}, isCreatingServer = false }) {
@@ -18,6 +18,10 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
   const [opsString, setOpsString] = useState('');
   const [seed, setSeed] = useState('');
   const [selectedAddons, setSelectedAddons] = useState([]);
+  // ids that were auto-selected as a dependency of another selection (for the
+  // "added automatically" tag). A dep stays selected even if the parent is later
+  // unchecked — the user can still manually uncheck the dep itself.
+  const [autoSelected, setAutoSelected] = useState([]);
   const [maxPlayers, setMaxPlayers] = useState(20);
   const [difficulty, setDifficulty] = useState('normal');
   const [memoryMb, setMemoryMb] = useState(2048);
@@ -66,8 +70,9 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
     // hosted URL. Sending them would promise an install that never happens (same bug AddonsTab fixed).
     const serverInstallable = selectedAddons.filter(id => {
       const addon = allAddons.find(a => a.id === id);
-      // Drop worldgen-overhaul datapacks on Bukkit — they'd be ignored by the engine.
-      return getInstallMethod(addon) === 'server' && !isWorldgenBlocked(addon);
+      // Drop worldgen-overhaul datapacks on Bukkit (engine ignores them) and
+      // core-incompatible addons (Create on Fabric etc.) — the VPS can't build them.
+      return getInstallMethod(addon) === 'server' && !isWorldgenBlocked(addon) && !isCoreBlocked(addon);
     });
     onCreate({
       name, icon, software, version, gamemode, worldType, ops: opsArray,
@@ -80,13 +85,39 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
   // they need a Mojang-engine loader. On Bukkit we render them greyed + non-selectable.
   const bukkit = isBukkitBased(software);
   const isWorldgenBlocked = (addon) => bukkit && isWorldgenDatapack(addon);
+  // Core-gating: addon has a compatibleCores allow-list that excludes the chosen core
+  // (Sodium/C2ME → Fabric only; Create → Forge/NeoForge only). Greyed + non-selectable.
+  const isCoreBlocked = (addon) => isCoreIncompatible(addon, software);
 
   // Only 'server' addons are selectable — client/manual show an info badge instead (no false promise).
+  // Selecting an addon with `requires` also auto-selects each (transitive) server dep
+  // and tags it "added automatically". Deselecting the parent leaves deps selected
+  // (no silent orphan removal) — the user can manually uncheck a dep itself.
   const toggleSelection = (id) => {
     const addon = allAddons.find(a => a.id === id);
     if (getInstallMethod(addon) !== 'server') return;
     if (isWorldgenBlocked(addon)) return; // greyed on Bukkit — not selectable
-    setSelectedAddons(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]);
+    if (isCoreBlocked(addon)) return;     // greyed on incompatible core — not selectable
+
+    if (selectedAddons.includes(id)) {
+      // Manual deselect of any addon (parent or dep): just remove it; drop its auto tag.
+      setSelectedAddons(prev => prev.filter(a => a !== id));
+      setAutoSelected(prev => prev.filter(a => a !== id));
+      return;
+    }
+
+    // Select the addon + auto-add its server-installable, non-blocked deps.
+    const deps = collectRequiredIds([id], allAddons).filter(depId => {
+      const dep = allAddons.find(a => a.id === depId);
+      return getInstallMethod(dep) === 'server' && !isWorldgenBlocked(dep) && !isCoreBlocked(dep);
+    });
+    setSelectedAddons(prev => [...new Set([...prev, id, ...deps])]);
+    // Tag newly-added deps as auto (don't tag the parent, and don't tag a dep the
+    // user had already selected manually).
+    setAutoSelected(prev => {
+      const newlyAuto = deps.filter(depId => !selectedAddons.includes(depId) && !prev.includes(depId));
+      return [...new Set([...prev, ...newlyAuto])];
+    });
   };
 
   // Version list is driven by the SELECTED software type. Each type's real API
@@ -103,6 +134,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
   const handleSoftwareChange = (id) => {
     setSoftware(id);
     setSelectedAddons([]);
+    setAutoSelected([]);
     const base = (versionMatrix[id] && versionMatrix[id].length) ? versionMatrix[id] : mcVersions;
     const list = limitVersionsForType(id, base);
     if (list.length && !list.includes(version)) setVersion(list[0]);
@@ -292,13 +324,21 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                  {searchedAddons.map(a => {
                     const installMethod = getInstallMethod(a); // 'server' | 'manual' | 'client'
                     const worldgenBlocked = isWorldgenBlocked(a);
-                    const installable = installMethod === 'server' && !worldgenBlocked;
+                    const coreBlocked = isCoreBlocked(a);
+                    const installable = installMethod === 'server' && !worldgenBlocked && !coreBlocked;
+                    const greyed = worldgenBlocked || coreBlocked;
                     const checked = selectedAddons.includes(a.id);
+                    const autoAdded = checked && autoSelected.includes(a.id);
                     return (
                     <div key={a.id} onClick={() => toggleSelection(a.id)}
                       title={worldgenBlocked ? t('worldgenBukkitNote') : (installable ? undefined : (installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo')))}
-                      className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${installable ? 'cursor-pointer' : 'cursor-default'} ${worldgenBlocked ? 'opacity-50' : ''} ${checked ? 'bg-green-500/5 border-green-500/50' : 'bg-zinc-900 border-transparent hover:border-zinc-700'}`}>
-                      {worldgenBlocked ? (
+                      className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${installable ? 'cursor-pointer' : 'cursor-default'} ${greyed ? 'opacity-50' : ''} ${checked ? 'bg-green-500/5 border-green-500/50' : 'bg-zinc-900 border-transparent hover:border-zinc-700'}`}>
+                      {coreBlocked ? (
+                        // Addon's build doesn't exist for the chosen core — neutral lock, not a recolor.
+                        <span className="mt-0.5 w-5 h-5 rounded flex items-center justify-center border border-zinc-700 bg-zinc-800/40 text-zinc-500 flex-shrink-0">
+                          <Lock size={12} />
+                        </span>
+                      ) : worldgenBlocked ? (
                         // Worldgen datapack on a Bukkit server — greyed, not selectable.
                         <span className="mt-0.5 text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border flex-shrink-0 whitespace-nowrap border-zinc-700 text-zinc-500 bg-zinc-800/40">
                           {t('datapacks')}
@@ -319,6 +359,11 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                           <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border ${TYPE_COLORS[a.type]}`}>
                             {t(a.type)}
                           </span>
+                          {autoAdded && (
+                            <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border border-green-500/30 text-green-400 bg-green-500/10 whitespace-nowrap">
+                              {t('autoAddedTag')}
+                            </span>
+                          )}
                           {installMethod === 'client' && a.clientUrl && <ClientDownloadLink url={a.clientUrl} t={t} />}
                           {/* Manual items (e.g. datapacks/modpacks that can't auto-install) get the
                               same "download for your PC" link when a source URL exists. */}
@@ -330,14 +375,20 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                             {t('worldgenBukkitNote')}
                           </span>
                         )}
-                        {!installable && !worldgenBlocked && (
+                        {coreBlocked && (
+                          <span className="mt-1.5 block"><CoreIncompatibleNote addon={a} t={t} /></span>
+                        )}
+                        {autoAdded && (
+                          <span className="text-[11px] text-green-400/70 mt-1.5 block leading-relaxed">
+                            {t('autoAddedByNote')}
+                          </span>
+                        )}
+                        {!installable && !greyed && (
                           <span className="text-[11px] text-zinc-500 mt-1.5 block leading-relaxed">
                             {installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo')}
                           </span>
                         )}
-                        {a.clientDeps && (
-                          <ClientDepsChooser deps={a.clientDeps} allAddons={allAddons} t={t} lang={lang} addonDesc={addonDesc} />
-                        )}
+                        <RequirementsAccordion addon={a} allAddons={allAddons} t={t} lang={lang} addonDesc={addonDesc} />
                       </div>
                     </div>
                     );

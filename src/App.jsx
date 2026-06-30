@@ -11,7 +11,7 @@ import {
   installPluginFn, installDatapackFn, installModFn, installResourcepackFn, getPlayersOnlineFn, restartServerFn
 } from './lib/api';
 import { DICT, translate, dirForLang } from './lib/i18n';
-import { DEFAULT_ADDONS, getInstallMethod } from './lib/constants';
+import { DEFAULT_ADDONS, getInstallMethod, collectRequiredIds, isCoreIncompatible, isWorldgenDatapack, isBukkitBased } from './lib/constants';
 import { NavBtn } from './components/ui';
 import Dashboard from './components/Dashboard';
 import CreateServerForm from './components/CreateServerForm';
@@ -691,12 +691,56 @@ export default function App() {
       return;
     }
 
+    // Install a single SERVER addon on the VPS via the matching Cloud Function.
+    // Used for the parent AND for each auto-installed dependency. Throws on failure
+    // so the caller can roll Firestore back. `removing` only matters for plugins
+    // (datapacks/mods/textures are install-only on the backend).
+    const installOneOnVps = async (a, removing) => {
+      let res;
+      if (a.type === 'datapacks') {
+        if (removing) throw new Error('הסרת datapack מהשרת אינה נתמכת אוטומטית — הסר ידנית מתיקיית העולם.');
+        res = await installDatapackFn({ serverId, addonId: a.id });
+      } else if (a.type === 'mods') {
+        // mods install via Modrinth (install-mod.sh) and load on restart. Install-only —
+        // no auto-uninstall (same model as datapacks). Client-side mods (Sodium/Iris/
+        // Litematica) are installMethod:'client' and never reach here (handled above).
+        if (removing) throw new Error('הסרת mod מהשרת אינה נתמכת אוטומטית — הסר ידנית מתיקיית mods.');
+        res = await installModFn({ serverId, modId: a.id });
+      } else if (a.type === 'textures') {
+        // server-forced resource pack (install-resourcepack.sh -> server.properties).
+        // ONE pack per server (last one wins); needs a restart to apply. Client-only
+        // textures (t2/t8) are installMethod:'client' and never reach here (handled above).
+        if (removing) throw new Error('הסרת חבילת-טקסטורות אינה נתמכת אוטומטית — הסר ידנית מ-server.properties.');
+        res = await installResourcepackFn({ serverId, addonId: a.id });
+      } else {
+        res = await installPluginFn({ serverId, pluginId: a.id, install: !removing });
+      }
+      const d = res.data || res;
+      if (!d.success && d.note === undefined) throw new Error(d.error || 'VPS install failed');
+    };
+
+    // Resolve the SERVER-installable dependencies that must be co-installed with this
+    // addon (transitive, de-duped). Only when INSTALLING (not removing), only deps
+    // not already installed, and only deps that can actually run on this server's
+    // core (skip client/manual deps and core/worldgen-incompatible ones — no false
+    // promise). These are auto-added to Firestore + auto-installed on the VPS.
+    const serverIsBukkit = isBukkitBased(currentServer.software);
+    const autoDeps = isInstalled ? [] : collectRequiredIds([addon.id], allAddons)
+      .filter(id => !currentServer.installedAddons.includes(id))
+      .map(id => allAddons.find(a => a.id === id))
+      .filter(dep => dep
+        && getInstallMethod(dep) === 'server'
+        && !isCoreIncompatible(dep, currentServer.software)
+        && !(serverIsBukkit && isWorldgenDatapack(dep)));
+
     // server: install/remove דרך ה-Cloud Function המתאים (datapack vs plugin/mod/modpack).
     let newAddons = [...currentServer.installedAddons];
     if (isInstalled) {
       newAddons = newAddons.filter(id => id !== addon.id);
     } else {
       newAddons.push(addon.id);
+      // Auto-add resolved dependencies so Firestore reflects what we install on the VPS.
+      newAddons = [...new Set([...newAddons, ...autoDeps.map(d => d.id)])];
       if (addon.type === 'modpacks' && addon.includedAddons) {
         newAddons = [...new Set([...newAddons, ...addon.includedAddons])];
       }
@@ -710,36 +754,13 @@ export default function App() {
       });
     }
 
-    // Actually install/remove on VPS, with rollback on failure
+    // Actually install/remove on VPS, with rollback on failure. Dependencies first
+    // (so the parent's libs exist), then the parent itself.
     try {
-      let res;
-      if (addon.type === 'datapacks') {
-        // datapack endpoint is install-only (no uninstall path on the backend).
-        if (isInstalled) {
-          throw new Error('הסרת datapack מהשרת אינה נתמכת אוטומטית — הסר ידנית מתיקיית העולם.');
-        }
-        res = await installDatapackFn({ serverId, addonId: addon.id });
-      } else if (addon.type === 'mods') {
-        // mods install via Modrinth (install-mod.sh) and load on restart. Install-only —
-        // no auto-uninstall (same model as datapacks). Client-side mods (Sodium/Iris/
-        // Litematica) are installMethod:'client' and never reach here (handled above).
-        if (isInstalled) {
-          throw new Error('הסרת mod מהשרת אינה נתמכת אוטומטית — הסר ידנית מתיקיית mods.');
-        }
-        res = await installModFn({ serverId, modId: addon.id });
-      } else if (addon.type === 'textures') {
-        // server-forced resource pack (install-resourcepack.sh -> server.properties).
-        // ONE pack per server (last one wins); needs a restart to apply. Client-only
-        // textures (t2/t8) are installMethod:'client' and never reach here (handled above).
-        if (isInstalled) {
-          throw new Error('הסרת חבילת-טקסטורות אינה נתמכת אוטומטית — הסר ידנית מ-server.properties.');
-        }
-        res = await installResourcepackFn({ serverId, addonId: addon.id });
-      } else {
-        res = await installPluginFn({ serverId, pluginId: addon.id, install: !isInstalled });
+      for (const dep of autoDeps) {
+        await installOneOnVps(dep, false);
       }
-      const d = res.data || res;
-      if (!d.success && d.note === undefined) throw new Error(d.error || 'VPS install failed');
+      await installOneOnVps(addon, isInstalled);
     } catch (e) {
       console.error('toggleAddon VPS install/remove failed:', e);
       // rollback Firestore to previous addon list

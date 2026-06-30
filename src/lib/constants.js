@@ -19,6 +19,54 @@ export const isBukkitBased = (software) => BUKKIT_SOFTWARE.includes(software);
 export const isWorldgenDatapack = (addon) =>
   !!(addon && addon.type === 'datapacks' && (addon.worldgenOverhaul || addon.worldgen));
 
+// --- Per-addon CORE compatibility (loader-family gating) ---
+// Some addons only have a build for a specific loader family and would loud-fail
+// (or be silently ignored) on the wrong core. `compatibleCores` is an explicit
+// allow-list of software ids; an addon WITHOUT the field is unrestricted.
+//   • Fabric-family (Sodium / C2ME): only the Fabric loader has these builds.
+//   • Create: ships only Forge/NeoForge builds (no Fabric port in this catalog).
+// This is a UX hint shown in the picker (grey-out + note); the VPS already resolves
+// the correct build per core, so it never installs an incompatible jar regardless.
+export const FABRIC_FAMILY_CORES = ['fabric'];
+export const FORGE_FAMILY_CORES = ['forge', 'neoforge'];
+
+// True when `software` is NOT in the addon's compatibleCores allow-list (so the
+// picker should grey it out). No allow-list → always compatible.
+export const isCoreIncompatible = (addon, software) =>
+  !!(addon && Array.isArray(addon.compatibleCores) && software && !addon.compatibleCores.includes(software));
+
+// Human-readable list of the cores an addon supports (for the "works on X only" note).
+export const compatibleCoresLabel = (addon) => {
+  const cores = (addon && Array.isArray(addon.compatibleCores)) ? addon.compatibleCores : [];
+  const names = cores.map(id => (SOFTWARE_TYPES.find(s => s.id === id)?.name) || id);
+  return names.join(' / ');
+};
+
+// Resolve a list of required-addon ids (addon.requires) to their catalog objects.
+// Unknown ids are dropped (a dep that isn't in the catalog simply isn't listed).
+export const resolveRequires = (addon, allAddons) =>
+  ((addon && Array.isArray(addon.requires)) ? addon.requires : [])
+    .map(id => allAddons.find(a => a.id === id))
+    .filter(Boolean);
+
+// Recursively collect every required-addon id for a set of selected ids (handles
+// transitive deps, e.g. A requires B requires C). Returns a flat de-duped array
+// that does NOT include the seed ids. Cycle-safe via a visited set.
+export const collectRequiredIds = (seedIds, allAddons) => {
+  const byId = new Map(allAddons.map(a => [a.id, a]));
+  const out = new Set();
+  const visit = (id) => {
+    const addon = byId.get(id);
+    const reqs = (addon && Array.isArray(addon.requires)) ? addon.requires : [];
+    for (const r of reqs) {
+      if (!byId.has(r)) continue; // unknown dep id — skip (resolveRequires drops it too)
+      if (!out.has(r)) { out.add(r); visit(r); }
+    }
+  };
+  (seedIds || []).forEach(visit);
+  return [...out];
+};
+
 // Full literal Tailwind class strings per addon type (so the JIT compiler keeps
 // them in the build — never build these from a variable). `shaders` (gray) and
 // `client-mods` (yellow) are CLIENT-ONLY groups: their addons carry
@@ -104,9 +152,9 @@ export const DEFAULT_ADDONS = [
   // client-side badge like textures (no server install, no false "installed").
   // Server-installable mods carry a modrinthSlug; install-mod.sh resolves the correct
   // build for the server's loader+version via the Modrinth API (fail-loud if none).
-  { id: 'm1', name: 'Sodium', desc: 'משפר ביצועים ו-FPS בטירוף', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/sodium', downloads: '24M', rating: 4.9, reviews: 15400 },
+  { id: 'm1', name: 'Sodium', desc: 'משפר ביצועים ו-FPS בטירוף', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/sodium', compatibleCores: ['fabric'], downloads: '24M', rating: 4.9, reviews: 15400 },
   { id: 'm2', name: 'Iris Shaders', desc: 'תמיכה בשיידרים מהממים', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/iris', requires: ['m1'], downloads: '15M', rating: 4.8, reviews: 11200 },
-  { id: 'm3', name: 'Create', desc: 'מוד טכנולוגיה, גלגלי שיניים, אוטומציה ורכבות (Forge/NeoForge בלבד)', type: 'mods', modrinthSlug: 'create', downloads: '40M', rating: 4.9, reviews: 30000 },
+  { id: 'm3', name: 'Create', desc: 'מוד טכנולוגיה, גלגלי שיניים, אוטומציה ורכבות (Forge/NeoForge בלבד)', type: 'mods', modrinthSlug: 'create', compatibleCores: ['forge', 'neoforge'], downloads: '40M', rating: 4.9, reviews: 30000 },
   { id: 'm4', name: 'Litematica', desc: 'מאפשר להציג סכמות ושרטוטים תלת ממדיים', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/litematica', downloads: '12M', rating: 4.7, reviews: 8500 },
   { id: 'm5', name: 'Distant Horizons', desc: 'מגדיל את טווח הראייה משמעותית בלי להעמיס על המחשב', type: 'mods', modrinthSlug: 'distanthorizons', downloads: '8M', rating: 4.6, reviews: 4200 },
   { id: 'm6', name: 'Simple Voice Chat', desc: 'צ\'אט קולי מובנה במשחק לפי מרחק שחקנים (Proximity Chat)', type: 'mods', modrinthSlug: 'simple-voice-chat', downloads: '25M', rating: 4.8, reviews: 16000 },
@@ -116,7 +164,7 @@ export const DEFAULT_ADDONS = [
   // C2ME is Fabric-only) fail loud + skip, never install an incompatible jar.
   { id: 'm8', name: 'Lithium', desc: 'מנוע אופטימיזציה לשרת - משפר ביצועי טיק, AI של מובים ופיזיקה בלי לשנות gameplay (Fabric/NeoForge/Quilt)', type: 'mods', modrinthSlug: 'lithium', downloads: '20M', rating: 4.9, reviews: 14000 },
   { id: 'm9', name: 'FerriteCore', desc: 'מצמצם דרמטית את צריכת הזיכרון (RAM) של השרת בלי שום השפעה על המשחק', type: 'mods', modrinthSlug: 'ferrite-core', downloads: '30M', rating: 4.9, reviews: 12000 },
-  { id: 'm10', name: 'C2ME', desc: 'מאיץ טעינה ויצירת צ\'אנקים במקביל (multi-thread) - פחות לאגים כשחוקרים אזורים חדשים (Fabric בלבד)', type: 'mods', modrinthSlug: 'c2me-fabric', downloads: '8M', rating: 4.7, reviews: 4200 },
+  { id: 'm10', name: 'C2ME', desc: 'מאיץ טעינה ויצירת צ\'אנקים במקביל (multi-thread) - פחות לאגים כשחוקרים אזורים חדשים (Fabric בלבד)', type: 'mods', modrinthSlug: 'c2me-fabric', compatibleCores: ['fabric'], downloads: '8M', rating: 4.7, reviews: 4200 },
   { id: 'm11', name: 'No Chat Reports', desc: 'מסיר את מערכת דיווחי הצ\'אט של מוג\'אנג ומשפר פרטיות בשרת', type: 'mods', modrinthSlug: 'no-chat-reports', downloads: '10M', rating: 4.8, reviews: 9000 },
   // Client-side mods — installMethod:'client' (badge only, never reaches the VPS installer).
   { id: 'm12', name: 'Jade', desc: 'מציג מידע על הבלוק/המוב שמסתכלים עליו (שם, חיים, כלי נדרש) בראש המסך', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/jade', downloads: '40M', rating: 4.8, reviews: 13000 },
