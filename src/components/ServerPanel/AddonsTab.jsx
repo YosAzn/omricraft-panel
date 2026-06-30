@@ -4,7 +4,7 @@ import {
   Star, Download, Layers, Palette, Sparkles, Boxes, Lock
 } from 'lucide-react';
 import { listFilesFn, removePluginJarFn, reloadPluginFn } from '../../lib/api';
-import { TYPE_COLORS, getInstallMethod, isBukkitBased, isWorldgenDatapack, isCoreIncompatible, collectRequiredIds, compatibleCoresLabel, isPluginBoundBlocked } from '../../lib/constants';
+import { TYPE_COLORS, getInstallMethod, isBukkitBased, isWorldgenDatapack, isCoreIncompatible, collectRequiredIds, compatibleCoresLabel, isPluginBoundBlocked, isModpackIncompatible, modpackRequirementLabel } from '../../lib/constants';
 import { addonDesc } from '../../lib/addonI18n';
 import { ClientDownloadLink, RequirementsAccordion, CoreIncompatibleNote, ResourcePackInstallChoice, PluginBoundTag, ModpackPlayerRequirements } from '../AddonClientExtras';
 
@@ -110,6 +110,9 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
   // Phase 5d — plugin-bound resource pack (Custom Hats) needs a plugin-capable core;
   // blocked on Vanilla + pure-mod loaders (no backing plugin can run there).
   const isPluginBoundCoreBlocked = (item) => isPluginBoundBlocked(item, server.software);
+  // Modpack gate: a modpack runs ONLY on its exact loader + MC version — blocked when
+  // this server's software OR version doesn't match the modpack's declared loader+mcVersion.
+  const isModpackBlocked = (item) => isModpackIncompatible(item, server.software, server.version);
 
   const handleToggle = (item) => {
     const isInstalled = server.installedAddons.includes(item.id);
@@ -131,6 +134,13 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
     // Phase 5d — block a plugin-bound pack on a non-plugin core (no backing plugin).
     if (!isInstalled && isPluginBoundCoreBlocked(item)) {
       setWarning({ type: 'conflict', message: t('pluginBoundCoreBlocked') });
+      setTimeout(() => setWarning(null), 5000);
+      return;
+    }
+
+    // Block installing a modpack whose exact loader+version doesn't match this server.
+    if (!isInstalled && isModpackBlocked(item)) {
+      setWarning({ type: 'conflict', message: t('modpackIncompatibleNote').replace('{req}', modpackRequirementLabel(item)) });
       setTimeout(() => setWarning(null), 5000);
       return;
     }
@@ -246,7 +256,8 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
           const worldgenBlocked = isWorldgenBlocked(item);
           const coreBlocked = isCoreBlocked(item);
           const pluginBoundBlocked = isPluginBoundCoreBlocked(item); // Phase 5d
-          const greyed = worldgenBlocked || coreBlocked || pluginBoundBlocked;
+          const modpackBlocked = isModpackBlocked(item); // modpack loader/version mismatch
+          const greyed = worldgenBlocked || coreBlocked || pluginBoundBlocked || modpackBlocked;
 
           let IconComp = Package;
           if (item.type === 'modpacks') IconComp = Layers;
@@ -283,6 +294,10 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
                   {/* Phase 5d — plugin-bound pack blocked on a non-plugin core. */}
                   {pluginBoundBlocked && (
                     <p className="text-[11px] text-amber-400/80 mt-1.5 leading-relaxed">{t('pluginBoundCoreBlocked')}</p>
+                  )}
+                  {/* Modpack blocked: exact loader+version mismatch. */}
+                  {modpackBlocked && (
+                    <p className="text-[11px] text-amber-400/80 mt-1.5 leading-relaxed">{t('modpackIncompatibleNote').replace('{req}', modpackRequirementLabel(item))}</p>
                   )}
                   <div className="flex items-center gap-1 text-[11px] text-yellow-500 mt-2">
                     <Star size={12} fill="currentColor"/>
@@ -321,6 +336,15 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
                   className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg font-bold text-xs border whitespace-nowrap border-zinc-700 text-zinc-500 bg-zinc-800/40 cursor-not-allowed"
                 >
                   <Lock size={13} /> {t('plugins')}
+                </span>
+              ) : modpackBlocked ? (
+                // Modpack whose exact loader+version doesn't match this server — neutral
+                // disabled lock showing the required "<Loader> <MC version>".
+                <span
+                  title={t('modpackIncompatibleNote').replace('{req}', modpackRequirementLabel(item))}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg font-bold text-xs border whitespace-nowrap border-zinc-700 text-zinc-500 bg-zinc-800/40 cursor-not-allowed"
+                >
+                  <Lock size={13} /> {modpackRequirementLabel(item)}
                 </span>
               ) : installMethod !== 'server' ? (
                 // manual / client — לא ניתן להתקין דרך הפאנל; מציגים באדג' הסבר במקום כפתור.

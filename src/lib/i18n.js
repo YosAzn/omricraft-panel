@@ -135,6 +135,8 @@ export const DICT = {
     depAutoInstallNote: "תוסף זה דורש את הפלאגינים הבאים — המערכת מסמנת ומתקינה אותם עבורך אוטומטית.",
     coreIncompatibleNote: "פועל רק על",
     coreIncompatibleOnly: "בלבד",
+    // Modpack exact loader + MC-version gate ({req} = e.g. "Forge 1.20.1").
+    modpackIncompatibleNote: "🔒 מודפאק זה דורש שרת {req} — שנה את סוג/גרסת השרת כדי להתקין.",
     search: "חיפוש תוסף לפי שם או תיאור...",
     noResults: "לא נמצאו תוצאות.",
     basicSettings: "הגדרות בסיסיות",
@@ -492,6 +494,8 @@ export const DICT = {
     depAutoInstallNote: "This add-on requires the following plugins — the system selects and installs them for you automatically.",
     coreIncompatibleNote: "Works on",
     coreIncompatibleOnly: "only",
+    // Modpack exact loader + MC-version gate ({req} = e.g. "Forge 1.20.1").
+    modpackIncompatibleNote: "🔒 This modpack requires a {req} server — change the server type/version to install.",
     search: "Search add-on by name or description...",
     noResults: "No results found.",
     basicSettings: "Basic Settings",

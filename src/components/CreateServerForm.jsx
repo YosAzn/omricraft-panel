@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Play, Search, Check, Shield, Lock } from 'lucide-react';
 
-import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType, isBukkitBased, isWorldgenDatapack, getClientLoader, isCoreIncompatible, collectRequiredIds, getRecommendedRamMb, isEolCore, forgeNeoForgeHint, modpackRamRecommendationMb, isPluginBoundBlocked } from '../lib/constants';
+import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType, isBukkitBased, isWorldgenDatapack, getClientLoader, isCoreIncompatible, collectRequiredIds, getRecommendedRamMb, isEolCore, forgeNeoForgeHint, modpackRamRecommendationMb, isPluginBoundBlocked, isModpackIncompatible, modpackRequirementLabel } from '../lib/constants';
 import { addonDesc } from '../lib/addonI18n';
 import { isViaVersion } from '../lib/utils';
 import ImageUploader from './ImageUploader';
@@ -76,9 +76,10 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
     const serverInstallable = selectedAddons.filter(id => {
       const addon = allAddons.find(a => a.id === id);
       // Drop worldgen-overhaul datapacks on Bukkit (engine ignores them),
-      // core-incompatible addons (Create on Fabric etc.) and plugin-bound packs on a
-      // non-plugin core (no backing plugin can run there) — the VPS can't build them.
-      return getInstallMethod(addon) === 'server' && !isWorldgenBlocked(addon) && !isCoreBlocked(addon) && !isPluginBoundCoreBlocked(addon);
+      // core-incompatible addons (Create on Fabric etc.), plugin-bound packs on a
+      // non-plugin core (no backing plugin can run there), and modpacks whose exact
+      // loader+version doesn't match the server — the VPS can't build any of these.
+      return getInstallMethod(addon) === 'server' && !isWorldgenBlocked(addon) && !isCoreBlocked(addon) && !isPluginBoundCoreBlocked(addon) && !isModpackBlocked(addon);
     });
     onCreate({
       name, icon, software, version, gamemode, worldType, ops: opsArray,
@@ -97,6 +98,10 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
   // Phase 5d — a pluginBound resource pack (Custom Hats) needs a plugin-capable core;
   // blocked (greyed + non-selectable) on Vanilla + pure-mod loaders.
   const isPluginBoundCoreBlocked = (addon) => isPluginBoundBlocked(addon, software);
+  // Modpack gate: a modpack runs ONLY on its exact loader + MC version. Greyed +
+  // non-selectable when the chosen software OR version doesn't match. Recomputes on
+  // every render, so it reacts to BOTH `software` and `version` changes.
+  const isModpackBlocked = (addon) => isModpackIncompatible(addon, software, version);
 
   // Only 'server' addons are selectable — client/manual show an info badge instead (no false promise).
   // Selecting an addon with `requires` also auto-selects each (transitive) server dep
@@ -108,6 +113,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
     if (isWorldgenBlocked(addon)) return; // greyed on Bukkit — not selectable
     if (isCoreBlocked(addon)) return;     // greyed on incompatible core — not selectable
     if (isPluginBoundCoreBlocked(addon)) return; // greyed: plugin-bound pack on non-plugin core
+    if (isModpackBlocked(addon)) return;  // greyed: modpack loader/version mismatch
 
     if (selectedAddons.includes(id)) {
       // Manual deselect of any addon (parent or dep): just remove it; drop its auto tag.
@@ -442,17 +448,19 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                     const worldgenBlocked = isWorldgenBlocked(a);
                     const coreBlocked = isCoreBlocked(a);
                     const pluginBoundBlocked = isPluginBoundCoreBlocked(a); // Phase 5d
-                    const installable = installMethod === 'server' && !worldgenBlocked && !coreBlocked && !pluginBoundBlocked;
-                    const greyed = worldgenBlocked || coreBlocked || pluginBoundBlocked;
+                    const modpackBlocked = isModpackBlocked(a); // modpack loader/version mismatch
+                    const installable = installMethod === 'server' && !worldgenBlocked && !coreBlocked && !pluginBoundBlocked && !modpackBlocked;
+                    const greyed = worldgenBlocked || coreBlocked || pluginBoundBlocked || modpackBlocked;
                     const checked = selectedAddons.includes(a.id);
                     const autoAdded = checked && autoSelected.includes(a.id);
                     return (
                     <div key={a.id} onClick={() => toggleSelection(a.id)}
-                      title={worldgenBlocked ? t('worldgenBukkitNote') : (pluginBoundBlocked ? t('pluginBoundCoreBlocked') : (installable ? undefined : (installMethod === 'client' ? t('clientInstallInfo') : (a.type === 'modpacks' ? t('modpackManualInfo') : t('manualInstallInfo')))))}
+                      title={worldgenBlocked ? t('worldgenBukkitNote') : (pluginBoundBlocked ? t('pluginBoundCoreBlocked') : (modpackBlocked ? t('modpackIncompatibleNote').replace('{req}', modpackRequirementLabel(a)) : (installable ? undefined : (installMethod === 'client' ? t('clientInstallInfo') : (a.type === 'modpacks' ? t('modpackManualInfo') : t('manualInstallInfo'))))))}
                       className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${installable ? 'cursor-pointer' : 'cursor-default'} ${greyed ? 'opacity-50' : ''} ${checked ? 'bg-green-500/5 border-green-500/50' : 'bg-zinc-900 border-transparent hover:border-zinc-700'}`}>
-                      {coreBlocked || pluginBoundBlocked ? (
-                        // Addon's build doesn't exist for the chosen core, or a plugin-bound
-                        // pack on a non-plugin core — neutral lock, not a recolor.
+                      {coreBlocked || pluginBoundBlocked || modpackBlocked ? (
+                        // Addon's build doesn't exist for the chosen core, a plugin-bound
+                        // pack on a non-plugin core, or a modpack whose exact loader+version
+                        // doesn't match the server — neutral lock, not a recolor.
                         <span className="mt-0.5 w-5 h-5 rounded flex items-center justify-center border border-zinc-700 bg-zinc-800/40 text-zinc-500 flex-shrink-0">
                           <Lock size={12} />
                         </span>
@@ -501,6 +509,12 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                         {pluginBoundBlocked && (
                           <span className="text-[11px] text-amber-400/80 mt-1.5 block leading-relaxed">
                             {t('pluginBoundCoreBlocked')}
+                          </span>
+                        )}
+                        {/* Modpack blocked: exact loader+version mismatch. */}
+                        {modpackBlocked && (
+                          <span className="text-[11px] text-amber-400/80 mt-1.5 block leading-relaxed">
+                            {t('modpackIncompatibleNote').replace('{req}', modpackRequirementLabel(a))}
                           </span>
                         )}
                         {autoAdded && (

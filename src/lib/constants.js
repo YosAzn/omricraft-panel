@@ -45,6 +45,34 @@ export const isCoreIncompatible = (addon, software) =>
 export const isPluginBoundBlocked = (addon, software) =>
   !!(addon && addon.pluginBound && software && !isBukkitBased(software));
 
+// --- Modpack exact loader + MC-version gating ---
+// A modpack ships ONE fixed build for ONE loader on ONE exact MC version (verified
+// per pack in the catalog: e.g. Better MC = Forge 1.20.1, Vault Hunters = Forge 1.18.2,
+// Cobblemon = Fabric 1.20.1, Pixelmon = NeoForge 1.21.1, Fabulously Optimized = Fabric
+// 1.21.11). It runs ONLY when the server's core (`software`) AND version BOTH match its
+// declared loader + mcVersion. PURE exact-match — a Forge 1.20.1 modpack is compatible
+// only with a Forge server on 1.20.1. Hybrids (mohist/youer) are intentionally treated as
+// incompatible: a full modpack on a Bukkit-hybrid is unstable, so we gate it out by design
+// (the hybrid's software id never equals 'forge'/'fabric'/'neoforge', so the loader check
+// already excludes it). A modpack missing `loader`/`mcVersion` is unrestricted on that
+// dimension (the check only fires for a field that exists) — but every catalog modpack
+// carries both, so in practice the gate is always exact.
+export const isModpackIncompatible = (addon, software, version) =>
+  !!(addon && addon.type === 'modpacks' && (
+    (addon.loader && software && addon.loader !== software) ||
+    (addon.mcVersion && version && addon.mcVersion !== version)
+  ));
+
+// Human-readable "<Loader> <MC version>" requirement label for a modpack's gate note
+// (e.g. "Forge 1.20.1"). Uses the SOFTWARE_TYPES display name for the loader id.
+export const modpackRequirementLabel = (addon) => {
+  if (!addon || addon.type !== 'modpacks') return '';
+  const loaderName = addon.loader
+    ? ((SOFTWARE_TYPES.find(s => s.id === addon.loader)?.name) || addon.loader)
+    : '';
+  return [loaderName, addon.mcVersion].filter(Boolean).join(' ');
+};
+
 // --- Phase 6b — cross-family equivalent suggestions ---
 // When a server's TYPE is switched, leftover .jar files from the OLD core (plugins/
 // on a mod core, mods/ on a plugin core) are flagged by the חמ"ל / diagnostics and
