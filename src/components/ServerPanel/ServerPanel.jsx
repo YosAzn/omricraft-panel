@@ -113,7 +113,7 @@ export default function ServerPanel({ server, onBack, toggleStatus, restartServe
           {activeTab === 'addons' && <AddonsTab server={server} toggleAddon={toggleAddon} t={t} lang={lang} allAddons={allAddons} userRole={userRole} />}
           {activeTab === 'files' && <FilesTab server={server} t={t} userRole={userRole} />}
           {activeTab === 'backups' && userRole === 'admin' && <BackupsTab server={server} t={t} userRole={userRole} syncStatus={syncStatus} />}
-          {activeTab === 'settings' && userRole === 'admin' && <SettingsTab server={server} onDelete={onDelete} updateServer={updateServer} t={t} mcVersions={mcVersions} versionMatrix={versionMatrix} />}
+          {activeTab === 'settings' && userRole === 'admin' && <SettingsTab server={server} onDelete={onDelete} updateServer={updateServer} t={t} mcVersions={mcVersions} versionMatrix={versionMatrix} allAddons={allAddons} />}
         </div>
       </div>
     </div>

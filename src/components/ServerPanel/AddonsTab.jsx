@@ -143,7 +143,7 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
       const missingDeps = collectRequiredIds([item.id], allAddons)
         .filter(depId => !server.installedAddons.includes(depId))
         .map(depId => allAddons.find(a => a.id === depId))
-        .filter(dep => dep && getInstallMethod(dep) === 'server' && !isWorldgenBlocked(dep) && !isCoreBlocked(dep));
+        .filter(dep => dep && getInstallMethod(dep) === 'server' && !dep.paid && !isWorldgenBlocked(dep) && !isCoreBlocked(dep));
       if (missingDeps.length > 0) {
         const names = missingDeps.map(d => d.name).join(', ');
         setWarning({ type: 'dependency', message: `${t('depAutoInstallNote')} (${names})` });

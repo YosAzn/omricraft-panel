@@ -291,7 +291,7 @@ exports.createServer = onCall(
 // through admin-SDK callables (bypassing security rules) so firestore.rules is
 // unchanged and clients never touch the collection directly.
 // ---------------------------------------------------------------------------
-const REQUEST_VALID_TYPES = ['paper', 'purpur', 'folia', 'mohist', 'fabric', 'forge', 'neoforge', 'vanilla'];
+const REQUEST_VALID_TYPES = ['paper', 'purpur', 'folia', 'mohist', 'youer', 'fabric', 'forge', 'neoforge', 'vanilla'];
 
 exports.requestServer = onCall(
   { region: "us-central1", timeoutSeconds: 30 },
@@ -1143,7 +1143,7 @@ exports.changeServerVersion = onCall(
 // Bukkit families; FabricProxy-Lite mod+config for fabric). Forge/NeoForge/
 // vanilla are rejected by the manager-api (no reliable modern forwarding).
 // ---------------------------------------------------------------------------
-const VALID_TYPES = ['paper', 'purpur', 'folia', 'mohist', 'fabric', 'forge', 'neoforge', 'vanilla'];
+const VALID_TYPES = ['paper', 'purpur', 'folia', 'mohist', 'youer', 'fabric', 'forge', 'neoforge', 'vanilla'];
 
 exports.changeServerType = onCall(
   { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 300 },
@@ -1343,6 +1343,8 @@ exports.getVersionMatrix = onCall(
       },
       // Mohist only publishes 1.20.1 builds — offer exactly that, no phantom versions.
       mohist: async () => ['1.20.1'],
+      // Youer (maintained NeoForge hybrid, Mohist successor) supports exactly 1.21.1.
+      youer: async () => ['1.21.1'],
     };
 
     const keys = Object.keys(sources);

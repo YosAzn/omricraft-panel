@@ -114,7 +114,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
     // Select the addon + auto-add its server-installable, non-blocked deps.
     const deps = collectRequiredIds([id], allAddons).filter(depId => {
       const dep = allAddons.find(a => a.id === depId);
-      return getInstallMethod(dep) === 'server' && !isWorldgenBlocked(dep) && !isCoreBlocked(dep);
+      return dep && getInstallMethod(dep) === 'server' && !dep.paid && !isWorldgenBlocked(dep) && !isCoreBlocked(dep);
     });
     setSelectedAddons(prev => [...new Set([...prev, id, ...deps])]);
     // Tag newly-added deps as auto (don't tag the parent, and don't tag a dep the

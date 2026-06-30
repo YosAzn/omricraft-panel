@@ -4,14 +4,14 @@ import {
   updateServerPropertiesFn, updateServerIconFn, setServerPrivacyFn,
   changeServerTypeFn, changeServerVersionFn, updateServerMemoryFn
 } from '../../lib/api';
-import { SOFTWARE_TYPES, limitVersionsForType } from '../../lib/constants';
+import { SOFTWARE_TYPES, limitVersionsForType, isCoreIncompatible, isBukkitBased, isWorldgenDatapack } from '../../lib/constants';
 import { isViaVersion } from '../../lib/utils';
 import ImageUploader from '../ImageUploader';
 import DifficultyControl from './DifficultyControl';
 import OpsEditor from './OpsEditor';
 import WhitelistEditor from './WhitelistEditor';
 
-export default function SettingsTab({ server, onDelete, updateServer, t, mcVersions, versionMatrix = {} }) {
+export default function SettingsTab({ server, onDelete, updateServer, t, mcVersions, versionMatrix = {}, allAddons = [] }) {
   // Version list filtered to what THIS server's software type actually supports,
   // then capped to versions the core actually publishes builds for (e.g. Youer →
   // 1.21.1 only, Mohist → 1.20.1 only) so the selector never offers a version whose
@@ -20,6 +20,10 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
     ? versionMatrix[server.software]
     : mcVersions;
   const typeVersions = limitVersionsForType(server.software, baseTypeVersions);
+  // The server's CURRENT version may not be in the capped list (e.g. a legacy
+  // version, or one the core no longer publishes). If so, the <select> would render
+  // blank — so flag it and surface it as a disabled "(current/legacy)" option below.
+  const currentVersionMissing = !!(server.version && !typeVersions.includes(server.version));
   const applyServerProperty = async (field, value) => {
     try {
       const res = await updateServerPropertiesFn({ serverId: server.id, properties: { [field]: value } });
@@ -59,6 +63,17 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
     const targetList = limitVersionsForType(newType, baseTargetList);
     const newVersion = (targetList.includes(prevVersion)) ? prevVersion : (targetList[0] || prevVersion);
 
+    // Addons already installed that become incompatible with the target core:
+    // either core-gated (compatibleCores excludes newType) or a worldgen datapack
+    // moving onto a Bukkit-family core (Bukkit ignores datapack worldgen). These are
+    // named in the warning and pruned from the optimistic installedAddons so the UI
+    // doesn't keep showing them as "installed" on a core that can't run them.
+    const stale = (server.installedAddons || [])
+      .map(id => allAddons.find(a => a.id === id))
+      .filter(Boolean)
+      .filter(a => isCoreIncompatible(a, newType) || (isBukkitBased(newType) && isWorldgenDatapack(a)));
+    const staleIds = new Set(stale.map(a => a.id));
+
     const newName = (SOFTWARE_TYPES.find(s => s.id === newType) || {}).name || newType;
     let warn = `שינוי סוג השרת ל-${newName} יבצע את הפעולות הבאות:\n` +
       `• השרת יופעל מחדש (downtime קצר).\n` +
@@ -69,17 +84,28 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
     if (newType === 'fabric') {
       warn += `• יותקן אוטומטית FabricProxy-Lite (נדרש כדי שהשחקנים יוכלו להתחבר דרך הפרוקסי שלנו).\n`;
     }
+    if (stale.length) {
+      const names = stale.map(a => a.name || a.id).join(', ');
+      warn += `• ⚠️ התוספות הבאות אינן תואמות ל-${newName} ויוסרו מהרשימה: ${names}.\n`;
+    }
     warn += `\nהעולם (world) לא ייפגע. להמשיך?`;
     if (!window.confirm(warn)) return;
 
     setTypeSaving(true);
-    updateServer({ software: newType, version: newVersion }); // optimistic
+    const prevInstalledAddons = server.installedAddons;
+    const optimistic = { software: newType, version: newVersion };
+    if (staleIds.size) {
+      optimistic.installedAddons = (server.installedAddons || []).filter(id => !staleIds.has(id));
+    }
+    updateServer(optimistic); // optimistic
     try {
       const res = await changeServerTypeFn({ serverId: server.id, type: newType, version: newVersion });
       if (!res.data?.success) throw new Error(res.data?.error || 'שינוי סוג השרת נכשל');
     } catch (e) {
       console.error('changeServerType error:', e);
-      updateServer({ software: prevType, version: prevVersion }); // rollback
+      const rollback = { software: prevType, version: prevVersion };
+      if (staleIds.size) rollback.installedAddons = prevInstalledAddons; // restore pruned addons
+      updateServer(rollback); // rollback
       alert(`שגיאה בשינוי סוג השרת: ${e.message}`);
     } finally {
       setTypeSaving(false);
@@ -184,8 +210,14 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
                 {versionSaving && <span className="text-xs text-zinc-500 animate-pulse">מחליף גרסה...</span>}
               </label>
               <select value={server.version} disabled={versionSaving} onChange={(e) => handleVersionChange(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600 disabled:opacity-50">
+                {currentVersionMissing && <option value={server.version} disabled>{server.version} (נוכחית/legacy)</option>}
                 {typeVersions.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
+              {currentVersionMissing && (
+                <p className="text-xs text-amber-400 mt-1">
+                  הגרסה הנוכחית ({server.version}) אינה ברשימת הגרסאות הזמינות לסוג זה — בחר גרסה חדשה כדי לעדכן.
+                </p>
+              )}
               <p className="text-xs text-blue-400 mt-1">
                 💡 ViaVersion מותקן אצלנו — שחקנים מ<b>כל</b> גרסה (כולל 26.x) מתחברים לשרת הזה.
               </p>

@@ -730,6 +730,7 @@ export default function App() {
       .map(id => allAddons.find(a => a.id === id))
       .filter(dep => dep
         && getInstallMethod(dep) === 'server'
+        && !dep.paid
         && !isCoreIncompatible(dep, currentServer.software)
         && !(serverIsBukkit && isWorldgenDatapack(dep)));
 
@@ -770,7 +771,7 @@ export default function App() {
           needsRestart: currentServer.needsRestart || false,
         });
       }
-      alert(`שגיאה בהתקנת/הסרת התוסף: ${e.message}`);
+      alert(`שגיאה בהתקנת/הסרת התוסף: ${e.message}\n\nשים לב: ייתכן שחלק מהתלויות כבר הותקנו על השרת. בדוק את רשימת המותקנים והפעל מחדש אם צריך.`);
     }
   };
 
