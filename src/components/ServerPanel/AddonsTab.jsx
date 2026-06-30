@@ -324,8 +324,10 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
                 </span>
               ) : installMethod !== 'server' ? (
                 // manual / client — לא ניתן להתקין דרך הפאנל; מציגים באדג' הסבר במקום כפתור.
-                // אם יש downloadUrl (למשל modpack ב-Modrinth) — ה-badge הידני הופך לקישור אמיתי כדי שהמשתמש יגיע להתקנה ידנית.
-                installMethod === 'manual' && item.downloadUrl ? (
+                // אם יש downloadUrl (למשל datapack ב-Modrinth) — ה-badge הידני הופך לקישור אמיתי.
+                // מודפאק = יוצא דופן: ה-link לעמוד הרשמי + ה-deep-links מסופקים ע"י ModpackPlayerRequirements,
+                // אז כאן רק badge רגיל (בלי "הורד למחשב" כפול ומטעה). הטקסט המלא מותאם-מודפאק.
+                installMethod === 'manual' && item.downloadUrl && item.type !== 'modpacks' ? (
                   <a
                     href={item.downloadUrl}
                     target="_blank"
@@ -337,7 +339,7 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
                   </a>
                 ) : (
                   <span
-                    title={installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo')}
+                    title={installMethod === 'client' ? t('clientInstallInfo') : (item.type === 'modpacks' ? t('modpackManualInfo') : t('manualInstallInfo'))}
                     className={`flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg font-bold text-xs border whitespace-nowrap ${installMethod === 'client' ? 'border-teal-500/30 text-teal-400 bg-teal-500/5' : 'border-zinc-600 text-zinc-400 bg-zinc-800/40'}`}
                   >
                     {installMethod === 'client' ? t('clientSideBadge') : t('manualBadge')}

@@ -283,10 +283,15 @@ export function ModpackPlayerRequirements({ addon, t, mcVersion }) {
   if (addon?.type !== 'modpacks') return null;
 
   const loader = addon.loader || null;
-  const version = mcVersion || addon.mcVersion || '';
+  // A modpack targets a SPECIFIC MC version — its own version always wins over the
+  // server's selected version (there is no e.g. "Forge 1.26.2" build of a 1.20.1 pack).
+  const version = addon.mcVersion || mcVersion || '';
+  // Soft warning when the server's chosen version differs from the modpack's target.
+  const serverVer = mcVersion || '';
+  const versionMismatch = !!(addon.mcVersion && serverVer && addon.mcVersion !== serverVer);
   const mrUri = modrinthModpackUri(addon.modrinthSlug);
   const cfUri = curseforgeInstallUri(addon.curseforgeId);
-  const officialUrl = addon.downloadUrl
+  const officialUrl = addon.downloadUrl || addon.officialUrl
     || (addon.modrinthSlug ? `https://modrinth.com/modpack/${addon.modrinthSlug}` : null);
 
   return (
@@ -301,6 +306,13 @@ export function ModpackPlayerRequirements({ addon, t, mcVersion }) {
       </button>
       {open && (
         <div className="mt-1.5 space-y-2 ps-2 border-s border-pink-500/20 animate-in slide-in-from-top-2 duration-200">
+          {/* Soft amber note when the server version differs from the modpack's MC target. */}
+          {versionMismatch && (
+            <p className="flex items-start gap-1.5 text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-lg px-2 py-1.5 leading-relaxed">
+              <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" />
+              {t('modpackVersionMismatch').replace('{modpackVer}', addon.mcVersion)}
+            </p>
+          )}
           {/* 1) Mod loader the player must install on their PC (reuses ClientRequirements). */}
           {loader && (
             <ClientRequirements type={loader} version={version} t={t} defaultOpen compact />

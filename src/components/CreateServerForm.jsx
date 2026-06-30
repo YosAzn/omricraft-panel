@@ -448,7 +448,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                     const autoAdded = checked && autoSelected.includes(a.id);
                     return (
                     <div key={a.id} onClick={() => toggleSelection(a.id)}
-                      title={worldgenBlocked ? t('worldgenBukkitNote') : (pluginBoundBlocked ? t('pluginBoundCoreBlocked') : (installable ? undefined : (installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo'))))}
+                      title={worldgenBlocked ? t('worldgenBukkitNote') : (pluginBoundBlocked ? t('pluginBoundCoreBlocked') : (installable ? undefined : (installMethod === 'client' ? t('clientInstallInfo') : (a.type === 'modpacks' ? t('modpackManualInfo') : t('manualInstallInfo')))))}
                       className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${installable ? 'cursor-pointer' : 'cursor-default'} ${greyed ? 'opacity-50' : ''} ${checked ? 'bg-green-500/5 border-green-500/50' : 'bg-zinc-900 border-transparent hover:border-zinc-700'}`}>
                       {coreBlocked || pluginBoundBlocked ? (
                         // Addon's build doesn't exist for the chosen core, or a plugin-bound
@@ -483,9 +483,10 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                             </span>
                           )}
                           {installMethod === 'client' && a.clientUrl && <ClientDownloadLink url={a.clientUrl} t={t} />}
-                          {/* Manual items (e.g. datapacks/modpacks that can't auto-install) get the
-                              same "download for your PC" link when a source URL exists. */}
-                          {installMethod === 'manual' && a.downloadUrl && <ClientDownloadLink url={a.downloadUrl} t={t} />}
+                          {/* Manual DATAPACKS get a "download to PC" link when a source URL exists.
+                              Modpacks are EXCLUDED — you don't download a modpack as a flat file; its
+                              official page + app deep-links are provided by ModpackPlayerRequirements below. */}
+                          {installMethod === 'manual' && a.type !== 'modpacks' && a.downloadUrl && <ClientDownloadLink url={a.downloadUrl} t={t} />}
                         </div>
                         <span className="text-xs text-zinc-400 mt-2 block leading-relaxed">{addonDesc(a.id, lang, a.desc)}</span>
                         {worldgenBlocked && (
@@ -509,7 +510,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                         )}
                         {!installable && !greyed && (
                           <span className="text-[11px] text-zinc-500 mt-1.5 block leading-relaxed">
-                            {installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo')}
+                            {installMethod === 'client' ? t('clientInstallInfo') : (a.type === 'modpacks' ? t('modpackManualInfo') : t('manualInstallInfo'))}
                           </span>
                         )}
                         <RequirementsAccordion addon={a} allAddons={allAddons} t={t} lang={lang} addonDesc={addonDesc} />

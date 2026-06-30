@@ -65,6 +65,11 @@ export const DICT = {
     manualBadge: "התקנה ידנית",
     clientInstallInfo: "תוסף זה מותקן אצלך בלקוח (במשחק שלך), לא בשרת. הורד אותו והפעל אותו במחשב שלך — הוא יעבוד בכל שרת.",
     manualInstallInfo: "לתוסף הזה אין התקנה אוטומטית. הורד אותו ידנית מהמקור הרשמי — דאטה-פק נכנס לתיקיית world/datapacks, ופלאגין (.jar) לתיקיית plugins של השרת.",
+    // Modpack-specific manual note — a modpack is neither a datapack nor a plugin,
+    // so the generic manualInstallInfo above is nonsense for it.
+    modpackManualInfo: "מודפאק לא מותקן כקובץ בודד — הגדר את השרת עם הליבה (loader) של המודפאק ופרוס את המודים שלו; כל שחקן מתקין את אותו מודפאק במחשבו (כפתורי ההתקנה למטה).",
+    // Amber warning when the server's selected MC version differs from the modpack's target version ({modpackVer}).
+    modpackVersionMismatch: "⚠️ מודפאק זה בנוי לגרסה {modpackVer}; ודא שגרסת השרת תואמת.",
     clientDownload: "הורד למחשב",
     // --- Client requirements (what the PLAYER needs on their PC to join) ---
     clientReqTitle: "איך שחקנים מצטרפים לשרת הזה?",
@@ -424,6 +429,10 @@ export const DICT = {
     manualBadge: "Manual install",
     clientInstallInfo: "This addon installs on your client (your game), not on the server. Download and enable it on your PC — it works on any server.",
     manualInstallInfo: "This addon has no automatic install. Download it manually from the official source — datapacks go in world/datapacks, plugins (.jar) go in the server's plugins folder.",
+    // Modpack-specific manual note — a modpack is neither a datapack nor a plugin.
+    modpackManualInfo: "A modpack isn't installed as a single file — set the server up with the modpack's core (loader) and deploy its mods; every player installs the same modpack on their own PC (install buttons below).",
+    // Amber warning when the server's selected MC version differs from the modpack's target version ({modpackVer}).
+    modpackVersionMismatch: "⚠️ This modpack is built for {modpackVer}; make sure the server version matches.",
     clientDownload: "Download",
     // --- Client requirements (what the PLAYER needs on their PC to join) ---
     clientReqTitle: "How players join this server",
