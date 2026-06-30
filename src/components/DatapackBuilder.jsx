@@ -85,14 +85,14 @@ export default function DatapackBuilder({ t, open = false }) {
   const run = mode === 'ai' ? handleGenerate : handleSearch;
 
   return (
-    <div className="bg-zinc-900 border border-pink-500/30 rounded-xl mb-6 shadow-[0_0_15px_rgba(236,72,153,0.12)] overflow-hidden animate-in slide-in-from-top-4">
+    <div className="bg-zinc-900 border border-orange-500/30 rounded-xl mb-6 shadow-[0_0_15px_rgba(249,115,22,0.12)] overflow-hidden animate-in slide-in-from-top-4">
       <div className="flex items-center gap-2 px-5 pt-4">
-        <Boxes size={20} className="text-pink-400" />
-        <span className="font-bold text-pink-300">{t('datapackBuilder')}</span>
+        <Boxes size={20} className="text-orange-400" />
+        <span className="font-bold text-orange-300">{t('datapackBuilder')}</span>
         <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800 ml-auto">
           {[['modrinth', t('datapackModeModrinth')], ['ai', t('datapackModeAi')]].map(([m, label]) => (
             <button key={m} type="button" onClick={() => { setMode(m); reset(); setSearched(false); }}
-              className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${mode === m ? 'bg-pink-600 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}>
+              className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${mode === m ? 'bg-orange-600 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}>
               {label}
             </button>
           ))}
@@ -108,20 +108,20 @@ export default function DatapackBuilder({ t, open = false }) {
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') run(); }}
             placeholder={mode === 'ai' ? t('datapackPromptPlaceholder') : t('datapackThemePlaceholder')}
-            className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white outline-none focus:border-pink-500"
+            className="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white outline-none focus:border-orange-500"
           />
           {mode === 'ai' && (
             <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800">
               {['free', 'gemini'].map((m) => (
                 <button key={m} type="button" onClick={() => setModel(m)}
-                  className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${model === m ? 'bg-pink-600 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}>
+                  className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${model === m ? 'bg-orange-600 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}>
                   {m === 'free' ? t('builderModelFree') : t('builderModelGemini')}
                 </button>
               ))}
             </div>
           )}
           <button type="button" onClick={run} disabled={!text.trim() || loading}
-            className="bg-pink-600 hover:bg-pink-500 text-white px-5 py-2 rounded-lg font-bold flex items-center justify-center gap-2 disabled:opacity-50">
+            className="bg-orange-600 hover:bg-orange-500 text-white px-5 py-2 rounded-lg font-bold flex items-center justify-center gap-2 disabled:opacity-50">
             {loading ? <Loader2 size={18} className="animate-spin" /> : (mode === 'ai' ? <Sparkles size={18} /> : <Search size={18} />)}
             {loading ? (mode === 'ai' ? t('datapackGenerating') : t('datapackSearching')) : (mode === 'ai' ? t('datapackGenerate') : t('datapackSearch'))}
           </button>
@@ -152,7 +152,7 @@ export default function DatapackBuilder({ t, open = false }) {
                     <Download size={11} /> {typeof d.downloads === 'number' ? d.downloads.toLocaleString() : d.downloads} {t('builderDownloads')}
                   </div>
                 </div>
-                <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-pink-400 hover:text-pink-300 flex-shrink-0 p-1" title={d.url}>
+                <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300 flex-shrink-0 p-1" title={d.url}>
                   <ExternalLink size={15} />
                 </a>
               </div>
@@ -173,19 +173,19 @@ export default function DatapackBuilder({ t, open = false }) {
                 {t('datapackExperimentalNote')}
               </div>
             </div>
-            <div className="text-xs text-zinc-400 mb-1">{t('datapackFiles')} — <span className="text-pink-300 font-mono">{generated.namespace}</span></div>
+            <div className="text-xs text-zinc-400 mb-1">{t('datapackFiles')} — <span className="text-orange-300 font-mono">{generated.namespace}</span></div>
             <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-2 max-h-60 overflow-y-auto space-y-1 mb-3">
               {generated.files.map((f, i) => (
                 <details key={i} className="rounded-md border border-transparent hover:border-zinc-800">
                   <summary className="flex items-center gap-2 p-1.5 cursor-pointer text-[12px] font-mono text-zinc-300">
-                    <FileCode size={13} className="text-pink-400 flex-shrink-0" /> <span className="truncate">{f.path}</span>
+                    <FileCode size={13} className="text-orange-400 flex-shrink-0" /> <span className="truncate">{f.path}</span>
                   </summary>
                   <pre className="text-[10px] text-zinc-500 whitespace-pre-wrap break-all px-2 pb-2 max-h-32 overflow-y-auto">{String(f.content || '').slice(0, 600)}</pre>
                 </details>
               ))}
             </div>
             <button type="button" onClick={handleDownloadZip}
-              className="bg-pink-600 hover:bg-pink-500 text-white px-5 py-2 rounded-lg font-bold flex items-center gap-2">
+              className="bg-orange-600 hover:bg-orange-500 text-white px-5 py-2 rounded-lg font-bold flex items-center gap-2">
               <Download size={16} /> {t('datapackDownloadZip')}
             </button>
           </div>

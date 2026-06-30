@@ -6,7 +6,7 @@ import {
 import { listFilesFn, removePluginJarFn, reloadPluginFn } from '../../lib/api';
 import { TYPE_COLORS, getInstallMethod, isBukkitBased, isWorldgenDatapack, isCoreIncompatible, collectRequiredIds, compatibleCoresLabel } from '../../lib/constants';
 import { addonDesc } from '../../lib/addonI18n';
-import { ClientDownloadLink, RequirementsAccordion, CoreIncompatibleNote } from '../AddonClientExtras';
+import { ClientDownloadLink, RequirementsAccordion, CoreIncompatibleNote, ResourcePackInstallChoice, PluginBoundTag, ModpackPlayerRequirements } from '../AddonClientExtras';
 
 export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, userRole }) {
   const [filter, setFilter] = useState('all');
@@ -274,6 +274,12 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
                     <span className="text-zinc-500">({item.reviews || 0})</span>
                   </div>
                   <RequirementsAccordion addon={item} allAddons={allAddons} t={t} lang={lang} addonDesc={addonDesc} />
+                  {/* TASK 2 — plugin-bound RP warning (Custom Hats etc.). */}
+                  <PluginBoundTag addon={item} allAddons={allAddons} t={t} />
+                  {/* TASK 1 — server-RP vs PC-download choice for normal texture packs. */}
+                  <ResourcePackInstallChoice addon={item} t={t} />
+                  {/* TASK 3 — modpack: mod-loader the player needs + one-click install deep-links. */}
+                  <ModpackPlayerRequirements addon={item} t={t} mcVersion={server.version} />
                 </div>
               </div>
               {coreBlocked ? (

@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
-import { ChevronDown, ExternalLink, Check, Lock } from 'lucide-react';
-import { getInstallMethod, resolveRequires, compatibleCoresLabel } from '../lib/constants';
+import { ChevronDown, ExternalLink, Check, Lock, Server, Monitor, AlertTriangle, Rocket } from 'lucide-react';
+import {
+  getInstallMethod, resolveRequires, compatibleCoresLabel,
+  canPcDownloadRP, modrinthModpackUri, curseforgeInstallUri,
+} from '../lib/constants';
+import ClientRequirements from './ClientRequirements';
 
 // Neutral "works on Fabric only" note shown when an addon's compatibleCores does
 // NOT include the chosen server core. UX hint only — NOT a recolor of the addon's
@@ -160,6 +164,180 @@ export function ClientDepsChooser({ deps, allAddons, t, lang, addonDesc, startOp
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// TASK 2 — Prominent "plugin-bound" tag for resource packs whose items only exist
+// via a plugin (Custom Hats / ItemsAdder-style). A bare RP can't add the items, so
+// we warn loudly and (when `suggestsPlugin` is set) name the plugin that does.
+// Pure presentational; shown only for addon.pluginBound packs.
+export function PluginBoundTag({ addon, allAddons, t }) {
+  if (!addon?.pluginBound) return null;
+  const sugg = addon.suggestsPlugin
+    ? (allAddons || []).find(a => a.id === addon.suggestsPlugin)
+    : null;
+  return (
+    <div className="mt-2 w-full flex items-start gap-2 text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+      <AlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
+      <div className="text-xs leading-relaxed">
+        <span className="font-bold uppercase tracking-wide me-1">{t('pluginBoundTag')}</span>
+        {t('pluginBoundNote')}
+        {sugg && (
+          <span className="block mt-1 text-amber-200/90">
+            {t('pluginBoundSuggest')} <b>{sugg.name}</b>
+            {sugg.buyUrl && (
+              <>{' '}
+                <a
+                  href={sugg.buyUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 font-bold text-amber-300 hover:text-amber-200 underline decoration-dotted"
+                >
+                  {sugg.name} <ExternalLink size={11} />
+                </a>
+              </>
+            )}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// TASK 1 — Resource-pack install CHOICE accordion. For a server-applied texture
+// pack we let the user choose how it behaves:
+//   (a) server-resource-pack — auto-push to every player (recommended for communities)
+//   (b) download to PC — the same .zip used locally (hidden for plugin-bound packs,
+//       since a bare RP can't add their items).
+// Inline slide-down (NO popup), matching the rest of the catalog. Read-only guidance
+// — the actual server.properties wiring happens server-side on install.
+export function ResourcePackInstallChoice({ addon, t }) {
+  const [open, setOpen] = useState(false);
+  if (addon?.type !== 'textures' || getInstallMethod(addon) !== 'server') return null;
+  const pcOk = canPcDownloadRP(addon);
+  const pcUrl = addon.clientUrl || addon.downloadUrl
+    || (addon.modrinthSlug ? `https://modrinth.com/resourcepack/${addon.modrinthSlug}` : null);
+
+  return (
+    <div className="mt-2 w-full">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
+        className="flex items-center gap-1.5 text-[11px] font-bold text-teal-400 hover:text-teal-300 transition-colors"
+      >
+        <ChevronDown size={13} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        {t('rpInstallChoiceTitle')}
+      </button>
+      {open && (
+        <div className="mt-1.5 space-y-1.5 ps-2 border-s border-teal-500/20 animate-in slide-in-from-top-2 duration-200">
+          {/* Option A — server-resource-pack (always available, recommended). */}
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg p-2">
+            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+              <Server size={13} className="text-teal-400" />
+              <span className="text-xs font-bold text-zinc-200">{t('rpOptionServer')}</span>
+              <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border border-green-500/30 text-green-400 bg-green-500/10">
+                {t('recommendedBadge')}
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-500 leading-relaxed">{t('rpOptionServerNote')}</p>
+          </div>
+          {/* Option B — download to PC (hidden when plugin-bound). */}
+          {pcOk ? (
+            <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg p-2">
+              <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                <Monitor size={13} className="text-teal-400" />
+                <span className="text-xs font-bold text-zinc-200">{t('rpOptionPc')}</span>
+              </div>
+              <p className="text-[11px] text-zinc-500 leading-relaxed mb-1.5">{t('rpOptionPcNote')}</p>
+              {pcUrl && <ClientDownloadLink url={pcUrl} t={t} />}
+            </div>
+          ) : (
+            <p className="text-[11px] text-amber-400/80 leading-relaxed ps-1">{t('rpPcUnavailable')}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// TASK 3 — Modpack player-side requirements: the mod-LOADER (which loader + exact MC
+// version players must install — reuses ClientRequirements) PLUS one-click install
+// deep-links into the Modrinth / CurseForge desktop apps. Missing ids are omitted
+// gracefully; an official-page link + "get the app" fallback always render.
+// Inline slide-down (NO popup). `mcVersion` lets a modpack-type server state the
+// version even when the modpack entry doesn't carry one.
+export function ModpackPlayerRequirements({ addon, t, mcVersion }) {
+  const [open, setOpen] = useState(false);
+  if (addon?.type !== 'modpacks') return null;
+
+  const loader = addon.loader || null;
+  const version = mcVersion || addon.mcVersion || '';
+  const mrUri = modrinthModpackUri(addon.modrinthSlug);
+  const cfUri = curseforgeInstallUri(addon.curseforgeId);
+  const officialUrl = addon.downloadUrl
+    || (addon.modrinthSlug ? `https://modrinth.com/modpack/${addon.modrinthSlug}` : null);
+
+  return (
+    <div className="mt-2 w-full">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
+        className="flex items-center gap-1.5 text-[11px] font-bold text-pink-400 hover:text-pink-300 transition-colors"
+      >
+        <ChevronDown size={13} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        {t('modpackPlayerReqTitle')}
+      </button>
+      {open && (
+        <div className="mt-1.5 space-y-2 ps-2 border-s border-pink-500/20 animate-in slide-in-from-top-2 duration-200">
+          {/* 1) Mod loader the player must install on their PC (reuses ClientRequirements). */}
+          {loader && (
+            <ClientRequirements type={loader} version={version} t={t} defaultOpen compact />
+          )}
+          {/* 2) One-click install deep-links + official page / get-the-app fallback. */}
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg p-2">
+            <p className="text-[11px] font-bold text-zinc-300 mb-1.5">{t('modpackInstallTitle')}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {cfUri && (
+                <a
+                  href={cfUri}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-300 hover:text-orange-200 border border-orange-500/30 bg-orange-500/10 rounded px-1.5 py-0.5 transition-colors whitespace-nowrap"
+                >
+                  <Rocket size={11} /> {t('modpackInstallCf')}
+                </a>
+              )}
+              {mrUri && (
+                <a
+                  href={mrUri}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-green-300 hover:text-green-200 border border-green-500/30 bg-green-500/10 rounded px-1.5 py-0.5 transition-colors whitespace-nowrap"
+                >
+                  <Rocket size={11} /> {t('modpackInstallMr')}
+                </a>
+              )}
+              {officialUrl && (
+                <a
+                  href={officialUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-zinc-300 hover:text-white border border-zinc-600 bg-zinc-800/40 rounded px-1.5 py-0.5 transition-colors whitespace-nowrap"
+                >
+                  {t('modpackOfficialPage')} <ExternalLink size={11} />
+                </a>
+              )}
+            </div>
+            <p className="text-[10px] text-zinc-500 mt-1.5 leading-relaxed">
+              {t('modpackGetApp')}{' '}
+              <a href="https://www.curseforge.com/download/app" target="_blank" rel="noreferrer noopener" onClick={(e) => e.stopPropagation()} className="text-zinc-400 hover:text-zinc-200 underline decoration-dotted">CurseForge</a>
+              {' / '}
+              <a href="https://modrinth.com/app" target="_blank" rel="noreferrer noopener" onClick={(e) => e.stopPropagation()} className="text-zinc-400 hover:text-zinc-200 underline decoration-dotted">Modrinth</a>
+            </p>
+          </div>
         </div>
       )}
     </div>

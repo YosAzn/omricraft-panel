@@ -5,7 +5,7 @@ import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType, is
 import { addonDesc } from '../lib/addonI18n';
 import { isViaVersion } from '../lib/utils';
 import ImageUploader from './ImageUploader';
-import { ClientDownloadLink, RequirementsAccordion, CoreIncompatibleNote } from './AddonClientExtras';
+import { ClientDownloadLink, RequirementsAccordion, CoreIncompatibleNote, ResourcePackInstallChoice, PluginBoundTag, ModpackPlayerRequirements } from './AddonClientExtras';
 import ClientRequirements from './ClientRequirements';
 
 export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lang, userRole, isAdmin = false, mcVersions, versionMatrix = {}, isCreatingServer = false }) {
@@ -389,6 +389,12 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                           </span>
                         )}
                         <RequirementsAccordion addon={a} allAddons={allAddons} t={t} lang={lang} addonDesc={addonDesc} />
+                        {/* TASK 2 — plugin-bound RP warning (Custom Hats etc.). */}
+                        <PluginBoundTag addon={a} allAddons={allAddons} t={t} />
+                        {/* TASK 1 — server-RP vs PC-download choice for normal texture packs. */}
+                        <ResourcePackInstallChoice addon={a} t={t} />
+                        {/* TASK 3 — modpack: mod-loader the player needs + one-click install deep-links. */}
+                        <ModpackPlayerRequirements addon={a} t={t} mcVersion={version} />
                       </div>
                     </div>
                     );

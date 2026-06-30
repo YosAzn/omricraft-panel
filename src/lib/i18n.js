@@ -79,6 +79,24 @@ export const DICT = {
     worldgenBukkitNote: "עובד רק על Vanilla/Fabric/Forge/NeoForge — לא על Paper/Purpur",
     requiresPickOne: "דורש (בחר אפשרות):",
     recommendedBadge: "מומלץ",
+    // --- Resource-pack install choice (Phase 3 / TASK 1) ---
+    rpInstallChoiceTitle: "אפשרויות התקנה לבחירתך",
+    rpOptionServer: "הפעלה אוטומטית בשרת (Server-Resource-Pack)",
+    rpOptionServerNote: "האתר יזריק את חבילת המשאבים להגדרות השרת. כל שחקן שייכנס יתבקש לאשר ולהוריד אותה אוטומטית בכניסה — בלי להתקין שום דבר במחשב.",
+    rpOptionPc: "הורדה ידנית למחשב שלך בלבד",
+    rpOptionPcNote: "השרת יישאר נקי. הורד את אותו קובץ ה-ZIP למחשב ושחק איתו בכל שרת או בסינגל-פלייר.",
+    rpPcUnavailable: "אין הורדה למחשב — חבילה זו תלויה בפלאגין בשרת ולא תעבוד לבדה במחשב.",
+    // --- Plugin-bound resource pack tag (Phase 3 / TASK 2) ---
+    pluginBoundTag: "דורש פלאגין",
+    pluginBoundNote: "דורש ItemsAdder / דאטה-פק תואם — חבילת-משאבים לבדה לא מוסיפה את הפריטים, רק משנה מראה של פריטים קיימים.",
+    pluginBoundSuggest: "מומלץ להתקין:",
+    // --- Modpack player-side requirements (Phase 3 / TASK 3) ---
+    modpackPlayerReqTitle: "מה השחקנים צריכים כדי להיכנס?",
+    modpackInstallTitle: "התקנה אוטומטית למחשב שלך (לחיצה אחת):",
+    modpackInstallCf: "התקן ב-CurseForge",
+    modpackInstallMr: "התקן ב-Modrinth",
+    modpackOfficialPage: "עמוד המודפאק הרשמי",
+    modpackGetApp: "אין לך את האפליקציה? הורד:",
     // --- Dependency accordion (Phase 2) ---
     requirementsTitle: "דרישות",
     autoInstalledDeps: "דורש (המערכת מתקינה אוטומטית):",
@@ -354,6 +372,24 @@ export const DICT = {
     worldgenBukkitNote: "Vanilla/Fabric/Forge/NeoForge only — not Paper/Purpur",
     requiresPickOne: "Requires (pick one):",
     recommendedBadge: "recommended",
+    // --- Resource-pack install choice (Phase 3 / TASK 1) ---
+    rpInstallChoiceTitle: "Install options",
+    rpOptionServer: "Auto-apply on the server (server-resource-pack)",
+    rpOptionServerNote: "The panel writes the pack into your server settings. Every player who joins is prompted to accept and download it automatically — nothing to install on their PC.",
+    rpOptionPc: "Download to your PC only",
+    rpOptionPcNote: "The server stays clean. Download the same .zip to your PC and use it on any server or in singleplayer.",
+    rpPcUnavailable: "No PC download — this pack depends on a server plugin and won't work on its own on a PC.",
+    // --- Plugin-bound resource pack tag (Phase 3 / TASK 2) ---
+    pluginBoundTag: "Plugin required",
+    pluginBoundNote: "Requires ItemsAdder / a compatible datapack — a resource pack alone can't add the items, it only re-skins existing ones.",
+    pluginBoundSuggest: "Recommended to install:",
+    // --- Modpack player-side requirements (Phase 3 / TASK 3) ---
+    modpackPlayerReqTitle: "What players need to join",
+    modpackInstallTitle: "One-click install on your PC:",
+    modpackInstallCf: "Install in CurseForge",
+    modpackInstallMr: "Install in Modrinth",
+    modpackOfficialPage: "Official modpack page",
+    modpackGetApp: "Don't have the app? Get:",
     // --- Dependency accordion (Phase 2) ---
     requirementsTitle: "Requirements",
     autoInstalledDeps: "Requires (auto-installed by the system):",

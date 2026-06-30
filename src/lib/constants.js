@@ -90,6 +90,31 @@ export const ADDON_TYPES = ['mods', 'plugins', 'datapacks', 'modpacks', 'texture
 export const CLIENT_ONLY_TYPES = ['shaders', 'client-mods'];
 export const isClientOnlyType = (type) => CLIENT_ONLY_TYPES.includes(type);
 
+// --- Resource-pack (textures) install CHOICE ---
+// A server-applied resource pack (installMethod:'server') is just a .zip — the SAME
+// file works as a plain PC download. So for normal packs we offer BOTH:
+//   (a) server-resource-pack (auto-push to every player via server.properties), or
+//   (b) download to the player's PC.
+// EXCEPTION (`pluginBound:true`): packs whose items only exist via a plugin
+// (ItemsAdder/Oraxen-style — Custom Hats etc.). A bare resource pack can't add the
+// items, so a plain PC download is meaningless → server-only, hide the PC option.
+export const isServerAppliedRP = (addon) =>
+  !!(addon && addon.type === 'textures' && getInstallMethod(addon) === 'server');
+// Can this server-applied RP also be downloaded to the player's PC? No when it's
+// plugin-bound (the items need the plugin to be injected server-side).
+export const canPcDownloadRP = (addon) =>
+  isServerAppliedRP(addon) && !addon.pluginBound;
+
+// --- Modpack player-side install (mod-loader + one-click deep-links) ---
+// CurseForge / Modrinth desktop apps register custom URI protocols, so a single
+// link opens the app and starts the modpack install. We render whichever ids exist
+// on the modpack entry (slug for Modrinth, numeric addonId for CurseForge) and fall
+// back to the official page + "get the app" links when an id is missing.
+export const modrinthModpackUri = (slug) =>
+  slug ? `modrinth://modpack/${slug}` : null;
+export const curseforgeInstallUri = (id) =>
+  id ? `curseforge://install?addonId=${id}` : null;
+
 export const SOFTWARE_TYPES = [
   { id: 'vanilla',   name: 'Vanilla',   type: 'official', desc: 'שרת Mojang רשמי — קשה, נקי' },
   { id: 'paper',     name: 'Paper',     type: 'plugins',  desc: 'הכי נפוץ — ביצועים + plugins' },
@@ -251,19 +276,27 @@ export const DEFAULT_ADDONS = [
   // installMethod: 'manual' — modpacks are multi-file (mods+configs); the single-jar
   // installer can't deploy them. Shown with a manual badge so the UI never promises a
   // server install that loud-fails. A real mrpack/zip unpacker is a post-launch feature.
-  { id: 'mp1', name: 'Better MC', desc: 'המיינקראפט כמו שהוא היה צריך להיות - מאות ביומות ומובים', type: 'modpacks', installMethod: 'manual', downloads: '7M', rating: 4.6, reviews: 12000 },
-  { id: 'mp2', name: 'Vault Hunters', desc: 'מודפאק אקשן ו-RPG מדהים בתוך מבוכים מסוכנים', type: 'modpacks', installMethod: 'manual', downloads: '3M', rating: 4.8, reviews: 7500 },
+  // loader = the mod-loader the PLAYER must install on their PC (+ exact MC version,
+  // shown via ClientRequirements). curseforgeId / modrinthSlug drive the one-click
+  // install deep-links (curseforge://install / modrinth://modpack); an unknown id is
+  // omitted gracefully so only the working button(s) + official page render.
+  { id: 'mp1', name: 'Better MC', desc: 'המיינקראפט כמו שהוא היה צריך להיות - מאות ביומות ומובים', type: 'modpacks', installMethod: 'manual', loader: 'forge', curseforgeId: '543611', downloads: '7M', rating: 4.6, reviews: 12000 },
+  { id: 'mp2', name: 'Vault Hunters', desc: 'מודפאק אקשן ו-RPG מדהים בתוך מבוכים מסוכנים', type: 'modpacks', installMethod: 'manual', loader: 'forge', downloads: '3M', rating: 4.8, reviews: 7500 },
   // mp3..mp7 — modpacks אמיתיים שאומתו ב-Modrinth (project_type:modpack, 200).
   // downloadUrl = הדף הרשמי ב-Modrinth; ה-AddonsTab הופך את ה-badge הידני לקישור.
-  { id: 'mp3', name: 'Cobblemon Official Modpack', desc: 'המודפאק הרשמי של Cobblemon - הרפתקת פוקימון מלאה בעולם המיינקראפט (Fabric)', type: 'modpacks', installMethod: 'manual', downloadUrl: 'https://modrinth.com/modpack/cobblemon-fabric', downloads: '8M', rating: 4.9, reviews: 14000 },
-  { id: 'mp4', name: 'COBBLEVERSE', desc: 'הרפתקת פוקימון ענקית מבוססת Cobblemon - מנהיגי חדרים, אליפות וגיבוש חבורת פוקימון', type: 'modpacks', installMethod: 'manual', downloadUrl: 'https://modrinth.com/modpack/cobbleverse', downloads: '4.5M', rating: 4.8, reviews: 9000 },
-  { id: 'mp5', name: 'Prominence II: Hasturian Era', desc: 'מודפאק RPG והרפתקה עשיר עם קווסטים, מחלקות לחימה וקסם - אחד הפופולריים ביותר', type: 'modpacks', installMethod: 'manual', downloadUrl: 'https://modrinth.com/modpack/prominence-2-fabric', downloads: '1.5M', rating: 4.9, reviews: 8000 },
-  { id: 'mp6', name: 'The Pixelmon Modpack', desc: 'המודפאק הרשמי של Pixelmon - לתפוס ולאמן פוקימון בעולם המיינקראפט', type: 'modpacks', installMethod: 'manual', downloadUrl: 'https://modrinth.com/modpack/the-pixelmon-modpack', downloads: '1.9M', rating: 4.7, reviews: 7000 },
-  { id: 'mp7', name: 'Fabulously Optimized', desc: 'מודפאק ביצועים מוביל - מאיץ FPS, שיידרים ושיפורי איכות-חיים בלי לשנות gameplay', type: 'modpacks', installMethod: 'manual', downloadUrl: 'https://modrinth.com/modpack/fabulously-optimized', downloads: '13M', rating: 4.9, reviews: 25000 },
+  { id: 'mp3', name: 'Cobblemon Official Modpack', desc: 'המודפאק הרשמי של Cobblemon - הרפתקת פוקימון מלאה בעולם המיינקראפט (Fabric)', type: 'modpacks', installMethod: 'manual', loader: 'fabric', modrinthSlug: 'cobblemon-fabric', downloadUrl: 'https://modrinth.com/modpack/cobblemon-fabric', downloads: '8M', rating: 4.9, reviews: 14000 },
+  { id: 'mp4', name: 'COBBLEVERSE', desc: 'הרפתקת פוקימון ענקית מבוססת Cobblemon - מנהיגי חדרים, אליפות וגיבוש חבורת פוקימון', type: 'modpacks', installMethod: 'manual', loader: 'fabric', modrinthSlug: 'cobbleverse', downloadUrl: 'https://modrinth.com/modpack/cobbleverse', downloads: '4.5M', rating: 4.8, reviews: 9000 },
+  { id: 'mp5', name: 'Prominence II: Hasturian Era', desc: 'מודפאק RPG והרפתקה עשיר עם קווסטים, מחלקות לחימה וקסם - אחד הפופולריים ביותר', type: 'modpacks', installMethod: 'manual', loader: 'fabric', modrinthSlug: 'prominence-2-fabric', downloadUrl: 'https://modrinth.com/modpack/prominence-2-fabric', downloads: '1.5M', rating: 4.9, reviews: 8000 },
+  { id: 'mp6', name: 'The Pixelmon Modpack', desc: 'המודפאק הרשמי של Pixelmon - לתפוס ולאמן פוקימון בעולם המיינקראפט', type: 'modpacks', installMethod: 'manual', loader: 'forge', modrinthSlug: 'the-pixelmon-modpack', downloadUrl: 'https://modrinth.com/modpack/the-pixelmon-modpack', downloads: '1.9M', rating: 4.7, reviews: 7000 },
+  { id: 'mp7', name: 'Fabulously Optimized', desc: 'מודפאק ביצועים מוביל - מאיץ FPS, שיידרים ושיפורי איכות-חיים בלי לשנות gameplay', type: 'modpacks', installMethod: 'manual', loader: 'fabric', modrinthSlug: 'fabulously-optimized', downloadUrl: 'https://modrinth.com/modpack/fabulously-optimized', downloads: '13M', rating: 4.9, reviews: 25000 },
   
   // --- Textures ---
   // installMethod: 'client' = resource/texture packs מותקנים בצד-הלקוח (אצל השחקן), לא בשרת. אין URL מתארח כרגע.
-  { id: 't1', name: 'Custom Hats Pack', desc: 'מוסיף כתרים, כובעי קסם ופריטים שניתן לשים על הראש לטובת מראה ייחודי (בדומה לנייטפול) (חבילת מרקם בצד-הלקוח — מוחלת בשרת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'elibruhs-custom-hats-pack', downloads: '1.2M', rating: 4.8, reviews: 4500 },
+  // pluginBound:true — a bare resource pack can't ADD the hats; the items only exist when a
+  // plugin (ItemsAdder/Oraxen) injects them. So this is server-only (no plain PC download) and
+  // carries a prominent "needs ItemsAdder/compatible datapack" tag. suggestsPlugin (soft hint,
+  // NOT a hard `requires`) points the user at ItemsAdder without auto-installing a paid plugin.
+  { id: 't1', name: 'Custom Hats Pack', desc: 'מוסיף כתרים, כובעי קסם ופריטים שניתן לשים על הראש לטובת מראה ייחודי (בדומה לנייטפול) (חבילת מרקם בצד-הלקוח — מוחלת בשרת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'elibruhs-custom-hats-pack', pluginBound: true, suggestsPlugin: 'p28', downloads: '1.2M', rating: 4.8, reviews: 4500 },
   { id: 't2', name: 'Golden Pumpkin Pie', desc: 'מודל תלת-ממדי מיוחד שהופך את פשטידת הדלעת הרגילה לפשטידת זהב נוצצת', type: 'textures', installMethod: 'client', clientUrl: 'https://modrinth.com/resourcepack/golden-pumpkin-pie', downloads: '800K', rating: 4.6, reviews: 2100 },
   // clientDeps — this server-applied pack only FUNCTIONS if each player also has one client option installed.
   // Rendered as an inline "pick one" chooser (no popup); each option lists its client items + download links.
