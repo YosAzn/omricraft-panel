@@ -36,7 +36,9 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
   const PLUGIN_SERVERS = ['paper', 'purpur', 'folia', 'mohist'];
   const MOD_SERVERS = ['fabric', 'forge', 'neoforge', 'mohist'];
   const relevantAddons = allAddons.filter(a => {
-    if (a.type === 'textures') return true;
+    // Client-only groups (textures/shaders/client-mods) apply to ANY server — they
+    // run on the player's PC, not the server, so they always show (with a client badge).
+    if (a.type === 'textures' || a.type === 'shaders' || a.type === 'client-mods') return true;
     if (MOD_SERVERS.includes(software) && ['mods', 'modpacks'].includes(a.type)) return true;
     if (PLUGIN_SERVERS.includes(software) && a.type === 'plugins') return true;
     // Hide worldgen-overhaul datapacks (Terralith) unless the world type is 'default' —

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Package, RefreshCw, RefreshCcw, AlertCircle, X, Search,
-  Star, Download, Layers, Palette
+  Star, Download, Layers, Palette, Sparkles, Boxes
 } from 'lucide-react';
 import { listFilesFn, removePluginJarFn, reloadPluginFn } from '../../lib/api';
 import { TYPE_COLORS, getInstallMethod, isBukkitBased, isWorldgenDatapack } from '../../lib/constants';
@@ -73,7 +73,8 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
   const PLUGIN_SERVERS = ['paper', 'purpur', 'folia', 'mohist'];
   const MOD_SERVERS = ['fabric', 'forge', 'neoforge', 'mohist'];
   const relevantAddons = allAddons.filter(a => {
-    if (a.type === 'textures') return true;
+    // Client-only groups apply to ANY server (player-PC only) → always shown with a client badge.
+    if (a.type === 'textures' || a.type === 'shaders' || a.type === 'client-mods') return true;
     if (MOD_SERVERS.includes(server.software) && ['mods', 'modpacks'].includes(a.type)) return true;
     if (PLUGIN_SERVERS.includes(server.software) && a.type === 'plugins') return true;
     if (a.type === 'datapacks') return true;
@@ -88,6 +89,8 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
   if (PLUGIN_SERVERS.includes(server.software)) availableFilters.push({ id: 'plugins', name: t('plugins') });
   availableFilters.push({ id: 'datapacks', name: t('datapacks') });
   availableFilters.push({ id: 'textures', name: t('textures') });
+  availableFilters.push({ id: 'shaders', name: t('shaders') });
+  availableFilters.push({ id: 'client-mods', name: t('client-mods') });
 
   const displayAddons = relevantAddons.filter(a => {
     const localized = addonDesc(a.id, lang, a.desc) || '';
@@ -220,6 +223,8 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
           let IconComp = Package;
           if (item.type === 'modpacks') IconComp = Layers;
           if (item.type === 'textures') IconComp = Palette;
+          if (item.type === 'shaders') IconComp = Sparkles;
+          if (item.type === 'client-mods') IconComp = Boxes;
 
           return (
             <div key={item.id} className={`bg-zinc-950 border border-zinc-800 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-zinc-700 transition-all ${worldgenBlocked ? 'opacity-50' : ''}`}>

@@ -19,13 +19,28 @@ export const isBukkitBased = (software) => BUKKIT_SOFTWARE.includes(software);
 export const isWorldgenDatapack = (addon) =>
   !!(addon && addon.type === 'datapacks' && (addon.worldgenOverhaul || addon.worldgen));
 
+// Full literal Tailwind class strings per addon type (so the JIT compiler keeps
+// them in the build — never build these from a variable). `shaders` (gray) and
+// `client-mods` (yellow) are CLIENT-ONLY groups: their addons carry
+// installMethod:'client', so they never reach the VPS installer.
 export const TYPE_COLORS = {
   mods: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   plugins: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
   datapacks: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
   modpacks: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
-  textures: 'bg-teal-500/10 text-teal-400 border-teal-500/20'
+  textures: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+  shaders: 'bg-zinc-500/10 text-zinc-300 border-zinc-500/30',
+  'client-mods': 'bg-amber-500/10 text-amber-400 border-amber-500/20'
 };
+
+// Ordered list of every addon group, used to render filter tabs / pickers
+// everywhere consistently. Keep in sync with TYPE_COLORS + i18n labels.
+export const ADDON_TYPES = ['mods', 'plugins', 'datapacks', 'modpacks', 'textures', 'shaders', 'client-mods'];
+
+// Client-only groups — never installed on the server (player-PC only). Used by
+// the UI to render them as their own group without a server "install" button.
+export const CLIENT_ONLY_TYPES = ['shaders', 'client-mods'];
+export const isClientOnlyType = (type) => CLIENT_ONLY_TYPES.includes(type);
 
 export const SOFTWARE_TYPES = [
   { id: 'vanilla',   name: 'Vanilla',   type: 'official', desc: 'שרת Mojang רשמי — קשה, נקי' },
@@ -106,10 +121,14 @@ export const DEFAULT_ADDONS = [
   // Client-side mods — installMethod:'client' (badge only, never reaches the VPS installer).
   { id: 'm12', name: 'Jade', desc: 'מציג מידע על הבלוק/המוב שמסתכלים עליו (שם, חיים, כלי נדרש) בראש המסך', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/jade', downloads: '40M', rating: 4.8, reviews: 13000 },
   { id: 'm13', name: 'Xaero\'s Minimap', desc: 'מפת מיני בפינת המסך עם סימון שחקנים, מובים ונקודות ציון - ניווט קל בעולם', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/xaeros-minimap', downloads: '30M', rating: 4.8, reviews: 11000 },
-  { id: 'm14', name: 'Entity Texture Features (ETF)', desc: 'מפעיל את אנימציות הטקסטורות של Fresh Animations בצד-הלקוח (התחליף המודרני ל-OptiFine, יחד עם EMF)', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/entitytexturefeatures', requires: ['m15'], downloads: '20M', rating: 4.9, reviews: 8000 },
-  { id: 'm15', name: 'Entity Model Features (EMF)', desc: 'משלים את ETF - מפעיל את שינויי המודל/האנימציה של Fresh Animations בצד-הלקוח', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/entity-model-features', requires: ['m14'], downloads: '12M', rating: 4.9, reviews: 5000 },
+  // --- Client-side Mods (player-PC only) ---
+  // type:'client-mods' — these run ONLY on the player's machine, NEVER on the server.
+  // They keep installMethod:'client' so they are never sent to the VPS installer.
+  // (Per the guidance doc: ETF/EMF/OptiFine are explicitly "Client-Side Mods".)
+  { id: 'm14', name: 'Entity Texture Features (ETF)', desc: 'מפעיל את אנימציות הטקסטורות של Fresh Animations בצד-הלקוח (התחליף המודרני ל-OptiFine, יחד עם EMF)', type: 'client-mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/entitytexturefeatures', requires: ['m15'], downloads: '20M', rating: 4.9, reviews: 8000 },
+  { id: 'm15', name: 'Entity Model Features (EMF)', desc: 'משלים את ETF - מפעיל את שינויי המודל/האנימציה של Fresh Animations בצד-הלקוח', type: 'client-mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/entity-model-features', requires: ['m14'], downloads: '12M', rating: 4.9, reviews: 5000 },
   // OptiFine — classic client-side alternative to ETF+EMF for shaders/animations. Not on Modrinth (own site), client-only.
-  { id: 'm16', name: 'OptiFine', desc: 'שדרוג ביצועים ותאורה קלאסי בצד-הלקוח, עם תמיכה בשיידרים ובאנימציות מותאמות (התחליף הוותיק ל-ETF+EMF; מותקן אצל השחקן)', type: 'mods', installMethod: 'client', clientUrl: 'https://optifine.net/downloads', downloads: '100M', rating: 4.7, reviews: 50000 },
+  { id: 'm16', name: 'OptiFine', desc: 'שדרוג ביצועים ותאורה קלאסי בצד-הלקוח, עם תמיכה בשיידרים ובאנימציות מותאמות (התחליף הוותיק ל-ETF+EMF; מותקן אצל השחקן)', type: 'client-mods', installMethod: 'client', clientUrl: 'https://optifine.net/downloads', downloads: '100M', rating: 4.7, reviews: 50000 },
 
   // --- Plugins (Paper) ---
   { id: 'p1', name: 'EssentialsX', desc: 'פקודות בסיסיות לשרת (spawn, home, tpa, warp)', type: 'plugins', downloads: '10M', rating: 4.7, reviews: 12500 },
@@ -212,6 +231,14 @@ export const DEFAULT_ADDONS = [
   { id: 't12', name: 'New Glowing Ores', desc: 'כל המחצבים זוהרים בחושך - קל לאתר יהלומים וברזל במערות עמוקות (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'new-glowing-ores', downloads: '4M', rating: 4.7, reviews: 6000 },
   { id: 't13', name: 'Enchantment Outlines', desc: 'מוסיף מסגרת זוהרת לפריטים מכושפים כדי שיבלטו במלאי (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'glowing-glints', downloads: '2.5M', rating: 4.7, reviews: 3500 },
   { id: 't14', name: 'Low On Fire', desc: 'מנמיך את אנימציית האש שמכסה את המסך כשנשרפים - שדה ראייה צלול בקרב (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'low-on-fire', downloads: '6M', rating: 4.8, reviews: 8000 },
+
+  // --- Shaders (player-PC only) ---
+  // type:'shaders' — real shader PACKS (not the loader). They run ONLY on the
+  // player's machine and require a shader loader installed there: Iris (Fabric/Quilt)
+  // or Oculus (Forge). installMethod:'client' → never sent to the VPS installer.
+  { id: 'sh1', name: 'Complementary Reimagined', desc: 'חבילת השיידרים הפופולרית ביותר כיום — תאורה, צללים והשתקפויות מרהיבים עם ביצועים מצוינים (מותקנת אצל השחקן; דורשת Iris ל-Fabric/Quilt או Oculus ל-Forge)', type: 'shaders', installMethod: 'client', clientUrl: 'https://modrinth.com/shader/complementary-reimagined', downloads: '15M', rating: 4.9, reviews: 30000 },
+  { id: 'sh2', name: 'BSL Shaders', desc: 'שיידרים קלאסיים ואהובים עם מים משתקפים, עננים נפחיים ותאורה דרמטית — איזון מצוין בין יופי לביצועים (מותקנים אצל השחקן; דורשים Iris ל-Fabric/Quilt או Oculus ל-Forge)', type: 'shaders', installMethod: 'client', clientUrl: 'https://modrinth.com/shader/bsl-shaders', downloads: '10M', rating: 4.8, reviews: 22000 },
+  { id: 'sh3', name: "Sildur's Vibrant Shaders", desc: 'שיידרים צבעוניים וגמישים עם פרופילי ביצועים מ-Lite ועד Extreme — מתאימים גם למחשבים חלשים (מותקנים אצל השחקן; דורשים Iris ל-Fabric/Quilt או Oculus ל-Forge)', type: 'shaders', installMethod: 'client', clientUrl: 'https://modrinth.com/shader/sildurs-vibrant-shaders', downloads: '8M', rating: 4.7, reviews: 16000 },
 ];
 
 // --- Public landing-page catalog facts (derived from the real arrays above) ---

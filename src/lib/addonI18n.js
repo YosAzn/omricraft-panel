@@ -111,7 +111,12 @@ export const addonDescriptions = {
     t11: 'מצב כהה לכל ממשק המשחק - נוח לעיניים, שומר על הסגנון הווניל המקורי (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)',
     t12: 'כל המחצבים זוהרים בחושך - קל לאתר יהלומים וברזל במערות עמוקות (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)',
     t13: 'מוסיף מסגרת זוהרת לפריטים מכושפים כדי שיבלטו במלאי (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)',
-    t14: 'מנמיך את אנימציית האש שמכסה את המסך כשנשרפים - שדה ראייה צלול בקרב (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)'
+    t14: 'מנמיך את אנימציית האש שמכסה את המסך כשנשרפים - שדה ראייה צלול בקרב (חבילת מרקם בצד-הלקוח — מוחלת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)',
+
+    // --- Shaders ---
+    sh1: 'חבילת השיידרים הפופולרית ביותר כיום — תאורה, צללים והשתקפויות מרהיבים עם ביצועים מצוינים (מותקנת אצל השחקן; דורשת Iris ל-Fabric/Quilt או Oculus ל-Forge)',
+    sh2: 'שיידרים קלאסיים ואהובים עם מים משתקפים, עננים נפחיים ותאורה דרמטית — איזון מצוין בין יופי לביצועים (מותקנים אצל השחקן; דורשים Iris ל-Fabric/Quilt או Oculus ל-Forge)',
+    sh3: 'שיידרים צבעוניים וגמישים עם פרופילי ביצועים מ-Lite ועד Extreme — מתאימים גם למחשבים חלשים (מותקנים אצל השחקן; דורשים Iris ל-Fabric/Quilt או Oculus ל-Forge)'
   },
 
   en: {
@@ -212,7 +217,12 @@ export const addonDescriptions = {
     t11: 'A dark mode for the entire game interface - eye-friendly, keeps the original vanilla style (a client-side resource pack - applied via server-resource-pack; each player must accept it)',
     t12: 'All ores glow in the dark - easy to spot diamonds and iron in deep caves (a client-side resource pack - applied via server-resource-pack; each player must accept it)',
     t13: 'Adds a glowing outline to enchanted items so they stand out in your inventory (a client-side resource pack - applied via server-resource-pack; each player must accept it)',
-    t14: 'Lowers the fire animation that covers the screen when burning - a clear field of view in combat (a client-side resource pack - applied via server-resource-pack; each player must accept it)'
+    t14: 'Lowers the fire animation that covers the screen when burning - a clear field of view in combat (a client-side resource pack - applied via server-resource-pack; each player must accept it)',
+
+    // --- Shaders ---
+    sh1: "Today's most popular shader pack — stunning lighting, shadows and reflections with excellent performance (installed on the player's PC; requires Iris for Fabric/Quilt or Oculus for Forge)",
+    sh2: 'A beloved classic shader with reflective water, volumetric clouds and dramatic lighting — a great balance of beauty and performance (player-side; requires Iris for Fabric/Quilt or Oculus for Forge)',
+    sh3: "Colorful, flexible shaders with profiles from Lite to Extreme — friendly to lower-end PCs too (player-side; requires Iris for Fabric/Quilt or Oculus for Forge)"
   },
   ru: {
     m1: "Значительно повышает производительность и FPS",

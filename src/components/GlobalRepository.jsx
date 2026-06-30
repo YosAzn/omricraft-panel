@@ -4,7 +4,7 @@ import {
   Package, Palette, Star, Trash2, Download, Check, Sparkles, ExternalLink, Loader2, Boxes
 } from 'lucide-react';
 
-import { TYPE_COLORS } from '../lib/constants';
+import { TYPE_COLORS, ADDON_TYPES } from '../lib/constants';
 import { addonDesc } from '../lib/addonI18n';
 import { suggestModpackFn } from '../lib/api';
 import AiTextureGenerator from './AiTextureGenerator';
@@ -220,6 +220,8 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
                   <option value="plugins">{t('plugins')}</option>
                   <option value="datapacks">{t('datapacks')}</option>
                   <option value="textures">{t('textures')}</option>
+                  <option value="shaders">{t('shaders')}</option>
+                  <option value="client-mods">{t('client-mods')}</option>
                 </select>
              </div>
            </div>
@@ -403,7 +405,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
 
       <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
         <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800 overflow-x-auto">
-          {['all', 'mods', 'plugins', 'datapacks', 'modpacks', 'textures'].map(f => (
+          {['all', ...ADDON_TYPES].map(f => (
             <button 
               key={f} 
               onClick={() => setFilter(f)} 
@@ -430,6 +432,8 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
           let IconComp = Package;
           if (a.type === 'modpacks') IconComp = Layers;
           if (a.type === 'textures') IconComp = Palette;
+          if (a.type === 'shaders') IconComp = Sparkles;
+          if (a.type === 'client-mods') IconComp = Boxes;
 
           return (
             <div key={a.id} onClick={() => setSelectedAddon(a)} className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center justify-between group hover:border-zinc-700 transition-all cursor-pointer">
