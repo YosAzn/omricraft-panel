@@ -2154,14 +2154,14 @@ app.get('/diagnostics', function(req, res) {
         var incompatibleFiles = listJarFiles(serverId, incompatibleKind);
         if (incompatibleFiles.length > 0) {
           var listStr = incompatibleFiles.join(', ');
-          var detailHe = 'השרת הועבר ל-' + type + ' אך נמצאו ' + incompatibleFiles.length +
-            ' קבצי ' + incompatibleKind + ' ישנים שלא יפעלו על הליבה הזו: ' + listStr + '.';
-          var detailEn = 'Server was switched to ' + type + ' but ' + incompatibleFiles.length +
-            ' stale ' + incompatibleKind + ' file(s) remain that will not load on this core: ' + listStr + '.';
+          var detailHe = 'נמצאו ' + incompatibleFiles.length + ' קבצי ' + incompatibleKind +
+            ' שלא יפעלו על ליבת ' + type + ' הנוכחית: ' + listStr + '.';
+          var detailEn = incompatibleFiles.length + ' ' + incompatibleKind +
+            ' file(s) found that will not load on the current ' + type + ' core: ' + listStr + '.';
           issues.push({
             serverId: serverId, serverName: serverName, serverSlug: serverSlug,
             severity: 'warning', category: 'cross-family-files',
-            title: 'קבצים לא-תואמים אחרי החלפת ליבה',
+            title: 'קבצים לא-תואמים לליבה הנוכחית',
             detail: detailHe + ' / ' + detailEn,
             suggestion: 'ארכב את הקבצים הלא-תואמים (כפתור) — הם יועברו לתיקיית disabled-' +
               incompatibleKind + ' (הפיך, לא נמחק).',
@@ -2416,6 +2416,15 @@ app.post('/archive-incompatible', function(req, res) {
     var dest = path.resolve(realArchive, file);
     if (dest !== path.join(realArchive, file) || dest.indexOf(realArchive + path.sep) !== 0) {
       return res.status(400).json({ success: false, error: 'Dest path escapes archive dir: ' + file });
+    }
+    // Never clobber an already-archived jar of the same name (keeps the "reversible,
+    // never lose a file" guarantee). On collision, archive under a timestamped name.
+    if (fs.existsSync(dest)) {
+      var stampedName = file.replace(/\.jar$/i, '') + '.' + Date.now() + '.jar';
+      dest = path.resolve(realArchive, stampedName);
+      if (dest !== path.join(realArchive, stampedName) || dest.indexOf(realArchive + path.sep) !== 0) {
+        return res.status(400).json({ success: false, error: 'Dest path escapes archive dir: ' + stampedName });
+      }
     }
     try {
       var st = fs.statSync(source);
