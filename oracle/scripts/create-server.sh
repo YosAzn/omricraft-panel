@@ -351,11 +351,30 @@ TEXTURE_SLUGS["t12"]="new-glowing-ores"           # New Glowing Ores
 TEXTURE_SLUGS["t13"]="glowing-glints"             # Enchantment Outlines
 TEXTURE_SLUGS["t14"]="low-on-fire"                # Low On Fire
 
+# Plugin-bound resource packs need a backing plugin (e.g. an item-model handler) to
+# inject their items — they only work on a plugin-capable Bukkit-family core. On a
+# vanilla/fabric/forge/neoforge core the items can never be injected, so the pack would
+# be a silent no-op. The frontend already gates this (isPluginBoundBlocked), but mirror
+# the worldgen safety net here so the install stays honest even if the UI is bypassed.
+# Bukkit-family list matches server.js BUKKIT_TYPES.
+declare -A PLUGIN_BOUND_TEXTURES
+PLUGIN_BOUND_TEXTURES["t1"]=1   # Custom Hats — needs a backing plugin to apply the hats
+is_bukkit_family() {
+  case "$1" in
+    paper|purpur|folia|mohist|youer|spigot) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 if [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
   while IFS= read -r addonId; do
     [ -z "$addonId" ] && continue
     rpslug="${TEXTURE_SLUGS[$addonId]:-}"
     [ -z "$rpslug" ] && continue
+    if [ -n "${PLUGIN_BOUND_TEXTURES[$addonId]:-}" ] && ! is_bukkit_family "$TYPE"; then
+      echo "[$(date)] skipped resourcepack $addonId ($rpslug): plugin-bound pack needs a plugin-capable core; '$TYPE' has no backing plugin to inject the items."
+      continue
+    fi
     if bash "$SCRIPTS_DIR_SELF/install-resourcepack.sh" "$SERVER_DIR" "$VERSION" "$rpslug"; then
       echo "[$(date)] OK resourcepack: $addonId ($rpslug)"
     else

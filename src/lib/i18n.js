@@ -94,6 +94,8 @@ export const DICT = {
     viaVersionPaperHint: "שים לב: זו גרסה חדשה יותר ממה ש-Paper בנה. כאן תקבל את <b>התוכן</b> המלא של {version}. (Paper מוגבל ל-1.21.11; לתוכן 26.x בחר Purpur/Fabric.)",
     // 5a — pure-mod core: ViaVersion does NOT apply; exact match required.
     modServerNoViaVersion: "🔒 שרת מודים: אין תרגום-גרסאות (ViaVersion לא נתמך). שחקנים חייבים את אותו loader, אותה גרסת מיינקראפט ואותם קבצי-מודים בדיוק כדי להתחבר.",
+    // 5a — vanilla core: same exact-version restriction as a mod server, but no loader/mod files.
+    vanillaNoViaVersion: "🔒 שרת וונילה: אין תרגום-גרסאות. שחקנים חייבים להתחבר עם אותה גרסת מיינקראפט בדיוק כמו השרת.",
     // 5b — modpack/mod-loader servers are full multiplayer (clears the single-player confusion).
     modpackMultiplayerNote: "שרת מודפאק תומך במולטי-פלייר מלא — אין הגבלת שחקן-יחיד. כל שחקן מריץ את אותו מודפק במחשבו (דרך כפתורי ההתקנה האוטומטית).",
     // 5c — heavy-modpack RAM warning ({X}=GB recommended, {N}=player count).
@@ -407,6 +409,7 @@ export const DICT = {
     viaVersionPluginNote: "💡 ViaVersion is installed automatically — players on <b>any</b> Minecraft version (including 26.x) can join this server, regardless of the server's version.",
     viaVersionPaperHint: "Note: this is newer than what Paper built. Here you get the full <b>content</b> of {version}. (Paper is capped at 1.21.11; for 26.x content pick Purpur/Fabric.)",
     modServerNoViaVersion: "🔒 Mod server: no cross-version translation (ViaVersion isn't supported). Players must have the exact same loader, the same Minecraft version and the same mod files to connect.",
+    vanillaNoViaVersion: "🔒 Vanilla server: no cross-version translation. Players must join with the exact same Minecraft version as the server.",
     modpackMultiplayerNote: "A modpack server supports full multiplayer — there's no single-player limit. Each player runs the same modpack on their own PC (via the auto-install buttons).",
     modpackRamWarning: "⚠️ Heavy modpack: at least {X}GB is recommended for {N} players so the server doesn't crash/lag.",
     // --- Resource-pack install choice (Phase 3 / TASK 1) ---

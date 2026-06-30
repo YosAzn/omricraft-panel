@@ -166,6 +166,11 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
   // can't use it: players must match the loader+version+mod files exactly.
   const pluginFamily = PLUGIN_SERVERS.includes(software);
   const pureModCore = MOD_SERVERS.includes(software) && !pluginFamily;
+  // Vanilla is in NEITHER PLUGIN_SERVERS nor MOD_SERVERS, so it gets neither note above.
+  // It has the SAME hard exact-version restriction as a mod server (no ViaVersion layer),
+  // just without a loader/mod files — so it needs its own tailored guidance.
+  // The three guards (pluginFamily / pureModCore / isVanilla) stay mutually exclusive.
+  const isVanilla = software === 'vanilla';
 
   // --- Phase 5b/5c — modpack-aware notes + RAM ---
   // A modpack addon is selected, OR this is a mod-loader server (modpack territory).
@@ -182,13 +187,18 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
   const modpackRamBelow = modpackRamMb > 0 && memoryMb < modpackRamMb;
   const modpackRamGb = Math.round(modpackRamMb / 1024);
 
-  // Auto-raise the pre-selected RAM to the modpack recommendation — but ONLY while the
-  // user hasn't manually picked a RAM value (ramTouched). Never lowers it; the warning
-  // above still covers the case where the user deliberately set a lower value.
+  // Auto-sync the pre-selected RAM to the CURRENT recommendation — but ONLY while the
+  // user hasn't manually picked a RAM value (ramTouched). Tracks the recommendation in
+  // BOTH directions: the target is the heavier of the core recommendation and the modpack
+  // recommendation, so lowering maxPlayers / deselecting a heavy pack also relaxes the
+  // pre-selected RAM back down (no one-way over-allocation). The moment the user sets RAM
+  // manually (ramTouched), this never overrides their choice; the below-recommendation
+  // warning still covers a deliberate lower pick.
   useEffect(() => {
     if (ramTouched) return;
-    if (modpackRamMb > 0 && modpackRamMb > memoryMb) setMemoryMb(modpackRamMb);
-  }, [modpackRamMb, ramTouched, memoryMb]);
+    const target = Math.max(recommendedRamMb, modpackRamMb);
+    if (target !== memoryMb) setMemoryMb(target);
+  }, [recommendedRamMb, modpackRamMb, ramTouched, memoryMb]);
 
   // The create form is open to ALL signed-in users. Admins create directly; non-admins
   // submit a REQUEST (App.jsx routes the submit to requestServer based on isAdmin, and
@@ -280,6 +290,11 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
               {pureModCore && (
                 <p className="text-xs text-amber-400 mt-2 leading-relaxed">{t('modServerNoViaVersion')}</p>
               )}
+              {/* Phase 5a — vanilla: no ViaVersion plugin, no loader. Same exact-version
+                  restriction as a mod server, so surface a vanilla-tailored note. */}
+              {isVanilla && (
+                <p className="text-xs text-amber-400 mt-2 leading-relaxed">{t('vanillaNoViaVersion')}</p>
+              )}
               {/* Tell the creator up front what loader players will need on their PC —
                   only for modded types (vanilla/Bukkit need no client loader). */}
               {getClientLoader(software).needsLoader && (
@@ -362,7 +377,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                   recommendation exceeds the chosen RAM. Hint only — never blocks creation. */}
               {modpackRamBelow && (
                 <p className="text-xs text-amber-400 mt-2 leading-relaxed">
-                  {t('modpackRamWarning').replace('{X}', modpackRamGb).replace('{N}', maxPlayers)}
+                  {t('modpackRamWarning').replace('{X}', modpackRamGb).replace('{N}', Math.max(1, Number(maxPlayers) || 1))}
                 </p>
               )}
             </div>

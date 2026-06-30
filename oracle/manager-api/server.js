@@ -643,6 +643,14 @@ app.post('/install-resourcepack', async function(req, res) {
   if (!srv || !srv.version) {
     return res.status(404).json({ success: false, error: 'Server not in servers.json' });
   }
+  // Plugin-bound packs (e.g. t1 Custom Hats) need a backing plugin to inject their items,
+  // so they only work on a plugin-capable Bukkit-family core. Reject on a non-Bukkit core
+  // even if the frontend filter is bypassed — mirrors the create-server.sh safety net and
+  // the worldgen-on-Bukkit defense (BUKKIT_TYPES defined at module load, line ~1870).
+  var PLUGIN_BOUND_TEXTURES = { t1: true };
+  if (PLUGIN_BOUND_TEXTURES[addonId] && BUKKIT_TYPES.indexOf(srv.type) === -1) {
+    return res.status(422).json({ success: false, error: 'plugin-bound pack needs a plugin-capable core' });
+  }
   try {
     await runScript('install-resourcepack.sh', [serverDir, srv.version, slug], 90000);
     console.log('[' + new Date().toISOString() + '] Installed resourcepack ' + addonId + ' (' + slug + ') on ' + serverId);
