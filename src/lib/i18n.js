@@ -88,6 +88,16 @@ export const DICT = {
     neoForgeUnavailable: "NeoForge לא זמין לגרסה זו (קודם 1.20.2) — השתמש ב-Forge.",
     ramRecommendedLabel: "מומלץ",
     ramModpackNote: "שרתי מודפאק צריכים 6-8GB ומעלה.",
+    // --- Phase 5: ViaVersion gating + modpack multiplayer + modpack RAM ---
+    // 5a — gray ViaVersion note on plugin-family cores (was shown on all cores).
+    viaVersionPluginNote: "💡 ViaVersion מותקן אצלנו אוטומטית — שחקנים מ<b>כל</b> גרסת מיינקראפט (כולל 26.x) יכולים להיכנס לשרת הזה, בלי קשר לגרסת השרת.",
+    viaVersionPaperHint: "שים לב: זו גרסה חדשה יותר ממה ש-Paper בנה. כאן תקבל את <b>התוכן</b> המלא של {version}. (Paper מוגבל ל-1.21.11; לתוכן 26.x בחר Purpur/Fabric.)",
+    // 5a — pure-mod core: ViaVersion does NOT apply; exact match required.
+    modServerNoViaVersion: "🔒 שרת מודים: אין תרגום-גרסאות (ViaVersion לא נתמך). שחקנים חייבים את אותו loader, אותה גרסת מיינקראפט ואותם קבצי-מודים בדיוק כדי להתחבר.",
+    // 5b — modpack/mod-loader servers are full multiplayer (clears the single-player confusion).
+    modpackMultiplayerNote: "שרת מודפאק תומך במולטי-פלייר מלא — אין הגבלת שחקן-יחיד. כל שחקן מריץ את אותו מודפק במחשבו (דרך כפתורי ההתקנה האוטומטית).",
+    // 5c — heavy-modpack RAM warning ({X}=GB recommended, {N}=player count).
+    modpackRamWarning: "⚠️ מודפאק כבד: מומלץ לפחות {X}GB עבור {N} שחקנים כדי שהשרת לא יקרוס/ייתקע.",
     // --- Resource-pack install choice (Phase 3 / TASK 1) ---
     rpInstallChoiceTitle: "אפשרויות התקנה לבחירתך",
     rpOptionServer: "הפעלה אוטומטית בשרת (Server-Resource-Pack)",
@@ -99,6 +109,9 @@ export const DICT = {
     pluginBoundTag: "דורש פלאגין",
     pluginBoundNote: "דורש ItemsAdder / דאטה-פק תואם — חבילת-משאבים לבדה לא מוסיפה את הפריטים, רק משנה מראה של פריטים קיימים.",
     pluginBoundSuggest: "מומלץ להתקין:",
+    // 5d — pluginBound packs are plugin-capable-core only (block on Vanilla + pure-mod).
+    pluginBoundCoreBlocked: "🔒 דורש שרת תומך-פלאגינים (Paper/Purpur/Folia/Mohist/Youer) — הפריטים נוצרים על-ידי פלאגין-תשתית. בשרת ונילה או מודים אין דרך להזריק אותם.",
+    pluginBoundEnriched: "מוסיף לשרת כובעים ופריטים תלת-ממדיים חדשים לחלוטין — שחקנים חובשים, אוספים וסוחרים בהם. ✓ המערכת מתקינה אוטומטית את פלאגין-התשתית ItemsAdder ומגדירה את הטקסטורות. השחקנים לא מתקינים כלום במחשב — נכנסים עם ונילה נקי ומקבלים את הכובעים אוטומטית.",
     // --- Modpack player-side requirements (Phase 3 / TASK 3) ---
     modpackPlayerReqTitle: "מה השחקנים צריכים כדי להיכנס?",
     modpackInstallTitle: "התקנה אוטומטית למחשב שלך (לחיצה אחת):",
@@ -390,6 +403,12 @@ export const DICT = {
     neoForgeUnavailable: "NeoForge isn't available for this version (before 1.20.2) — use Forge.",
     ramRecommendedLabel: "Recommended",
     ramModpackNote: "Modpack servers need 6-8GB+.",
+    // --- Phase 5: ViaVersion gating + modpack multiplayer + modpack RAM ---
+    viaVersionPluginNote: "💡 ViaVersion is installed automatically — players on <b>any</b> Minecraft version (including 26.x) can join this server, regardless of the server's version.",
+    viaVersionPaperHint: "Note: this is newer than what Paper built. Here you get the full <b>content</b> of {version}. (Paper is capped at 1.21.11; for 26.x content pick Purpur/Fabric.)",
+    modServerNoViaVersion: "🔒 Mod server: no cross-version translation (ViaVersion isn't supported). Players must have the exact same loader, the same Minecraft version and the same mod files to connect.",
+    modpackMultiplayerNote: "A modpack server supports full multiplayer — there's no single-player limit. Each player runs the same modpack on their own PC (via the auto-install buttons).",
+    modpackRamWarning: "⚠️ Heavy modpack: at least {X}GB is recommended for {N} players so the server doesn't crash/lag.",
     // --- Resource-pack install choice (Phase 3 / TASK 1) ---
     rpInstallChoiceTitle: "Install options",
     rpOptionServer: "Auto-apply on the server (server-resource-pack)",
@@ -401,6 +420,8 @@ export const DICT = {
     pluginBoundTag: "Plugin required",
     pluginBoundNote: "Requires ItemsAdder / a compatible datapack — a resource pack alone can't add the items, it only re-skins existing ones.",
     pluginBoundSuggest: "Recommended to install:",
+    pluginBoundCoreBlocked: "🔒 Needs a plugin-capable server (Paper/Purpur/Folia/Mohist/Youer) — the items are created by a backing plugin. A Vanilla or mod server has no way to inject them.",
+    pluginBoundEnriched: "Adds brand-new 3D hats and items to the server — players wear, collect and trade them. ✓ The system auto-installs the ItemsAdder backing plugin and sets up the textures. Players install nothing on their PC — they join with plain vanilla and get the hats automatically.",
     // --- Modpack player-side requirements (Phase 3 / TASK 3) ---
     modpackPlayerReqTitle: "What players need to join",
     modpackInstallTitle: "One-click install on your PC:",

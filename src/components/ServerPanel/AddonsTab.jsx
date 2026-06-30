@@ -4,7 +4,7 @@ import {
   Star, Download, Layers, Palette, Sparkles, Boxes, Lock
 } from 'lucide-react';
 import { listFilesFn, removePluginJarFn, reloadPluginFn } from '../../lib/api';
-import { TYPE_COLORS, getInstallMethod, isBukkitBased, isWorldgenDatapack, isCoreIncompatible, collectRequiredIds, compatibleCoresLabel } from '../../lib/constants';
+import { TYPE_COLORS, getInstallMethod, isBukkitBased, isWorldgenDatapack, isCoreIncompatible, collectRequiredIds, compatibleCoresLabel, isPluginBoundBlocked } from '../../lib/constants';
 import { addonDesc } from '../../lib/addonI18n';
 import { ClientDownloadLink, RequirementsAccordion, CoreIncompatibleNote, ResourcePackInstallChoice, PluginBoundTag, ModpackPlayerRequirements } from '../AddonClientExtras';
 
@@ -107,6 +107,9 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
   const isWorldgenBlocked = (item) => serverIsBukkit && isWorldgenDatapack(item);
   // Core-gating: addon's compatibleCores allow-list excludes this server's core.
   const isCoreBlocked = (item) => isCoreIncompatible(item, server.software);
+  // Phase 5d — plugin-bound resource pack (Custom Hats) needs a plugin-capable core;
+  // blocked on Vanilla + pure-mod loaders (no backing plugin can run there).
+  const isPluginBoundCoreBlocked = (item) => isPluginBoundBlocked(item, server.software);
 
   const handleToggle = (item) => {
     const isInstalled = server.installedAddons.includes(item.id);
@@ -121,6 +124,13 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
     // Block installing an addon whose build doesn't exist for this server's core.
     if (!isInstalled && isCoreBlocked(item)) {
       setWarning({ type: 'conflict', message: `${t('coreIncompatibleNote')} ${compatibleCoresLabel(item)} ${t('coreIncompatibleOnly')}` });
+      setTimeout(() => setWarning(null), 5000);
+      return;
+    }
+
+    // Phase 5d — block a plugin-bound pack on a non-plugin core (no backing plugin).
+    if (!isInstalled && isPluginBoundCoreBlocked(item)) {
+      setWarning({ type: 'conflict', message: t('pluginBoundCoreBlocked') });
       setTimeout(() => setWarning(null), 5000);
       return;
     }
@@ -235,7 +245,8 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
           const installMethod = getInstallMethod(item); // 'server' | 'manual' | 'client'
           const worldgenBlocked = isWorldgenBlocked(item);
           const coreBlocked = isCoreBlocked(item);
-          const greyed = worldgenBlocked || coreBlocked;
+          const pluginBoundBlocked = isPluginBoundCoreBlocked(item); // Phase 5d
+          const greyed = worldgenBlocked || coreBlocked || pluginBoundBlocked;
 
           let IconComp = Package;
           if (item.type === 'modpacks') IconComp = Layers;
@@ -269,14 +280,18 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
                   {coreBlocked && (
                     <p className="mt-1.5"><CoreIncompatibleNote addon={item} t={t} /></p>
                   )}
+                  {/* Phase 5d — plugin-bound pack blocked on a non-plugin core. */}
+                  {pluginBoundBlocked && (
+                    <p className="text-[11px] text-amber-400/80 mt-1.5 leading-relaxed">{t('pluginBoundCoreBlocked')}</p>
+                  )}
                   <div className="flex items-center gap-1 text-[11px] text-yellow-500 mt-2">
                     <Star size={12} fill="currentColor"/>
                     <span className="font-bold">{item.rating || '5.0'}</span>
                     <span className="text-zinc-500">({item.reviews || 0})</span>
                   </div>
                   <RequirementsAccordion addon={item} allAddons={allAddons} t={t} lang={lang} addonDesc={addonDesc} />
-                  {/* TASK 2 — plugin-bound RP warning (Custom Hats etc.). */}
-                  <PluginBoundTag addon={item} allAddons={allAddons} t={t} />
+                  {/* TASK 2 — plugin-bound RP warning (Custom Hats etc.); enriched on a plugin-capable core (Phase 5d). */}
+                  <PluginBoundTag addon={item} allAddons={allAddons} t={t} software={server.software} />
                   {/* TASK 1 — server-RP vs PC-download choice for normal texture packs. */}
                   <ResourcePackInstallChoice addon={item} t={t} />
                   {/* TASK 3 — modpack: mod-loader the player needs + one-click install deep-links. */}
@@ -298,6 +313,14 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
                   className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg font-bold text-xs border whitespace-nowrap border-zinc-700 text-zinc-500 bg-zinc-800/40 cursor-not-allowed"
                 >
                   {t('worldgenBukkitNote')}
+                </span>
+              ) : pluginBoundBlocked ? (
+                // Phase 5d — plugin-bound pack on a non-plugin core — neutral disabled lock.
+                <span
+                  title={t('pluginBoundCoreBlocked')}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg font-bold text-xs border whitespace-nowrap border-zinc-700 text-zinc-500 bg-zinc-800/40 cursor-not-allowed"
+                >
+                  <Lock size={13} /> {t('plugins')}
                 </span>
               ) : installMethod !== 'server' ? (
                 // manual / client — לא ניתן להתקין דרך הפאנל; מציגים באדג' הסבר במקום כפתור.

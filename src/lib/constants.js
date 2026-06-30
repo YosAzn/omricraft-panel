@@ -36,6 +36,15 @@ export const FORGE_FAMILY_CORES = ['forge', 'neoforge'];
 export const isCoreIncompatible = (addon, software) =>
   !!(addon && Array.isArray(addon.compatibleCores) && software && !addon.compatibleCores.includes(software));
 
+// --- Phase 5d — plugin-bound resource packs are plugin-capable-core only ---
+// A pluginBound:true resource pack (Custom Hats Pack) only WORKS when its backing
+// plugin (ItemsAdder/Oraxen-style) can run — i.e. on the Bukkit/plugin family. On
+// Vanilla (no plugins at all) and pure-mod loaders (Fabric/Forge/NeoForge, which use
+// mods not these plugins) the items can never be injected, so the pack is meaningless
+// → grey it out + block selection. Mohist/Youer (Bukkit hybrids) run plugins → allowed.
+export const isPluginBoundBlocked = (addon, software) =>
+  !!(addon && addon.pluginBound && software && !isBukkitBased(software));
+
 // Human-readable list of the cores an addon supports (for the "works on X only" note).
 export const compatibleCoresLabel = (addon) => {
   const cores = (addon && Array.isArray(addon.compatibleCores)) ? addon.compatibleCores : [];
@@ -137,6 +146,38 @@ export const SOFTWARE_TYPES = [
 // Recommended RAM (MB) for a core; falls back to 2GB for unknown ids.
 export const getRecommendedRamMb = (software) =>
   (SOFTWARE_TYPES.find(s => s.id === software)?.recommendedRamMb) || 2048;
+
+// --- Modpack RAM recommendation by WEIGHT + player count (Phase 5c) ---
+// Rule-of-thumb from the guidance doc:
+//   light  (≤50 mods)        → 4GB min (good for 1-5 players)
+//   medium (50-150 mods)     → 6GB min; +2GB per extra 5 players beyond the first 5
+//   heavy  (150-300+ mods)   → 8GB min even for 2 players; 10+ players → 12GB
+// Returns the recommended RAM in MB. Unknown weight falls back to 'medium'. Used as a
+// soft HINT in the create form (raises the pre-selected RAM + warns when the chosen
+// value is below it) — never a hard block, and the user's manual RAM choice still wins.
+export const recommendedRamForModpack = (weight, maxPlayers = 5) => {
+  const players = Math.max(1, Number(maxPlayers) || 1);
+  if (weight === 'light') {
+    return 4096; // 4GB
+  }
+  if (weight === 'heavy') {
+    return players >= 10 ? 12288 : 8192; // 12GB for 10+, else 8GB min
+  }
+  // medium (default): 6GB base + 2GB per extra 5 players beyond the first 5.
+  const extraBlocks = Math.max(0, Math.ceil((players - 5) / 5));
+  return 6144 + extraBlocks * 2048;
+};
+
+// The heaviest recommendation across all currently-selected modpack addons (in MB),
+// or 0 when none are selected. `selectedAddons` is an array of addon ids; `allAddons`
+// the full catalog; `maxPlayers` the chosen player cap. Drives the create-form RAM hint.
+export const modpackRamRecommendationMb = (selectedAddons, allAddons, maxPlayers) => {
+  const packs = (selectedAddons || [])
+    .map(id => (allAddons || []).find(a => a.id === id))
+    .filter(a => a && a.type === 'modpacks');
+  if (packs.length === 0) return 0;
+  return Math.max(...packs.map(p => recommendedRamForModpack(p.weight, maxPlayers)));
+};
 
 // True when the core is End-Of-Life / unmaintained (Mohist). Stays selectable.
 export const isEolCore = (software) =>
@@ -327,15 +368,20 @@ export const DEFAULT_ADDONS = [
   // shown via ClientRequirements). curseforgeId / modrinthSlug drive the one-click
   // install deep-links (curseforge://install / modrinth://modpack); an unknown id is
   // omitted gracefully so only the working button(s) + official page render.
-  { id: 'mp1', name: 'Better MC', desc: 'המיינקראפט כמו שהוא היה צריך להיות - מאות ביומות ומובים', type: 'modpacks', installMethod: 'manual', loader: 'forge', curseforgeId: '543611', downloads: '7M', rating: 4.6, reviews: 12000 },
-  { id: 'mp2', name: 'Vault Hunters', desc: 'מודפאק אקשן ו-RPG מדהים בתוך מבוכים מסוכנים', type: 'modpacks', installMethod: 'manual', loader: 'forge', downloads: '3M', rating: 4.8, reviews: 7500 },
+  // `weight` ('light'|'medium'|'heavy') drives the modpack RAM recommendation
+  // (recommendedRamForModpack): light≤50 mods→4GB, medium 50-150→6GB (+2GB/5 players),
+  // heavy 150-300+→8GB min (12GB for 10+ players). Big content packs (Better MC,
+  // Vault Hunters, Prominence II) = heavy; Pokémon packs (Cobblemon/Cobbleverse/Pixelmon)
+  // = medium; pure-optimization packs (Fabulously Optimized) = light.
+  { id: 'mp1', name: 'Better MC', desc: 'המיינקראפט כמו שהוא היה צריך להיות - מאות ביומות ומובים', type: 'modpacks', installMethod: 'manual', loader: 'forge', curseforgeId: '543611', weight: 'heavy', downloads: '7M', rating: 4.6, reviews: 12000 },
+  { id: 'mp2', name: 'Vault Hunters', desc: 'מודפאק אקשן ו-RPG מדהים בתוך מבוכים מסוכנים', type: 'modpacks', installMethod: 'manual', loader: 'forge', weight: 'heavy', downloads: '3M', rating: 4.8, reviews: 7500 },
   // mp3..mp7 — modpacks אמיתיים שאומתו ב-Modrinth (project_type:modpack, 200).
   // downloadUrl = הדף הרשמי ב-Modrinth; ה-AddonsTab הופך את ה-badge הידני לקישור.
-  { id: 'mp3', name: 'Cobblemon Official Modpack', desc: 'המודפאק הרשמי של Cobblemon - הרפתקת פוקימון מלאה בעולם המיינקראפט (Fabric)', type: 'modpacks', installMethod: 'manual', loader: 'fabric', modrinthSlug: 'cobblemon-fabric', downloadUrl: 'https://modrinth.com/modpack/cobblemon-fabric', downloads: '8M', rating: 4.9, reviews: 14000 },
-  { id: 'mp4', name: 'COBBLEVERSE', desc: 'הרפתקת פוקימון ענקית מבוססת Cobblemon - מנהיגי חדרים, אליפות וגיבוש חבורת פוקימון', type: 'modpacks', installMethod: 'manual', loader: 'fabric', modrinthSlug: 'cobbleverse', downloadUrl: 'https://modrinth.com/modpack/cobbleverse', downloads: '4.5M', rating: 4.8, reviews: 9000 },
-  { id: 'mp5', name: 'Prominence II: Hasturian Era', desc: 'מודפאק RPG והרפתקה עשיר עם קווסטים, מחלקות לחימה וקסם - אחד הפופולריים ביותר', type: 'modpacks', installMethod: 'manual', loader: 'fabric', modrinthSlug: 'prominence-2-fabric', downloadUrl: 'https://modrinth.com/modpack/prominence-2-fabric', downloads: '1.5M', rating: 4.9, reviews: 8000 },
-  { id: 'mp6', name: 'The Pixelmon Modpack', desc: 'המודפאק הרשמי של Pixelmon - לתפוס ולאמן פוקימון בעולם המיינקראפט', type: 'modpacks', installMethod: 'manual', loader: 'forge', modrinthSlug: 'the-pixelmon-modpack', downloadUrl: 'https://modrinth.com/modpack/the-pixelmon-modpack', downloads: '1.9M', rating: 4.7, reviews: 7000 },
-  { id: 'mp7', name: 'Fabulously Optimized', desc: 'מודפאק ביצועים מוביל - מאיץ FPS, שיידרים ושיפורי איכות-חיים בלי לשנות gameplay', type: 'modpacks', installMethod: 'manual', loader: 'fabric', modrinthSlug: 'fabulously-optimized', downloadUrl: 'https://modrinth.com/modpack/fabulously-optimized', downloads: '13M', rating: 4.9, reviews: 25000 },
+  { id: 'mp3', name: 'Cobblemon Official Modpack', desc: 'המודפאק הרשמי של Cobblemon - הרפתקת פוקימון מלאה בעולם המיינקראפט (Fabric)', type: 'modpacks', installMethod: 'manual', loader: 'fabric', modrinthSlug: 'cobblemon-fabric', downloadUrl: 'https://modrinth.com/modpack/cobblemon-fabric', weight: 'medium', downloads: '8M', rating: 4.9, reviews: 14000 },
+  { id: 'mp4', name: 'COBBLEVERSE', desc: 'הרפתקת פוקימון ענקית מבוססת Cobblemon - מנהיגי חדרים, אליפות וגיבוש חבורת פוקימון', type: 'modpacks', installMethod: 'manual', loader: 'fabric', modrinthSlug: 'cobbleverse', downloadUrl: 'https://modrinth.com/modpack/cobbleverse', weight: 'medium', downloads: '4.5M', rating: 4.8, reviews: 9000 },
+  { id: 'mp5', name: 'Prominence II: Hasturian Era', desc: 'מודפאק RPG והרפתקה עשיר עם קווסטים, מחלקות לחימה וקסם - אחד הפופולריים ביותר', type: 'modpacks', installMethod: 'manual', loader: 'fabric', modrinthSlug: 'prominence-2-fabric', downloadUrl: 'https://modrinth.com/modpack/prominence-2-fabric', weight: 'heavy', downloads: '1.5M', rating: 4.9, reviews: 8000 },
+  { id: 'mp6', name: 'The Pixelmon Modpack', desc: 'המודפאק הרשמי של Pixelmon - לתפוס ולאמן פוקימון בעולם המיינקראפט', type: 'modpacks', installMethod: 'manual', loader: 'forge', modrinthSlug: 'the-pixelmon-modpack', downloadUrl: 'https://modrinth.com/modpack/the-pixelmon-modpack', weight: 'medium', downloads: '1.9M', rating: 4.7, reviews: 7000 },
+  { id: 'mp7', name: 'Fabulously Optimized', desc: 'מודפאק ביצועים מוביל - מאיץ FPS, שיידרים ושיפורי איכות-חיים בלי לשנות gameplay', type: 'modpacks', installMethod: 'manual', loader: 'fabric', modrinthSlug: 'fabulously-optimized', downloadUrl: 'https://modrinth.com/modpack/fabulously-optimized', weight: 'light', downloads: '13M', rating: 4.9, reviews: 25000 },
   
   // --- Textures ---
   // installMethod: 'client' = resource/texture packs מותקנים בצד-הלקוח (אצל השחקן), לא בשרת. אין URL מתארח כרגע.

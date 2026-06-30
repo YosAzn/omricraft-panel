@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Play, Search, Check, Shield, Lock } from 'lucide-react';
 
-import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType, isBukkitBased, isWorldgenDatapack, getClientLoader, isCoreIncompatible, collectRequiredIds, getRecommendedRamMb, isEolCore, forgeNeoForgeHint } from '../lib/constants';
+import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType, isBukkitBased, isWorldgenDatapack, getClientLoader, isCoreIncompatible, collectRequiredIds, getRecommendedRamMb, isEolCore, forgeNeoForgeHint, modpackRamRecommendationMb, isPluginBoundBlocked } from '../lib/constants';
 import { addonDesc } from '../lib/addonI18n';
 import { isViaVersion } from '../lib/utils';
 import ImageUploader from './ImageUploader';
@@ -75,9 +75,10 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
     // hosted URL. Sending them would promise an install that never happens (same bug AddonsTab fixed).
     const serverInstallable = selectedAddons.filter(id => {
       const addon = allAddons.find(a => a.id === id);
-      // Drop worldgen-overhaul datapacks on Bukkit (engine ignores them) and
-      // core-incompatible addons (Create on Fabric etc.) — the VPS can't build them.
-      return getInstallMethod(addon) === 'server' && !isWorldgenBlocked(addon) && !isCoreBlocked(addon);
+      // Drop worldgen-overhaul datapacks on Bukkit (engine ignores them),
+      // core-incompatible addons (Create on Fabric etc.) and plugin-bound packs on a
+      // non-plugin core (no backing plugin can run there) — the VPS can't build them.
+      return getInstallMethod(addon) === 'server' && !isWorldgenBlocked(addon) && !isCoreBlocked(addon) && !isPluginBoundCoreBlocked(addon);
     });
     onCreate({
       name, icon, software, version, gamemode, worldType, ops: opsArray,
@@ -93,6 +94,9 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
   // Core-gating: addon has a compatibleCores allow-list that excludes the chosen core
   // (Sodium/C2ME → Fabric only; Create → Forge/NeoForge only). Greyed + non-selectable.
   const isCoreBlocked = (addon) => isCoreIncompatible(addon, software);
+  // Phase 5d — a pluginBound resource pack (Custom Hats) needs a plugin-capable core;
+  // blocked (greyed + non-selectable) on Vanilla + pure-mod loaders.
+  const isPluginBoundCoreBlocked = (addon) => isPluginBoundBlocked(addon, software);
 
   // Only 'server' addons are selectable — client/manual show an info badge instead (no false promise).
   // Selecting an addon with `requires` also auto-selects each (transitive) server dep
@@ -103,6 +107,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
     if (getInstallMethod(addon) !== 'server') return;
     if (isWorldgenBlocked(addon)) return; // greyed on Bukkit — not selectable
     if (isCoreBlocked(addon)) return;     // greyed on incompatible core — not selectable
+    if (isPluginBoundCoreBlocked(addon)) return; // greyed: plugin-bound pack on non-plugin core
 
     if (selectedAddons.includes(id)) {
       // Manual deselect of any addon (parent or dep): just remove it; drop its auto tag.
@@ -153,6 +158,37 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
   const recommendedRamGb = Math.round(recommendedRamMb / 1024);
   // Forge vs NeoForge hint for the chosen core+version (null when no hint applies).
   const coreVersionHint = forgeNeoForgeHint(software, version);
+
+  // --- Phase 5a — ViaVersion applies to PLUGIN-family cores only ---
+  // ViaVersion translates vanilla packets, so cross-version joining works on Bukkit
+  // family (Paper/Purpur/Folia) and the hybrids (Mohist/Youer, which run the plugin).
+  // A PURE-MOD core (fabric/forge/neoforge — in MOD_SERVERS but NOT plugin-family)
+  // can't use it: players must match the loader+version+mod files exactly.
+  const pluginFamily = PLUGIN_SERVERS.includes(software);
+  const pureModCore = MOD_SERVERS.includes(software) && !pluginFamily;
+
+  // --- Phase 5b/5c — modpack-aware notes + RAM ---
+  // A modpack addon is selected, OR this is a mod-loader server (modpack territory).
+  const modpackSelected = selectedAddons.some(id => {
+    const a = allAddons.find(x => x.id === id);
+    return a && a.type === 'modpacks';
+  });
+  const isModLoaderServer = MOD_SERVERS.includes(software);
+  // Heaviest modpack RAM recommendation across the selected packs (0 when none).
+  const modpackRamMb = modpackRamRecommendationMb(selectedAddons, allAddons, maxPlayers);
+  // Warn (hint, not a block) when a modpack is selected and the chosen RAM is below
+  // its weight+player-count recommendation. Respects the user's manual RAM choice —
+  // it's only a warning, never an override.
+  const modpackRamBelow = modpackRamMb > 0 && memoryMb < modpackRamMb;
+  const modpackRamGb = Math.round(modpackRamMb / 1024);
+
+  // Auto-raise the pre-selected RAM to the modpack recommendation — but ONLY while the
+  // user hasn't manually picked a RAM value (ramTouched). Never lowers it; the warning
+  // above still covers the case where the user deliberately set a lower value.
+  useEffect(() => {
+    if (ramTouched) return;
+    if (modpackRamMb > 0 && modpackRamMb > memoryMb) setMemoryMb(modpackRamMb);
+  }, [modpackRamMb, ramTouched, memoryMb]);
 
   // The create form is open to ALL signed-in users. Admins create directly; non-admins
   // submit a REQUEST (App.jsx routes the submit to requestServer based on isAdmin, and
@@ -226,13 +262,23 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-all">
                 {typeVersions.map(v => <option key={v} value={v}>{v}{v === '1.21.4' ? ' (מומלץ)' : ''}</option>)}
               </select>
-              <p className="text-xs text-blue-400 mt-2">
-                💡 ViaVersion מותקן אצלנו אוטומטית — שחקנים מ<b>כל</b> גרסת מיינקראפט (כולל 26.x) יכולים להיכנס לשרת הזה, בלי קשר לגרסת השרת.
-              </p>
-              {isViaVersion(version) && (
-                <p className="text-xs text-zinc-500 mt-1">
-                  שים לב: זו גרסה חדשה יותר ממה ש-Paper בנה. כאן תקבל את <b>התוכן</b> המלא של {version}. (Paper מוגבל ל-1.21.11; לתוכן 26.x בחר Purpur/Fabric.)
-                </p>
+              {/* Phase 5a — ViaVersion is PLUGIN-family only (Paper/Purpur/Folia + the
+                  Mohist/Youer hybrids that run the plugin). It translates vanilla packets,
+                  so cross-version joining works there. */}
+              {pluginFamily && (
+                <>
+                  <p className="text-xs text-blue-400 mt-2"
+                    dangerouslySetInnerHTML={{ __html: t('viaVersionPluginNote') }} />
+                  {isViaVersion(version) && (
+                    <p className="text-xs text-zinc-500 mt-1"
+                      dangerouslySetInnerHTML={{ __html: t('viaVersionPaperHint').replace('{version}', version) }} />
+                  )}
+                </>
+              )}
+              {/* Phase 5a — pure-mod core: ViaVersion does NOT apply. Players must match
+                  the loader + MC version + mod files exactly to connect. */}
+              {pureModCore && (
+                <p className="text-xs text-amber-400 mt-2 leading-relaxed">{t('modServerNoViaVersion')}</p>
               )}
               {/* Tell the creator up front what loader players will need on their PC —
                   only for modded types (vanilla/Bukkit need no client loader). */}
@@ -278,6 +324,12 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
               <label className="block text-sm font-bold text-zinc-400 mb-2">{t('maxPlayers')}</label>
               <input type="number" min={1} max={100} value={maxPlayers} onChange={e => setMaxPlayers(Number(e.target.value))}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-all" />
+              {/* Phase 5b — modpack/mod-loader servers are full multiplayer (clears the
+                  common single-player confusion). Shown when a modpack is selected or the
+                  core is a mod-loader. */}
+              {(modpackSelected || isModLoaderServer) && (
+                <p className="text-xs text-pink-400 mt-2 leading-relaxed">{t('modpackMultiplayerNote')}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-bold text-zinc-400 mb-2">{t('difficulty')}</label>
@@ -298,13 +350,21 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
               </label>
               <select value={memoryMb} onChange={(e) => { setRamTouched(true); setMemoryMb(Number(e.target.value)); }}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-all">
-                {[1024, 2048, 3072, 4096, 6144, 8192].map(mb => (
+                {/* 10GB/12GB added so a heavy-modpack recommendation (Phase 5c) is selectable. */}
+                {[1024, 2048, 3072, 4096, 6144, 8192, 10240, 12288].map(mb => (
                   <option key={mb} value={mb}>
                     {Math.round(mb / 1024)} GB{mb === recommendedRamMb ? ` (${t('ramRecommendedLabel')})` : ''}
                   </option>
                 ))}
               </select>
               <p className="text-xs text-zinc-500 mt-2">כמה זיכרון מוקצה לשרת. מודים/הרבה שחקנים → יותר. {t('ramModpackNote')}</p>
+              {/* Phase 5c — soft warning when a selected modpack's weight+player-count
+                  recommendation exceeds the chosen RAM. Hint only — never blocks creation. */}
+              {modpackRamBelow && (
+                <p className="text-xs text-amber-400 mt-2 leading-relaxed">
+                  {t('modpackRamWarning').replace('{X}', modpackRamGb).replace('{N}', maxPlayers)}
+                </p>
+              )}
             </div>
           </div>
 
@@ -366,16 +426,18 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                     const installMethod = getInstallMethod(a); // 'server' | 'manual' | 'client'
                     const worldgenBlocked = isWorldgenBlocked(a);
                     const coreBlocked = isCoreBlocked(a);
-                    const installable = installMethod === 'server' && !worldgenBlocked && !coreBlocked;
-                    const greyed = worldgenBlocked || coreBlocked;
+                    const pluginBoundBlocked = isPluginBoundCoreBlocked(a); // Phase 5d
+                    const installable = installMethod === 'server' && !worldgenBlocked && !coreBlocked && !pluginBoundBlocked;
+                    const greyed = worldgenBlocked || coreBlocked || pluginBoundBlocked;
                     const checked = selectedAddons.includes(a.id);
                     const autoAdded = checked && autoSelected.includes(a.id);
                     return (
                     <div key={a.id} onClick={() => toggleSelection(a.id)}
-                      title={worldgenBlocked ? t('worldgenBukkitNote') : (installable ? undefined : (installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo')))}
+                      title={worldgenBlocked ? t('worldgenBukkitNote') : (pluginBoundBlocked ? t('pluginBoundCoreBlocked') : (installable ? undefined : (installMethod === 'client' ? t('clientInstallInfo') : t('manualInstallInfo'))))}
                       className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${installable ? 'cursor-pointer' : 'cursor-default'} ${greyed ? 'opacity-50' : ''} ${checked ? 'bg-green-500/5 border-green-500/50' : 'bg-zinc-900 border-transparent hover:border-zinc-700'}`}>
-                      {coreBlocked ? (
-                        // Addon's build doesn't exist for the chosen core — neutral lock, not a recolor.
+                      {coreBlocked || pluginBoundBlocked ? (
+                        // Addon's build doesn't exist for the chosen core, or a plugin-bound
+                        // pack on a non-plugin core — neutral lock, not a recolor.
                         <span className="mt-0.5 w-5 h-5 rounded flex items-center justify-center border border-zinc-700 bg-zinc-800/40 text-zinc-500 flex-shrink-0">
                           <Lock size={12} />
                         </span>
@@ -419,6 +481,12 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                         {coreBlocked && (
                           <span className="mt-1.5 block"><CoreIncompatibleNote addon={a} t={t} /></span>
                         )}
+                        {/* Phase 5d — plugin-bound pack blocked on a non-plugin core. */}
+                        {pluginBoundBlocked && (
+                          <span className="text-[11px] text-amber-400/80 mt-1.5 block leading-relaxed">
+                            {t('pluginBoundCoreBlocked')}
+                          </span>
+                        )}
                         {autoAdded && (
                           <span className="text-[11px] text-green-400/70 mt-1.5 block leading-relaxed">
                             {t('autoAddedByNote')}
@@ -430,8 +498,8 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                           </span>
                         )}
                         <RequirementsAccordion addon={a} allAddons={allAddons} t={t} lang={lang} addonDesc={addonDesc} />
-                        {/* TASK 2 — plugin-bound RP warning (Custom Hats etc.). */}
-                        <PluginBoundTag addon={a} allAddons={allAddons} t={t} />
+                        {/* TASK 2 — plugin-bound RP warning (Custom Hats etc.); enriched on a plugin-capable core (Phase 5d). */}
+                        <PluginBoundTag addon={a} allAddons={allAddons} t={t} software={software} />
                         {/* TASK 1 — server-RP vs PC-download choice for normal texture packs. */}
                         <ResourcePackInstallChoice addon={a} t={t} />
                         {/* TASK 3 — modpack: mod-loader the player needs + one-click install deep-links. */}

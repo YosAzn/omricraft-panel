@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ChevronDown, ExternalLink, Check, Lock, Server, Monitor, AlertTriangle, Rocket } from 'lucide-react';
 import {
   getInstallMethod, resolveRequires, compatibleCoresLabel,
-  canPcDownloadRP, modrinthModpackUri, curseforgeInstallUri,
+  canPcDownloadRP, modrinthModpackUri, curseforgeInstallUri, isBukkitBased,
 } from '../lib/constants';
 import ClientRequirements from './ClientRequirements';
 
@@ -174,15 +174,23 @@ export function ClientDepsChooser({ deps, allAddons, t, lang, addonDesc, startOp
 // via a plugin (Custom Hats / ItemsAdder-style). A bare RP can't add the items, so
 // we warn loudly and (when `suggestsPlugin` is set) name the plugin that does.
 // Pure presentational; shown only for addon.pluginBound packs.
-export function PluginBoundTag({ addon, allAddons, t }) {
+// Phase 5d — when `software` is a plugin-capable (Bukkit) core, prepend an enriched
+// explanation that the pack adds brand-new items and the backing plugin (ItemsAdder)
+// is auto-installed, so players just join with vanilla. The "requires ItemsAdder"
+// requirement note stays. When software is omitted, behave as before (no enriched line).
+export function PluginBoundTag({ addon, allAddons, t, software }) {
   if (!addon?.pluginBound) return null;
   const sugg = addon.suggestsPlugin
     ? (allAddons || []).find(a => a.id === addon.suggestsPlugin)
     : null;
+  const enriched = software ? isBukkitBased(software) : false;
   return (
     <div className="mt-2 w-full flex items-start gap-2 text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
       <AlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
       <div className="text-xs leading-relaxed">
+        {enriched && (
+          <span className="block mb-1.5 text-amber-100/90">{t('pluginBoundEnriched')}</span>
+        )}
         <span className="font-bold uppercase tracking-wide me-1">{t('pluginBoundTag')}</span>
         {t('pluginBoundNote')}
         {sugg && (
