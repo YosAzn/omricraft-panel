@@ -45,6 +45,39 @@ export const isCoreIncompatible = (addon, software) =>
 export const isPluginBoundBlocked = (addon, software) =>
   !!(addon && addon.pluginBound && software && !isBukkitBased(software));
 
+// --- Phase 6b — cross-family equivalent suggestions ---
+// When a server's TYPE is switched, leftover .jar files from the OLD core (plugins/
+// on a mod core, mods/ on a plugin core) are flagged by the חמ"ל / diagnostics and
+// can be ARCHIVED. For the well-known overlaps we additionally hint at an equivalent
+// add-on that DOES work on the new core, so the owner can re-install it from the
+// catalog (a normal catalog action — we never auto-install, especially anything
+// paid/unknown). Keyed by a lowercased substring of the leftover filename; unknown
+// files simply have no equivalent (archive-only). Both directions are covered
+// (plugin→mod equivalent AND mod→plugin where one exists).
+export const PLUGIN_MOD_EQUIVALENTS = {
+  // plugin (Bukkit) → equivalent that works on the mod loaders
+  'essentialsx': 'FTB Essentials',
+  'essentials': 'FTB Essentials',
+  'griefprevention': 'FTB Chunks',
+  'luckperms': 'LuckPerms (Forge/Fabric build)',
+  'worldedit': 'WorldEdit (works on both)',
+  // mod → equivalent plugin (reverse direction, where one sensibly exists)
+  'ftbessentials': 'EssentialsX',
+  'ftbchunks': 'GriefPrevention',
+};
+
+// Look up a cross-family equivalent for a leftover .jar filename. Matches by the
+// FIRST map key that appears as a (lowercased, non-alphanumeric-stripped) substring
+// of the filename. Returns the equivalent add-on name, or null if none is known.
+export const equivalentForFile = (fileName) => {
+  const norm = String(fileName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!norm) return null;
+  for (const [key, equiv] of Object.entries(PLUGIN_MOD_EQUIVALENTS)) {
+    if (norm.includes(key)) return equiv;
+  }
+  return null;
+};
+
 // Human-readable list of the cores an addon supports (for the "works on X only" note).
 export const compatibleCoresLabel = (addon) => {
   const cores = (addon && Array.isArray(addon.compatibleCores)) ? addon.compatibleCores : [];

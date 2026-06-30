@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { AlertCircle, AlertTriangle, Info, Wrench, RefreshCw } from 'lucide-react';
-import { resetServerStatusFn, removeDatapackFn, restartServerFn } from '../lib/api';
+import { AlertCircle, AlertTriangle, Info, Wrench, RefreshCw, Archive } from 'lucide-react';
+import { resetServerStatusFn, removeDatapackFn, restartServerFn, archiveIncompatibleFilesFn } from '../lib/api';
+import { equivalentForFile } from '../lib/constants';
 
 // --- Shared single-issue row for the חמ"ל / War Room ---
 // Used by BOTH HealthTab (the dedicated admin tab) and the Dashboard summary
@@ -21,7 +22,7 @@ const SEVERITY = {
 
 // Show the owning server's name on the row (used by the flat Dashboard panel,
 // which is not grouped by server the way HealthTab is).
-export default function HealthIssueRow({ issue, onFixed, showServer = false }) {
+export default function HealthIssueRow({ issue, onFixed, showServer = false, t = (k) => k }) {
   const [fixing, setFixing] = useState(false);
   const sev = SEVERITY[issue.severity] || SEVERITY.info;
   const SevIcon = sev.icon;
@@ -87,6 +88,38 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false }) {
     setFixing(false);
   };
 
+  // Phase 6b — REVERSIBLE archive of cross-family leftover jars (plugins/ on a mod
+  // core, mods/ on a plugin core) after a TYPE switch. The backend decides which dir
+  // and MOVES the jars to disabled-*/ (not deleted), so no file path is sent here.
+  const archiveIncompatible = async () => {
+    if (fixing) return;
+    const kind = issue.incompatibleKind || '';
+    const ok = window.confirm(
+      t('healthArchiveConfirm').replace('{server}', issue.serverName || issue.serverId || '').replace('{kind}', kind)
+    );
+    if (!ok) return;
+    setFixing(true);
+    try {
+      const res = await archiveIncompatibleFilesFn({ serverId: issue.serverId });
+      const d = res.data || res;
+      if (!d.success) throw new Error(d.error || 'הפעולה נכשלה');
+      if (d.note) alert(d.note);
+      if (typeof onFixed === 'function') await onFixed();
+    } catch (e) {
+      console.error('archiveIncompatible failed:', e);
+      alert(`התיקון נכשל: ${e.message}`);
+    }
+    setFixing(false);
+  };
+
+  // For cross-family-files issues: pair each leftover file with a known compatible
+  // equivalent (if any) so we can show an informational re-install hint per file.
+  const equivalents = (issue.category === 'cross-family-files' && Array.isArray(issue.incompatibleFiles))
+    ? issue.incompatibleFiles
+        .map((file) => ({ file, equiv: equivalentForFile(file) }))
+        .filter((e) => e.equiv)
+    : [];
+
   return (
     <div className={`border ${sev.ring} ${sev.bg} rounded-xl p-4`}>
       <div className="flex items-start gap-3">
@@ -107,9 +140,28 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false }) {
           {issue.suggestion && (
             <div className="text-xs text-zinc-500 mt-1.5">💡 {issue.suggestion}</div>
           )}
+          {/* Phase 6b — per-file compatible-equivalent hints (informational; the
+              user installs the equivalent as a normal catalog action). */}
+          {equivalents.map(({ file, equiv }) => (
+            <div key={file} className="text-xs text-emerald-300/80 mt-1.5">
+              {t('healthEquivalentNote').replace('{name}', file).replace('{equiv}', equiv)}
+            </div>
+          ))}
         </div>
-        {(issue.fix || (issue.removableDatapacks && issue.removableDatapacks.length > 0)) && (
+        {(issue.fix
+          || (issue.removableDatapacks && issue.removableDatapacks.length > 0)
+          || issue.category === 'cross-family-files') && (
           <div className="flex flex-col gap-1.5 flex-shrink-0">
+            {issue.category === 'cross-family-files' && (
+              <button
+                onClick={archiveIncompatible}
+                disabled={fixing}
+                className="bg-zinc-800 hover:bg-amber-600 text-zinc-200 hover:text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {fixing ? <RefreshCw size={14} className="animate-spin" /> : <Archive size={14} />}
+                {t('healthArchiveIncompatible')}
+              </button>
+            )}
             {issue.fix && (
               <button
                 onClick={applyFix}

@@ -1533,6 +1533,35 @@ exports.removeDatapack = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// archiveIncompatibleFiles (OWNER-OR-ADMIN) — REVERSIBLE Phase 6b fix for the
+// 'cross-family-files' diagnostic. After a server's TYPE is switched, .jar files
+// from the old core can linger in the dir the new core ignores (plugins/*.jar on a
+// mod core, mods/*.jar on a plugin core). This MOVES them (not deletes) into a
+// sibling disabled-plugins/ or disabled-mods/ dir via Manager API
+// /archive-incompatible. State mutation: the caller must be admin OR strictly own
+// this server (Firestore ownerUid === uid; legacy/unowned does NOT count). The
+// Manager API enforces strict path-safety + decides the dir from the server's core,
+// so no file path is taken from the client.
+// ---------------------------------------------------------------------------
+exports.archiveIncompatibleFiles = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 60 },
+  async (request) => {
+    const { serverId } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    await assertOwnerOrAdmin(request, serverId);
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      return await callManagerApi(BASE_URL, API_KEY, 'POST', '/archive-incompatible', { serverId });
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // getPublicStats — PUBLIC (no assertAdmin) aggregate-only stats for the public
 // landing page. Returns ONLY two numbers that are safe to expose to anyone:
 //   serverCount  = how many servers exist

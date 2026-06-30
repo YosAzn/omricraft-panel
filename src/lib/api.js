@@ -46,6 +46,9 @@ export const restoreBackupFn = httpsCallable(functionsInstance, 'restoreBackup')
 export const getDiagnosticsFn = httpsCallable(functionsInstance, 'getDiagnostics');
 export const resetServerStatusFn = httpsCallable(functionsInstance, 'resetServerStatus');
 export const removeDatapackFn = httpsCallable(functionsInstance, 'removeDatapack');
+// Phase 6b — REVERSIBLE archive of cross-family leftover jars (plugins/ on a mod core,
+// mods/ on a plugin core) after a server TYPE switch. Moves them to disabled-*/ (not deleted).
+export const archiveIncompatibleFilesFn = httpsCallable(functionsInstance, 'archiveIncompatibleFiles');
 // Public landing-page aggregate stats — onCall, NOT admin-gated (returns only counts).
 export const getPublicStatsFn = httpsCallable(functionsInstance, 'getPublicStats');
 // Admin-only Modpack Builder — theme → real Modrinth mods (free or Gemini-verified).

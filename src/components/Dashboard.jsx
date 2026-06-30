@@ -235,6 +235,7 @@ export default function Dashboard({
                 issue={iss}
                 onFixed={refreshDiagnostics}
                 showServer
+                t={t}
               />
             ))}
           </div>

@@ -155,6 +155,7 @@ export default function HealthTab({ t = (k) => k, isAdmin = false }) {
                     key={`${iss.serverId}:${iss.category}:${idx}`}
                     issue={iss}
                     onFixed={loadDiagnostics}
+                    t={t}
                   />
                 ))}
               </div>

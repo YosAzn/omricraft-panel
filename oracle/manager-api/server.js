@@ -1877,6 +1877,33 @@ var WORLDGEN_DATAPACK_RE = /terralith|tectonic|incendium|nullscape|continents|wy
 // datapacks are ignored → flagged by diagnostics). Youer = Mohist's maintained successor.
 var BUKKIT_TYPES = ['paper', 'purpur', 'folia', 'mohist', 'youer', 'spigot'];
 
+// --- Cross-family file detection (Phase 6b) ---
+// When an existing server's TYPE is switched (SettingsTab → change-version), files
+// from the OLD core can be left behind on the VPS. A pure-PLUGIN core never loads
+// .jar files from mods/, and a pure-MOD core never loads .jar files from plugins/ —
+// so those leftovers are dead weight (and can cause confusion / boot noise).
+//   • PURE-PLUGIN cores (paper/purpur/folia): a .jar in mods/ is incompatible.
+//   • PURE-MOD cores (fabric/forge/neoforge): a .jar in plugins/ is incompatible.
+//   • HYBRID cores (mohist/youer): load BOTH plugins AND mods → NO mismatch, skip.
+//   • vanilla loads neither plugins nor mods, but its leftover jars are truly inert
+//     (no loader reads either dir) → not flagged here to avoid noise.
+var PURE_PLUGIN_TYPES = ['paper', 'purpur', 'folia', 'spigot', 'bukkit'];
+var PURE_MOD_TYPES = ['fabric', 'forge', 'neoforge'];
+var HYBRID_TYPES = ['mohist', 'youer'];
+
+// List the .jar filenames directly inside <serverDir>/<sub> (plugins|mods). Returns
+// [] when the dir is missing/unreadable. Mirrors the worldgen-on-bukkit dir read.
+function listJarFiles(serverId, sub) {
+  var dir = path.join(SERVERS_DIR, serverId, sub);
+  var out = [];
+  try {
+    fs.readdirSync(dir, { withFileTypes: true }).forEach(function (d) {
+      if (d.isFile() && /\.jar$/i.test(d.name)) out.push(d.name);
+    });
+  } catch (_) { /* dir absent → nothing to flag */ }
+  return out;
+}
+
 // Read the LAST ~64KB of a server's logs/latest.log (tail only — full logs can be
 // hundreds of MB). Returns '' when the log is missing/unreadable.
 function tailServerLog(serverId, maxBytes) {
@@ -2110,6 +2137,40 @@ app.get('/diagnostics', function(req, res) {
           fix: null
         });
       }
+
+      // --- Check 8: cross-family-files (Phase 6b) ---
+      // After a TYPE switch, .jar files from the OLD core may linger in the dir the
+      // NEW core ignores. Pure-PLUGIN cores → scan mods/; pure-MOD cores → scan
+      // plugins/; hybrid (mohist/youer) → skip (they load both). Read-only scan;
+      // the fix (POST /archive-incompatible) MOVES the files to a sibling
+      // disabled-*/ dir (reversible), it does NOT delete them.
+      var incompatibleKind = null;
+      if (PURE_PLUGIN_TYPES.indexOf(type) !== -1) {
+        incompatibleKind = 'mods';   // a plugin server never loads mods
+      } else if (PURE_MOD_TYPES.indexOf(type) !== -1) {
+        incompatibleKind = 'plugins'; // a mod server never loads Bukkit plugins
+      } // HYBRID_TYPES + vanilla → incompatibleKind stays null (skip)
+      if (incompatibleKind) {
+        var incompatibleFiles = listJarFiles(serverId, incompatibleKind);
+        if (incompatibleFiles.length > 0) {
+          var listStr = incompatibleFiles.join(', ');
+          var detailHe = 'השרת הועבר ל-' + type + ' אך נמצאו ' + incompatibleFiles.length +
+            ' קבצי ' + incompatibleKind + ' ישנים שלא יפעלו על הליבה הזו: ' + listStr + '.';
+          var detailEn = 'Server was switched to ' + type + ' but ' + incompatibleFiles.length +
+            ' stale ' + incompatibleKind + ' file(s) remain that will not load on this core: ' + listStr + '.';
+          issues.push({
+            serverId: serverId, serverName: serverName, serverSlug: serverSlug,
+            severity: 'warning', category: 'cross-family-files',
+            title: 'קבצים לא-תואמים אחרי החלפת ליבה',
+            detail: detailHe + ' / ' + detailEn,
+            suggestion: 'ארכב את הקבצים הלא-תואמים (כפתור) — הם יועברו לתיקיית disabled-' +
+              incompatibleKind + ' (הפיך, לא נמחק).',
+            incompatibleKind: incompatibleKind,
+            incompatibleFiles: incompatibleFiles,
+            fix: null // dedicated archive button rendered by HealthIssueRow
+          });
+        }
+      }
     } catch (e) {
       // Defensive: one bad server must not break the whole scan.
       console.error('[diagnostics] check failed for ' + serverId + ':', e.message);
@@ -2265,6 +2326,117 @@ app.post('/remove-datapack', async function(req, res) {
     : 'ה-datapack הוסר. ' + (rconError ? '(reload נכשל: ' + rconError + ') ' : '') + 'יש להפעיל מחדש כדי שהשינוי ייכנס לתוקף.';
 
   return res.json({ success: true, serverId: serverId, file: file, rconApplied: rconApplied, needsRestart: needsRestart, note: note });
+});
+
+// POST /archive-incompatible { serverId } — REVERSIBLE fix for the
+// 'cross-family-files' diagnostic (Phase 6b). MOVES (not deletes) the .jar files
+// that the server's current core can never load — plugins/*.jar on a pure-MOD core,
+// or mods/*.jar on a pure-PLUGIN core — into a sibling disabled-plugins/ or
+// disabled-mods/ dir inside the SAME server directory. Nothing is deleted, so the
+// move is fully reversible (manual move back). Strict path-safety mirrors
+// /remove-datapack: validated serverId, realpath the source dir, every target must
+// resolve STRICTLY inside that dir, and only .jar files are touched. Hybrid cores
+// (mohist/youer) and vanilla have NO incompatible dir → 409 (nothing to do).
+app.post('/archive-incompatible', function(req, res) {
+  var serverId = req.body.serverId;
+  if (!validateId(serverId, res)) return;
+
+  var arr, srv;
+  try {
+    arr = readServersArray();
+    srv = arr.find(function(s) { return s.id === serverId; });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not read servers.json: ' + e.message });
+  }
+  if (!srv) return res.status(404).json({ success: false, error: 'Server not found' });
+
+  var type = (srv.type || 'paper').toLowerCase();
+  // Decide which dir holds the incompatible jars for THIS core (same logic as the
+  // diagnostics Check 8). Hybrid/vanilla → nothing to archive.
+  var kind = null;
+  if (PURE_PLUGIN_TYPES.indexOf(type) !== -1) {
+    kind = 'mods';
+  } else if (PURE_MOD_TYPES.indexOf(type) !== -1) {
+    kind = 'plugins';
+  }
+  if (!kind) {
+    return res.status(409).json({
+      success: false,
+      error: 'לליבה "' + type + '" אין תיקיית קבצים לא-תואמים (hybrid/vanilla) — אין מה לארכב.'
+    });
+  }
+
+  // Resolve the SOURCE dir (plugins/ or mods/) to its real path; bail if absent.
+  var srcDir = path.join(SERVERS_DIR, serverId, kind);
+  var realSrc;
+  try {
+    realSrc = fs.realpathSync(srcDir);
+  } catch (e) {
+    return res.status(404).json({ success: false, error: kind + '/ not found for this server' });
+  }
+
+  // List incompatible .jar files (direct children only).
+  var jars;
+  try {
+    jars = fs.readdirSync(realSrc, { withFileTypes: true })
+      .filter(function(d) { return d.isFile() && /\.jar$/i.test(d.name); })
+      .map(function(d) { return d.name; });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not read ' + kind + ' dir: ' + e.message });
+  }
+  if (jars.length === 0) {
+    return res.json({ success: true, serverId: serverId, kind: kind, moved: 0, files: [], note: 'אין קבצים לא-תואמים לארכוב.' });
+  }
+
+  // Create the sibling archive dir: <serverdir>/disabled-<kind>/.
+  var archiveDir = path.join(SERVERS_DIR, serverId, 'disabled-' + kind);
+  try {
+    fs.mkdirSync(archiveDir, { recursive: true });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not create archive dir: ' + e.message });
+  }
+  var realArchive;
+  try {
+    realArchive = fs.realpathSync(archiveDir);
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not resolve archive dir: ' + e.message });
+  }
+
+  var moved = [];
+  for (var i = 0; i < jars.length; i++) {
+    var file = jars[i];
+    // Per-file path-safety: basename only, and source+dest MUST stay inside their dirs.
+    if (path.basename(file) !== file || file.indexOf('/') !== -1 || file.indexOf('\\') !== -1 || file.indexOf('..') !== -1) {
+      return res.status(400).json({ success: false, error: 'Unsafe filename encountered: ' + file });
+    }
+    var source = path.resolve(realSrc, file);
+    if (source !== path.join(realSrc, file) || source.indexOf(realSrc + path.sep) !== 0) {
+      return res.status(400).json({ success: false, error: 'Source path escapes ' + kind + ' dir: ' + file });
+    }
+    var dest = path.resolve(realArchive, file);
+    if (dest !== path.join(realArchive, file) || dest.indexOf(realArchive + path.sep) !== 0) {
+      return res.status(400).json({ success: false, error: 'Dest path escapes archive dir: ' + file });
+    }
+    try {
+      var st = fs.statSync(source);
+      if (!st.isFile()) continue; // skip non-files defensively
+      fs.renameSync(source, dest);
+      moved.push(file);
+    } catch (e) {
+      // fail-loud: report exactly which file broke; partial moves already done stand.
+      return res.status(500).json({
+        success: false,
+        error: 'Failed moving "' + file + '" to archive: ' + e.message,
+        movedBefore: moved
+      });
+    }
+  }
+
+  console.log('[' + new Date().toISOString() + '] archive-incompatible ' + serverId +
+    ' -> moved ' + moved.length + ' ' + kind + ' jar(s) to disabled-' + kind);
+  var note = 'הועברו ' + moved.length + ' קבצי ' + kind + ' לתיקיית disabled-' + kind +
+    ' (הפיך — לא נמחק). יש להפעיל מחדש כדי שהשינוי ייכנס לתוקף.';
+  return res.json({ success: true, serverId: serverId, kind: kind, moved: moved.length, files: moved, needsRestart: true, note: note });
 });
 
 app.listen(PORT, '0.0.0.0', function() {
