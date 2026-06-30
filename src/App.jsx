@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Server, Library, Shield, Users, Activity } from 'lucide-react';
+import { Server, Library, Shield, Users, Activity, BookOpen } from 'lucide-react';
 
 import { signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
@@ -18,6 +18,7 @@ import CreateServerForm from './components/CreateServerForm';
 import GlobalRepository from './components/GlobalRepository';
 import ServerPanel from './components/ServerPanel/ServerPanel';
 import HealthTab from './components/HealthTab';
+import GuidePage from './components/GuidePage';
 import LandingPage from './components/LandingPage';
 import LanguageSelector from './components/LanguageSelector';
 import SideCreepers from './components/SideCreepers';
@@ -42,6 +43,10 @@ export default function App() {
   // Anonymous visitors can browse it; CTAs route into the existing dashboard/create/repo.
   const [currentView, setCurrentView] = useState('landing');
   const [activeServerId, setActiveServerId] = useState(null);
+  // Optional deep-link target inside the public Guide (e.g. 'guide-resource-packs').
+  // Other components can call openGuide(anchor) to jump straight to a section.
+  const [guideAnchor, setGuideAnchor] = useState(null);
+  const openGuide = (anchor = null) => { setGuideAnchor(anchor); setCurrentView('guide'); };
   
   // Verified Paper versions ONLY. Never list versions Paper can't build (e.g. 26.x):
   // create-server would silently fall back to a different jar under a false label,
@@ -847,6 +852,9 @@ export default function App() {
             <div className="flex items-center gap-2">
               <NavBtn active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} icon={<Server size={18}/>} label={t('dashboard')} />
               <NavBtn active={currentView === 'repository'} onClick={() => setCurrentView('repository')} icon={<Library size={18}/>} label={t('repo')} />
+              {/* Guide / מדריך — PUBLIC reference center (servers + add-ons). Visible
+                  to everyone incl. anonymous visitors; reachable from the main nav. */}
+              <NavBtn active={currentView === 'guide'} onClick={() => openGuide()} icon={<BookOpen size={18}/>} label={t('guideNav')} />
               {/* War Room / חמ"ל — dedicated health-diagnostics tab is ADMIN-ONLY
                   (it carries the mine/all toggle). Non-admins get the full חמ"ל
                   experience — every issue on their own servers + fix buttons —
@@ -933,6 +941,12 @@ export default function App() {
             onAdd={handleAddCustomAddon}
             onDelete={handleDeleteCustomAddon}
           />
+        )}
+
+        {/* Guide / מדריך — PUBLIC reference center. No auth gate (open to anonymous
+            visitors, like the landing). `scrollToAnchor` powers deep-links. */}
+        {currentView === 'guide' && (
+          <GuidePage t={t} isRtl={isRtl} scrollToAnchor={guideAnchor} />
         )}
 
         {/* War Room / חמ"ל — ADMIN-ONLY dedicated tab (mine/all toggle). The
