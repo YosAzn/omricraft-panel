@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Play, Search, Check, Shield, Lock } from 'lucide-react';
 
-import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType, isBukkitBased, isWorldgenDatapack, getClientLoader, isCoreIncompatible, collectRequiredIds } from '../lib/constants';
+import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType, isBukkitBased, isWorldgenDatapack, getClientLoader, isCoreIncompatible, collectRequiredIds, getRecommendedRamMb, isEolCore, forgeNeoForgeHint } from '../lib/constants';
 import { addonDesc } from '../lib/addonI18n';
 import { isViaVersion } from '../lib/utils';
 import ImageUploader from './ImageUploader';
@@ -25,6 +25,10 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
   const [maxPlayers, setMaxPlayers] = useState(20);
   const [difficulty, setDifficulty] = useState('normal');
   const [memoryMb, setMemoryMb] = useState(2048);
+  // Tracks whether the user manually picked a RAM value. While false, switching the
+  // core auto-snaps RAM to that core's recommendation; once the user touches the
+  // selector we stop overriding their choice.
+  const [ramTouched, setRamTouched] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
   const [whitelistString, setWhitelistString] = useState('');
   // UX/legal acknowledgment only — gates the create button. The EULA itself is
@@ -131,6 +135,8 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
   const typeVersions = limitVersionsForType(software, baseTypeVersions);
 
   // When the type changes, if the current version isn't valid for it, snap to newest.
+  // Also snap RAM to the new core's recommendation — but only while the user hasn't
+  // manually set a RAM value (don't override a deliberate choice).
   const handleSoftwareChange = (id) => {
     setSoftware(id);
     setSelectedAddons([]);
@@ -138,7 +144,14 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
     const base = (versionMatrix[id] && versionMatrix[id].length) ? versionMatrix[id] : mcVersions;
     const list = limitVersionsForType(id, base);
     if (list.length && !list.includes(version)) setVersion(list[0]);
+    if (!ramTouched) setMemoryMb(getRecommendedRamMb(id));
   };
+
+  // Recommended RAM (MB → GB label) for the current core, surfaced in the selector.
+  const recommendedRamMb = getRecommendedRamMb(software);
+  const recommendedRamGb = Math.round(recommendedRamMb / 1024);
+  // Forge vs NeoForge hint for the chosen core+version (null when no hint applies).
+  const coreVersionHint = forgeNeoForgeHint(software, version);
 
   // The create form is open to ALL signed-in users. Admins create directly; non-admins
   // submit a REQUEST (App.jsx routes the submit to requestServer based on isAdmin, and
@@ -181,14 +194,24 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {SOFTWARE_TYPES.map(sw => (
                 <div key={sw.id} onClick={() => handleSoftwareChange(sw.id)}
-                  className={`cursor-pointer border rounded-lg p-3 text-center transition-all flex flex-col items-center gap-1
+                  className={`relative cursor-pointer border rounded-lg p-3 text-center transition-all flex flex-col items-center gap-1
                     ${software === sw.id ? 'bg-green-500/10 border-green-500 text-green-400 shadow-md' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200'}`}>
+                  {/* EOL badge — flags an unmaintained core (Mohist). Stays selectable. */}
+                  {sw.eol && (
+                    <span className="absolute top-1 left-1 text-[8px] uppercase font-bold px-1 py-0.5 rounded border border-amber-500/40 text-amber-400 bg-amber-500/10 leading-none">
+                      {t('eolBadge')}
+                    </span>
+                  )}
                   <div className="font-bold">{sw.name}</div>
                   <div className="text-[10px] uppercase opacity-70">{sw.type}</div>
                   {sw.desc && <div className="text-[9px] opacity-50 leading-tight mt-0.5">{sw.desc}</div>}
                 </div>
               ))}
             </div>
+            {/* EOL warning shown only when an EOL core is selected. */}
+            {isEolCore(software) && (
+              <p className="text-xs text-amber-400 mt-3 leading-relaxed">{t('mohistEolNote')}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -212,6 +235,13 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                 <div className="mt-3">
                   <ClientRequirements type={software} version={version} t={t} defaultOpen compact />
                 </div>
+              )}
+              {/* Forge vs NeoForge soft hint by version (recommendation, not a block). */}
+              {coreVersionHint === 'preferNeoForge' && (
+                <p className="text-xs text-blue-400 mt-2 leading-relaxed">💡 {t('forgePreferNeoForge')}</p>
+              )}
+              {coreVersionHint === 'neoForgeUnavailable' && (
+                <p className="text-xs text-amber-400 mt-2 leading-relaxed">⚠️ {t('neoForgeUnavailable')}</p>
               )}
             </div>
             <div>
@@ -255,15 +285,21 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
               </select>
             </div>
             <div>
-              <label className="block text-sm font-bold text-zinc-400 mb-2">זיכרון (RAM)</label>
-              <select value={memoryMb} onChange={(e) => setMemoryMb(Number(e.target.value))}
+              <label className="block text-sm font-bold text-zinc-400 mb-2">
+                זיכרון (RAM)
+                <span className="ms-2 text-[11px] font-normal text-green-400">
+                  {t('ramRecommendedLabel')}: {recommendedRamGb}GB
+                </span>
+              </label>
+              <select value={memoryMb} onChange={(e) => { setRamTouched(true); setMemoryMb(Number(e.target.value)); }}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-all">
-                <option value={1024}>1 GB</option>
-                <option value={2048}>2 GB (מומלץ)</option>
-                <option value={3072}>3 GB</option>
-                <option value={4096}>4 GB</option>
+                {[1024, 2048, 3072, 4096, 6144, 8192].map(mb => (
+                  <option key={mb} value={mb}>
+                    {Math.round(mb / 1024)} GB{mb === recommendedRamMb ? ` (${t('ramRecommendedLabel')})` : ''}
+                  </option>
+                ))}
               </select>
-              <p className="text-xs text-zinc-500 mt-2">כמה זיכרון מוקצה לשרת. 2 GB מספיק לרוב; מודים/הרבה שחקנים → יותר.</p>
+              <p className="text-xs text-zinc-500 mt-2">כמה זיכרון מוקצה לשרת. מודים/הרבה שחקנים → יותר. {t('ramModpackNote')}</p>
             </div>
           </div>
 

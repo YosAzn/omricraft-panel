@@ -115,16 +115,57 @@ export const modrinthModpackUri = (slug) =>
 export const curseforgeInstallUri = (id) =>
   id ? `curseforge://install?addonId=${id}` : null;
 
+// `recommendedRamMb` — the RAM the create form pre-selects (and labels "recommended")
+// for this core. Vanilla/Paper-family run lean (~2GB); Fabric a bit more (~3GB);
+// mod-loaders (Forge/NeoForge) + the Mohist hybrid are heavy (~6GB). Modpacks need
+// even more (6-8GB+) — surfaced as a note, not a per-core value (modpacks are addons).
+// `eol:true` flags an End-Of-Life / unmaintained core (Mohist) for a UX warning; it
+// stays fully selectable — existing Mohist servers must keep working.
 export const SOFTWARE_TYPES = [
-  { id: 'vanilla',   name: 'Vanilla',   type: 'official', desc: 'שרת Mojang רשמי — קשה, נקי' },
-  { id: 'paper',     name: 'Paper',     type: 'plugins',  desc: 'הכי נפוץ — ביצועים + plugins' },
-  { id: 'purpur',    name: 'Purpur',    type: 'plugins',  desc: 'Paper משופר — תומך plugins, מהיר + עוד הגדרות. מומלץ!' },
-  { id: 'folia',     name: 'Folia',     type: 'plugins',  desc: 'Paper עם multi-threading לשרתים גדולים' },
-  { id: 'fabric',    name: 'Fabric',    type: 'mods',     desc: 'Mods קלים — עדכניים' },
-  { id: 'forge',     name: 'Forge',     type: 'mods',     desc: 'Mods קלאסיים — ספריית ה-mods הגדולה' },
-  { id: 'neoforge',  name: 'NeoForge',  type: 'mods',     desc: 'Forge המודרני — מתחזק יותר' },
-  { id: 'mohist',    name: 'Mohist',    type: 'hybrid',   desc: 'Forge + Bukkit plugins יחד' },
+  { id: 'vanilla',   name: 'Vanilla',   type: 'official', desc: 'שרת Mojang רשמי — קשה, נקי',                          recommendedRamMb: 2048 },
+  { id: 'paper',     name: 'Paper',     type: 'plugins',  desc: 'הכי נפוץ — ביצועים + plugins',                        recommendedRamMb: 2048 },
+  { id: 'purpur',    name: 'Purpur',    type: 'plugins',  desc: 'Paper משופר — תומך plugins, מהיר + עוד הגדרות. מומלץ!', recommendedRamMb: 2048 },
+  { id: 'folia',     name: 'Folia',     type: 'plugins',  desc: 'Paper עם multi-threading לשרתים גדולים',              recommendedRamMb: 2048 },
+  { id: 'fabric',    name: 'Fabric',    type: 'mods',     desc: 'Mods קלים — עדכניים',                                 recommendedRamMb: 3072 },
+  { id: 'forge',     name: 'Forge',     type: 'mods',     desc: 'Mods קלאסיים — ספריית ה-mods הגדולה',                 recommendedRamMb: 6144 },
+  { id: 'neoforge',  name: 'NeoForge',  type: 'mods',     desc: 'Forge המודרני — מתחזק יותר',                          recommendedRamMb: 6144 },
+  { id: 'mohist',    name: 'Mohist',    type: 'hybrid',   desc: 'Forge + Bukkit plugins יחד',                         recommendedRamMb: 6144, eol: true },
 ];
+
+// Recommended RAM (MB) for a core; falls back to 2GB for unknown ids.
+export const getRecommendedRamMb = (software) =>
+  (SOFTWARE_TYPES.find(s => s.id === software)?.recommendedRamMb) || 2048;
+
+// True when the core is End-Of-Life / unmaintained (Mohist). Stays selectable.
+export const isEolCore = (software) =>
+  !!(SOFTWARE_TYPES.find(s => s.id === software)?.eol);
+
+// --- Forge vs NeoForge recommendation by MC version ---
+// NeoForge is the modern standard for MC 1.20.2 and newer; for older versions only
+// classic Forge exists (NeoForge wasn't published before 1.20.2). Parse safely — the
+// project's version scheme is `1.MINOR(.PATCH)?`; anything that isn't `1.x` (e.g. a
+// future 26.x) is treated as newer than 1.20.2.
+export const isNeoForgeEraVersion = (version) => {
+  if (typeof version !== 'string') return false;
+  const m = version.match(/^1\.(\d+)(?:\.(\d+))?$/);
+  if (!m) return !version.startsWith('1.'); // non-1.x scheme → newer than 1.20.2
+  const minor = parseInt(m[1], 10);
+  const patch = parseInt(m[2] || '0', 10);
+  if (minor < 20) return false;
+  if (minor > 20) return true;
+  return patch >= 2; // 1.20.x where x >= 2
+};
+
+// UX hint for the mod-loader picker given the chosen core + version. Returns:
+//   'preferNeoForge' — user picked Forge on a 1.20.2+ version (soft "NeoForge is the
+//                      modern standard" note; NOT a hard block).
+//   'neoForgeUnavailable' — user picked NeoForge on a pre-1.20.2 version (use Forge).
+//   null — no hint (non-mod core, or the choice already matches the era).
+export const forgeNeoForgeHint = (software, version) => {
+  if (software === 'forge' && isNeoForgeEraVersion(version)) return 'preferNeoForge';
+  if (software === 'neoforge' && !isNeoForgeEraVersion(version)) return 'neoForgeUnavailable';
+  return null;
+};
 
 // --- Client (player-side) loader requirements per server type ---
 // The SERVER-side loader is auto-installed on the VPS. This map tells the PLAYER

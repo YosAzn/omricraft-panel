@@ -79,6 +79,13 @@ export const DICT = {
     worldgenBukkitNote: "עובד רק על Vanilla/Fabric/Forge/NeoForge — לא על Paper/Purpur",
     requiresPickOne: "דורש (בחר אפשרות):",
     recommendedBadge: "מומלץ",
+    // --- Core recommendations (Phase 4a) ---
+    eolBadge: "EOL",
+    mohistEolNote: "⚠️ Mohist הוא EOL (לא מתוחזק) — נוטה לבאגים ואי-יציבות. שקול Paper (לפלאגינים) או Youer — היורש ההיברידי של NeoForge.",
+    forgePreferNeoForge: "לגרסה זו NeoForge הוא הסטנדרט המודרני (מומלץ).",
+    neoForgeUnavailable: "NeoForge לא זמין לגרסה זו (קודם 1.20.2) — השתמש ב-Forge.",
+    ramRecommendedLabel: "מומלץ",
+    ramModpackNote: "שרתי מודפאק צריכים 6-8GB ומעלה.",
     // --- Resource-pack install choice (Phase 3 / TASK 1) ---
     rpInstallChoiceTitle: "אפשרויות התקנה לבחירתך",
     rpOptionServer: "הפעלה אוטומטית בשרת (Server-Resource-Pack)",
@@ -372,6 +379,13 @@ export const DICT = {
     worldgenBukkitNote: "Vanilla/Fabric/Forge/NeoForge only — not Paper/Purpur",
     requiresPickOne: "Requires (pick one):",
     recommendedBadge: "recommended",
+    // --- Core recommendations (Phase 4a) ---
+    eolBadge: "EOL",
+    mohistEolNote: "⚠️ Mohist is EOL (unmaintained) — prone to bugs/instability. Consider Paper (for plugins) or Youer — its NeoForge hybrid successor.",
+    forgePreferNeoForge: "For this version NeoForge is the modern standard (recommended).",
+    neoForgeUnavailable: "NeoForge isn't available for this version (before 1.20.2) — use Forge.",
+    ramRecommendedLabel: "Recommended",
+    ramModpackNote: "Modpack servers need 6-8GB+.",
     // --- Resource-pack install choice (Phase 3 / TASK 1) ---
     rpInstallChoiceTitle: "Install options",
     rpOptionServer: "Auto-apply on the server (server-resource-pack)",
