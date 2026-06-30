@@ -39,10 +39,11 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
   const [addonSearch, setAddonSearch] = useState('');
 
   // Keep these lists in sync with AddonsTab.jsx (Bukkit family = plugins,
-  // mod-loaders = mods; Mohist is hybrid → both). folia/mohist/neoforge were
-  // previously dropped here, hiding valid addons in the create form.
-  const PLUGIN_SERVERS = ['paper', 'purpur', 'folia', 'mohist'];
-  const MOD_SERVERS = ['fabric', 'forge', 'neoforge', 'mohist'];
+  // mod-loaders = mods; Mohist + Youer are hybrids → both). folia/mohist/neoforge were
+  // previously dropped here, hiding valid addons in the create form. Youer = Mohist's
+  // maintained NeoForge-hybrid successor, so it runs plugins AND mods like Mohist.
+  const PLUGIN_SERVERS = ['paper', 'purpur', 'folia', 'mohist', 'youer'];
+  const MOD_SERVERS = ['fabric', 'forge', 'neoforge', 'mohist', 'youer'];
   const relevantAddons = allAddons.filter(a => {
     // Client-only groups (textures/shaders/client-mods) apply to ANY server — they
     // run on the player's PC, not the server, so they always show (with a client badge).
@@ -211,6 +212,10 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
             {/* EOL warning shown only when an EOL core is selected. */}
             {isEolCore(software) && (
               <p className="text-xs text-amber-400 mt-3 leading-relaxed">{t('mohistEolNote')}</p>
+            )}
+            {/* Youer is the recommended (non-EOL) hybrid successor to Mohist. */}
+            {software === 'youer' && (
+              <p className="text-xs text-green-400 mt-3 leading-relaxed">{t('youerNote')}</p>
             )}
           </div>
 

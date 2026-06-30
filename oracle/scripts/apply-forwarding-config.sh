@@ -11,7 +11,7 @@ set -euo pipefail
 # Usage: ./apply-forwarding-config.sh SERVER_DIR TYPE VERSION
 #
 # Families:
-#   paper/purpur/folia/mohist (Bukkit-based) → config/paper-global.yml velocity block
+#   paper/purpur/folia/mohist/youer (Bukkit-based) → config/paper-global.yml velocity block
 #   fabric                                    → FabricProxy-Lite mod + config/FabricProxy-Lite.toml
 #   forge/neoforge                            → REJECTED (no clean modern-forwarding mod)
 #   vanilla                                   → REJECTED (cannot do modern forwarding)
@@ -41,7 +41,10 @@ fi
 FORWARDING_SECRET=$(cat "$FORWARDING_SECRET_FILE")
 
 case "$TYPE" in
-  paper|purpur|folia|mohist)
+  paper|purpur|folia|mohist|youer)
+    # Youer (NeoForge hybrid, Mohist's maintained successor) implements the Paper/Purpur
+    # API and reads config/paper-global.yml for Velocity modern forwarding exactly like
+    # Mohist — same Bukkit-family forwarding path.
     mkdir -p "$SERVER_DIR/config"
     cat > "$SERVER_DIR/config/paper-global.yml" <<PAPERCONF
 _version: 28
@@ -106,7 +109,7 @@ FPLCONF
     ;;
 
   vanilla)
-    echo "[$(date)] ERROR: vanilla cannot do modern player forwarding behind Velocity. Pick Paper/Purpur/Folia/Mohist or Fabric."
+    echo "[$(date)] ERROR: vanilla cannot do modern player forwarding behind Velocity. Pick Paper/Purpur/Folia/Mohist/Youer or Fabric."
     exit 2
     ;;
 

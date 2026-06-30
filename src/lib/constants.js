@@ -7,11 +7,12 @@
 // addon ללא השדה הזה נחשב 'server'.
 export const getInstallMethod = (addon) => addon?.installMethod || 'server';
 
-// Bukkit-based server software (Paper family + Mohist hybrid + legacy spigot).
-// Worldgen-overhaul datapacks (Terralith/Tectonic/Incendium/Nullscape) do NOT work
-// on these — Bukkit ignores datapack worldgen biomes. They need a Mojang-engine
-// loader (Vanilla/Fabric/Forge/NeoForge).
-export const BUKKIT_SOFTWARE = ['paper', 'purpur', 'folia', 'mohist', 'spigot', 'bukkit'];
+// Bukkit-based server software (Paper family + Mohist/Youer NeoForge hybrids + legacy
+// spigot). Youer is Mohist's maintained successor and implements the same Paper/Bukkit
+// API, so it behaves identically here. Worldgen-overhaul datapacks
+// (Terralith/Tectonic/Incendium/Nullscape) do NOT work on these — Bukkit ignores
+// datapack worldgen biomes. They need a Mojang-engine loader (Vanilla/Fabric/Forge/NeoForge).
+export const BUKKIT_SOFTWARE = ['paper', 'purpur', 'folia', 'mohist', 'youer', 'spigot', 'bukkit'];
 export const isBukkitBased = (software) => BUKKIT_SOFTWARE.includes(software);
 
 // A worldgen-overhaul datapack (replaces overworld/nether/end generation). Flagged
@@ -130,6 +131,7 @@ export const SOFTWARE_TYPES = [
   { id: 'forge',     name: 'Forge',     type: 'mods',     desc: 'Mods קלאסיים — ספריית ה-mods הגדולה',                 recommendedRamMb: 6144 },
   { id: 'neoforge',  name: 'NeoForge',  type: 'mods',     desc: 'Forge המודרני — מתחזק יותר',                          recommendedRamMb: 6144 },
   { id: 'mohist',    name: 'Mohist',    type: 'hybrid',   desc: 'Forge + Bukkit plugins יחד',                         recommendedRamMb: 6144, eol: true },
+  { id: 'youer',     name: 'Youer',     type: 'hybrid',   desc: 'שרת היברידי NeoForge (היורש המתוחזק של Mohist) — מריץ מודים + פלאגינים יחד', recommendedRamMb: 6144, eol: false },
 ];
 
 // Recommended RAM (MB) for a core; falls back to 2GB for unknown ids.
@@ -185,6 +187,7 @@ export const CLIENT_LOADERS = {
   forge:    { label: 'Forge',    installerUrl: 'https://files.minecraftforge.net/',   needsLoader: true,  noteKey: 'clientReqForge' },
   neoforge: { label: 'NeoForge', installerUrl: 'https://neoforged.net/',              needsLoader: true,  noteKey: 'clientReqNeoForge' },
   mohist:   { label: 'Forge',    installerUrl: 'https://files.minecraftforge.net/',   needsLoader: true,  conditional: true, noteKey: 'clientReqMohist' },
+  youer:    { label: 'NeoForge', installerUrl: 'https://neoforged.net/',              needsLoader: true,  conditional: true, noteKey: 'clientReqYouer' },
 };
 
 // Returns the client-loader requirement for a software type (defaults to vanilla/no-loader).
@@ -194,10 +197,13 @@ export const getClientLoader = (software) =>
 // Per-type version allow-list. When a software type can only run a subset of MC
 // versions, list them here; the create form (and SettingsTab) intersect the global
 // version list with this. Mohist only publishes builds for 1.20.1 (no 1.21.x), so
-// offering 1.21.x would create a server whose jar download always fails.
+// offering 1.21.x would create a server whose jar download always fails. Youer (the
+// maintained successor) publishes ONLY 1.21.1 (api.mohistmc.com/project/youer/versions),
+// so it is gated to 1.21.1 for the same reason.
 // Types NOT listed here are unrestricted (use the full versionMatrix/mcVersions list).
 export const TYPE_VERSION_LIMITS = {
   mohist: ['1.20.1'],
+  youer: ['1.21.1'],
 };
 
 // Returns the version list for a software type, applying TYPE_VERSION_LIMITS if any.
@@ -366,7 +372,7 @@ export const DEFAULT_ADDONS = [
 // --- Public landing-page catalog facts (derived from the real arrays above) ---
 // Static, always-true facts the landing page shows as social proof. Derived from
 // SOFTWARE_TYPES / DEFAULT_ADDONS so they stay accurate as the catalog grows.
-export const SERVER_TYPE_COUNT = SOFTWARE_TYPES.length;        // 8 (Vanilla/Paper/Purpur/Folia/Fabric/Forge/NeoForge/Mohist)
+export const SERVER_TYPE_COUNT = SOFTWARE_TYPES.length;        // 9 (Vanilla/Paper/Purpur/Folia/Fabric/Forge/NeoForge/Mohist/Youer)
 export const ADDON_CATALOG_COUNT = DEFAULT_ADDONS.length;      // every mod/plugin/datapack/modpack/texture in the repo
 
 // Round a count DOWN to the nearest 10 for an honest "N+" label (never overstates).

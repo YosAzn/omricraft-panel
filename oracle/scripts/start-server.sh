@@ -73,7 +73,10 @@ elif [ -f "$SERVER_DIR/fabric-server-launch.jar" ]; then
     -jar fabric-server-launch.jar --nogui \
     >> "$LOG_FILE" 2>&1 &
 else
-  # Paper, Purpur, Vanilla, Folia, Mohist — runnable server.jar
+  # Paper, Purpur, Vanilla, Folia, Mohist, Youer — runnable server.jar.
+  # Youer (NeoForge hybrid, Mohist's maintained successor) ships Main-Class
+  # com.mohistmc.launcher.youer.Main and self-downloads its NeoForge libraries on
+  # first boot, so it launches via `java -jar server.jar` like Mohist — NO run.sh.
   nohup "$JAVA_BIN" -Xms${MEMORY_MB}M -Xmx${MEMORY_MB}M \
     -XX:+UseG1GC \
     -XX:+ParallelRefProcEnabled \

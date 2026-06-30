@@ -121,6 +121,22 @@ elif [ "$TYPE" = "mohist" ]; then
   if [ ! -s "$SERVER_DIR/server.jar" ]; then echo "[$(date)] ERROR: Mohist jar 0 bytes"; exit 1; fi
   echo "[$(date)] Mohist $VERSION build $MOHIST_BUILD_ID installed from $MOHIST_URL"
 
+elif [ "$TYPE" = "youer" ]; then
+  echo "[$(date)] Installing Youer $VERSION..."
+  # Youer = MohistMC's maintained NeoForge hybrid (the live successor to the EOL Mohist).
+  # Same v3 API (api.mohistmc.com), just the `youer` project. Take the last build's
+  # numeric `id`, then download via /builds/{id}/download. The resulting server.jar is a
+  # RUNNABLE jar (Main-Class: com.mohistmc.launcher.youer.Main) launched via `java -jar`
+  # exactly like Mohist — it self-downloads its NeoForge libraries on first boot, no
+  # separate install/run.sh step. Youer publishes ONLY 1.21.1 (see /project/youer/versions),
+  # so the create form caps Youer to 1.21.1 (src/lib/constants.js TYPE_VERSION_LIMITS).
+  YOUER_BUILD_ID=$(curl -sf "https://api.mohistmc.com/project/youer/${VERSION}/builds" | python3 -c "import sys,json; d=json.load(sys.stdin); b=d if isinstance(d,list) else d.get('builds',[]); print(b[-1]['id'] if b else '')" 2>/dev/null || echo "")
+  if [ -z "$YOUER_BUILD_ID" ]; then echo "[$(date)] ERROR: cannot find Youer build for $VERSION (Youer publishes 1.21.1 only)"; exit 1; fi
+  YOUER_URL="https://api.mohistmc.com/project/youer/${VERSION}/builds/${YOUER_BUILD_ID}/download"
+  wget -q -L "$YOUER_URL" -O "$SERVER_DIR/server.jar"
+  if [ ! -s "$SERVER_DIR/server.jar" ]; then echo "[$(date)] ERROR: Youer jar 0 bytes"; exit 1; fi
+  echo "[$(date)] Youer $VERSION build $YOUER_BUILD_ID installed from $YOUER_URL"
+
 elif [ "$TYPE" = "purpur" ]; then
   echo "[$(date)] Installing Purpur $VERSION..."
   PURPUR_URL="https://api.purpurmc.org/v2/purpur/${VERSION}/latest/download"

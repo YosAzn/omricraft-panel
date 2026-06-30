@@ -72,7 +72,7 @@ mkdir -p "$SERVER_DIR/logs" "$SERVER_DIR/plugins" "$SERVER_DIR/mods" "$SERVER_DI
 SCRIPTS_DIR_SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 bash "$SCRIPTS_DIR_SELF/download-server-jar.sh" "$SERVER_DIR" "$TYPE" "$VERSION"
 
-# Default plugins for Bukkit-family (Paper/Purpur/Folia/Mohist): ONLY PlasmoVoice.
+# Default plugins for Bukkit-family (Paper/Purpur/Folia/Mohist/Youer): ONLY PlasmoVoice.
 # EssentialsX/LuckPerms are NOT auto-installed — they pin to a build that breaks on
 # newer MC versions (e.g. 26.x); users opt in via the panel. Via* live on the proxy.
 if [ "$TYPE" != "fabric" ] && [ "$TYPE" != "forge" ] && [ "$TYPE" != "neoforge" ]; then

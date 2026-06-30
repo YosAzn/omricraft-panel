@@ -68,10 +68,11 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
     }
   };
 
-  // Bukkit-family servers all support plugins (Paper/Purpur/Folia/Mohist).
-  // Mod-loaders use mods. Mohist is HYBRID → supports BOTH plugins and mods.
-  const PLUGIN_SERVERS = ['paper', 'purpur', 'folia', 'mohist'];
-  const MOD_SERVERS = ['fabric', 'forge', 'neoforge', 'mohist'];
+  // Bukkit-family servers all support plugins (Paper/Purpur/Folia/Mohist/Youer).
+  // Mod-loaders use mods. Mohist + Youer are HYBRID → support BOTH plugins and mods
+  // (Youer = Mohist's maintained NeoForge-hybrid successor).
+  const PLUGIN_SERVERS = ['paper', 'purpur', 'folia', 'mohist', 'youer'];
+  const MOD_SERVERS = ['fabric', 'forge', 'neoforge', 'mohist', 'youer'];
   const relevantAddons = allAddons.filter(a => {
     // Client-only groups apply to ANY server (player-PC only) → always shown with a client badge.
     if (a.type === 'textures' || a.type === 'shaders' || a.type === 'client-mods') return true;

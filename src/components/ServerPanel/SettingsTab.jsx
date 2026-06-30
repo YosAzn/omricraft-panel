@@ -4,7 +4,7 @@ import {
   updateServerPropertiesFn, updateServerIconFn, setServerPrivacyFn,
   changeServerTypeFn, changeServerVersionFn, updateServerMemoryFn
 } from '../../lib/api';
-import { SOFTWARE_TYPES } from '../../lib/constants';
+import { SOFTWARE_TYPES, limitVersionsForType } from '../../lib/constants';
 import { isViaVersion } from '../../lib/utils';
 import ImageUploader from '../ImageUploader';
 import DifficultyControl from './DifficultyControl';
@@ -12,10 +12,14 @@ import OpsEditor from './OpsEditor';
 import WhitelistEditor from './WhitelistEditor';
 
 export default function SettingsTab({ server, onDelete, updateServer, t, mcVersions, versionMatrix = {} }) {
-  // Version list filtered to what THIS server's software type actually supports.
-  const typeVersions = (versionMatrix[server.software] && versionMatrix[server.software].length)
+  // Version list filtered to what THIS server's software type actually supports,
+  // then capped to versions the core actually publishes builds for (e.g. Youer →
+  // 1.21.1 only, Mohist → 1.20.1 only) so the selector never offers a version whose
+  // jar download will fail.
+  const baseTypeVersions = (versionMatrix[server.software] && versionMatrix[server.software].length)
     ? versionMatrix[server.software]
     : mcVersions;
+  const typeVersions = limitVersionsForType(server.software, baseTypeVersions);
   const applyServerProperty = async (field, value) => {
     try {
       const res = await updateServerPropertiesFn({ serverId: server.id, properties: { [field]: value } });
@@ -32,9 +36,9 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
   // Software types the user may switch TO from Settings. forge/neoforge/vanilla
   // are intentionally excluded — the manager-api rejects them (no reliable
   // Velocity modern-forwarding mod → unjoinable server).
-  const CHANGEABLE_TYPES = ['paper', 'purpur', 'folia', 'mohist', 'fabric'];
+  const CHANGEABLE_TYPES = ['paper', 'purpur', 'folia', 'mohist', 'youer', 'fabric'];
   const changeableSoftware = SOFTWARE_TYPES.filter(sw => CHANGEABLE_TYPES.includes(sw.id));
-  const BUKKIT_FAMILY = ['paper', 'purpur', 'folia', 'mohist'];
+  const BUKKIT_FAMILY = ['paper', 'purpur', 'folia', 'mohist', 'youer'];
   const isCrossFamily = (a, b) =>
     (BUKKIT_FAMILY.includes(a) && b === 'fabric') ||
     (a === 'fabric' && BUKKIT_FAMILY.includes(b));
@@ -46,10 +50,13 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
     const prevVersion = server.version;
     if (!newType || newType === prevType) return;
 
-    // Pick a version valid for the target type (newest from the matrix).
-    const targetList = (versionMatrix[newType] && versionMatrix[newType].length)
+    // Pick a version valid for the target type (newest from the matrix), then apply
+    // the per-type cap (e.g. Youer → 1.21.1 only, Mohist → 1.20.1 only) so we never
+    // switch to a version whose jar download will fail for that core.
+    const baseTargetList = (versionMatrix[newType] && versionMatrix[newType].length)
       ? versionMatrix[newType]
       : (mcVersions || []);
+    const targetList = limitVersionsForType(newType, baseTargetList);
     const newVersion = (targetList.includes(prevVersion)) ? prevVersion : (targetList[0] || prevVersion);
 
     const newName = (SOFTWARE_TYPES.find(s => s.id === newType) || {}).name || newType;

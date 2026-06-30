@@ -1456,7 +1456,7 @@ function readServersArray() {
 
 // Helper: total heap (MB) of Minecraft game-server java processes RUNNING NOW.
 // Parses -Xmx from every backend java launch shape — -jar server.jar (paper/purpur/
-// vanilla/folia/mohist), -jar fabric-server-launch.jar (fabric), and run.sh java that
+// vanilla/folia/mohist/youer), -jar fabric-server-launch.jar (fabric), and run.sh java that
 // reads @user_jvm_args.txt / @libraries (forge/neoforge). Excludes the Velocity proxy
 // (velocity.jar). Used by the create-server RAM guard so the cap reflects live load,
 // not allocation. Fails LOUD: if ps cannot be read the caller's try/catch returns 500.
@@ -1519,7 +1519,7 @@ app.post('/change-version', async function(req, res) {
   if (typeChanged && (type === 'forge' || type === 'neoforge' || type === 'vanilla')) {
     return res.status(400).json({
       success: false,
-      error: 'סוג שרת "' + type + '" לא נתמך מאחורי הפרוקסי (Velocity) — אין מוד forwarding אמין לכל הגרסאות. בחר Paper/Purpur/Folia/Mohist או Fabric.'
+      error: 'סוג שרת "' + type + '" לא נתמך מאחורי הפרוקסי (Velocity) — אין מוד forwarding אמין לכל הגרסאות. בחר Paper/Purpur/Folia/Mohist/Youer או Fabric.'
     });
   }
 
@@ -1864,7 +1864,10 @@ app.post('/restore-backup', async function(req, res) {
 //     title, detail, suggestion, fix:{action,label,params}|null } ] }
 // ===================================================================
 var WORLDGEN_DATAPACK_RE = /terralith|tectonic|incendium|nullscape|continents|wythers/i;
-var BUKKIT_TYPES = ['paper', 'purpur', 'folia', 'mohist', 'spigot'];
+// Bukkit-family cores (Paper API). Mohist + Youer are NeoForge hybrids that implement
+// the Paper/Bukkit API, so they share the Bukkit-family behaviour here (e.g. worldgen
+// datapacks are ignored → flagged by diagnostics). Youer = Mohist's maintained successor.
+var BUKKIT_TYPES = ['paper', 'purpur', 'folia', 'mohist', 'youer', 'spigot'];
 
 // Read the LAST ~64KB of a server's logs/latest.log (tail only — full logs can be
 // hundreds of MB). Returns '' when the log is missing/unreadable.
