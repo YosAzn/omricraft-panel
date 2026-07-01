@@ -88,6 +88,30 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false, t =
     setFixing(false);
   };
 
+  // FIX #6 — Restart-to-apply for datapack-failed issues. Removing a bad datapack
+  // .zip from disk does NOT rewrite the historical server LOG, so the diagnostic
+  // (which scans the log segment after the last start marker) keeps finding the
+  // old parse errors until the server boots fresh. This restarts the server, then
+  // re-scans (onFixed): a fresh boot with no such errors clears the issue; a real
+  // remaining problem is naturally re-reported by the scan (the "new error").
+  const restartToApply = async () => {
+    if (fixing) return;
+    setFixing(true);
+    try {
+      const res = await restartServerFn({ serverId: issue.serverId });
+      const d = res.data || res;
+      if (!d.success) throw new Error(d.error || 'הפעולה נכשלה');
+      if (d.note) alert(d.note);
+      // Re-scan AFTER the restart so the panel reflects the current (post-boot)
+      // state — the issue clears if resolved, or re-reports if a real problem remains.
+      if (typeof onFixed === 'function') await onFixed();
+    } catch (e) {
+      console.error('restartToApply failed:', e);
+      alert(`התיקון נכשל: ${e.message}`);
+    }
+    setFixing(false);
+  };
+
   // Phase 6b — REVERSIBLE archive of cross-family leftover jars (plugins/ on a mod
   // core, mods/ on a plugin core) after a TYPE switch. The backend decides which dir
   // and MOVES the jars to disabled-*/ (not deleted), so no file path is sent here.
@@ -140,6 +164,10 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false, t =
           {issue.suggestion && (
             <div className="text-xs text-zinc-500 mt-1.5">💡 {issue.suggestion}</div>
           )}
+          {/* FIX #6 — remove+restart sequence hint (log only refreshes on boot). */}
+          {issue.category === 'datapack-failed' && (
+            <div className="text-xs text-amber-300/80 mt-1.5">🔄 {t('healthDatapackRestartHint')}</div>
+          )}
           {/* Phase 6b — per-file compatible-equivalent hints (informational; the
               user installs the equivalent as a normal catalog action). */}
           {equivalents.map(({ file, equiv }) => (
@@ -150,6 +178,7 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false, t =
         </div>
         {(issue.fix
           || (issue.removableDatapacks && issue.removableDatapacks.length > 0)
+          || issue.category === 'datapack-failed'
           || issue.category === 'cross-family-files') && (
           <div className="flex flex-col gap-1.5 flex-shrink-0">
             {issue.category === 'cross-family-files' && (
@@ -184,6 +213,19 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false, t =
                 <span className="max-w-[150px] truncate">הסר {file}</span>
               </button>
             ))}
+            {/* FIX #6 — restart-to-apply: shown on datapack-failed rows AFTER the
+                per-file remove buttons. Removing the .zip doesn't rewrite the log,
+                so a fresh boot is what actually clears the diagnostic. */}
+            {issue.category === 'datapack-failed' && (
+              <button
+                onClick={restartToApply}
+                disabled={fixing}
+                className="bg-zinc-800 hover:bg-emerald-600 text-zinc-200 hover:text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                <RefreshCw size={14} className={fixing ? 'animate-spin' : ''} />
+                {t('healthRestartToApply')}
+              </button>
+            )}
           </div>
         )}
       </div>
