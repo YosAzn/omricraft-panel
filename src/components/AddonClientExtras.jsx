@@ -252,7 +252,7 @@ export function PremiumPluginGuide({ addon, t }) {
                 onClick={(e) => e.stopPropagation()}
                 className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-yellow-300 hover:text-yellow-200 border border-yellow-500/30 bg-yellow-500/10 rounded px-1.5 py-0.5 transition-colors whitespace-nowrap"
               >
-                {t('iaGuideStep1Link')} <ExternalLink size={11} />
+                {t('iaGuideStep1Link').replace('ItemsAdder', addon.name || 'ItemsAdder')} <ExternalLink size={11} />
               </a>
             )}
           </div>
