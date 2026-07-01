@@ -35,16 +35,16 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
 
   const handleRemoveJar = async (jarFile) => {
     if (userRole !== 'admin') return;
-    if (!window.confirm(`להסיר את ${jarFile}? השרת יצטרך הפעלה מחדש.`)) return;
+    if (!window.confirm(t('addonsRemoveConfirm', { file: jarFile }))) return;
     try {
       const res = await removePluginJarFn({ serverId: server.id, file: jarFile });
       const d = res.data || res;
-      if (!d.success) throw new Error(d.error || 'שגיאה');
+      if (!d.success) throw new Error(d.error || t('commonError'));
       loadInstalledPlugins();
-      alert('הוסר. הפעל מחדש את השרת כדי שייכנס לתוקף.');
+      alert(t('addonsRemovedRestart'));
     } catch (e) {
       console.error('handleRemoveJar failed:', e);
-      alert(`שגיאה: ${e.message}`);
+      alert(`${t('commonError')}: ${e.message}`);
     }
   };
 
@@ -58,11 +58,11 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
     try {
       const res = await reloadPluginFn({ serverId: server.id });
       const d = res.data || res;
-      if (!d.success) throw new Error(d.error || 'שגיאה');
+      if (!d.success) throw new Error(d.error || t('commonError'));
       loadInstalledPlugins();
-      alert('Plugins נטענו מחדש בהצלחה');
+      alert(t('addonsReloadSuccess'));
     } catch (e) {
-      alert(`שגיאה בטעינת Plugins: ${e.message}`);
+      alert(`${t('addonsReloadError')}: ${e.message}`);
     } finally {
       setReloading(false);
     }
@@ -189,7 +189,7 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Package size={16} className="text-green-500" />
-            <span className="font-bold text-sm">מותקן על השרת ({installedPlugins.length})</span>
+            <span className="font-bold text-sm">{t('addonsInstalledOnServer', { n: installedPlugins.length })}</span>
             {pluginsLoading && <RefreshCw size={14} className="animate-spin text-zinc-500" />}
           </div>
           <div className="flex items-center gap-2">
@@ -197,7 +197,7 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
               onClick={loadInstalledPlugins}
               disabled={pluginsLoading}
               className="p-1.5 hover:bg-zinc-800 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
-              title="רענן רשימה"
+              title={t('addonsRefreshList')}
             >
               <RefreshCw size={14} className={pluginsLoading ? 'animate-spin' : ''} />
             </button>
@@ -205,17 +205,17 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
               <button
                 onClick={handleReloadPlugins}
                 disabled={reloading || server.status !== 'online'}
-                title={server.status !== 'online' ? 'השרת לא פעיל' : 'Reload Plugins (reload confirm)'}
+                title={server.status !== 'online' ? t('addonsServerOffline') : 'Reload Plugins (reload confirm)'}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed text-sm rounded-lg transition-colors"
               >
                 <RefreshCcw size={14} className={reloading ? 'animate-spin' : ''} />
-                {reloading ? 'טוען...' : 'Reload Plugins'}
+                {reloading ? t('commonLoading') : 'Reload Plugins'}
               </button>
             )}
           </div>
         </div>
         {installedPlugins.length === 0 && !pluginsLoading ? (
-          <p className="text-zinc-600 text-sm">לא נמצאו קבצי .jar בתיקיית plugins</p>
+          <p className="text-zinc-600 text-sm">{t('addonsNoJars')}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {installedPlugins.map(p => (
@@ -224,7 +224,7 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
                 {p.name}
                 {p.size > 0 && <span className="text-zinc-600">({(p.size / 1024).toFixed(0)}kb)</span>}
                 {userRole === 'admin' && (
-                  <button onClick={() => handleRemoveJar(p.file)} className="text-zinc-500 hover:text-red-400 ml-1" title="הסר">
+                  <button onClick={() => handleRemoveJar(p.file)} className="text-zinc-500 hover:text-red-400 ml-1" title={t('commonRemove')}>
                     <X size={11} />
                   </button>
                 )}
@@ -372,12 +372,12 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
               ) : userRole === 'admin' && (
                 item.paid && !isInstalled ? (
                   item.buyUrl ? (
-                    <a href={item.buyUrl} target="_blank" rel="noreferrer noopener" title="תוסף בתשלום — רכישה מהמקור הרשמי"
+                    <a href={item.buyUrl} target="_blank" rel="noreferrer noopener" title={t('addonsPremiumBuyTitle')}
                       className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-sm border border-yellow-500/30 text-yellow-400 bg-yellow-500/5 hover:bg-yellow-500/15 whitespace-nowrap">
-                      💎 Premium — לרכישה
+                      💎 Premium — {t('addonsPremiumBuy')}
                     </a>
                   ) : (
-                    <a href="#" onClick={e => e.preventDefault()} title="Premium plugin — התקן ידנית מהאתר הרשמי"
+                    <a href="#" onClick={e => e.preventDefault()} title={t('addonsPremiumManualTitle')}
                       className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-sm border border-yellow-500/30 text-yellow-400 bg-yellow-500/5 cursor-not-allowed whitespace-nowrap">
                       💎 Premium
                     </a>

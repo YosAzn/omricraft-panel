@@ -35,7 +35,7 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false, t =
     if (action === 'remove-datapack') {
       const file = params?.file || '';
       const ok = window.confirm(
-        `למחוק את ה-datapack "${file}" מהשרת "${issue.serverName}"?\n\nהקובץ יימחק מתיקיית world/datapacks. לא ניתן לבטל.`
+        t('healthDatapackDeleteConfirm', { file, server: issue.serverName || '' })
       );
       if (!ok) return;
     }
@@ -50,18 +50,18 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false, t =
       } else if (action === 'remove-datapack') {
         res = await removeDatapackFn({ serverId: issue.serverId, file: params?.file });
       } else {
-        throw new Error(`פעולת תיקון לא מוכרת: ${action}`);
+        throw new Error(`${t('healthUnknownAction')}: ${action}`);
       }
       const d = res.data || res;
       if (!d.success) {
-        throw new Error(d.error || 'הפעולה נכשלה');
+        throw new Error(d.error || t('commonActionFailed'));
       }
       if (d.note) alert(d.note);
       // Re-scan so the parent list reflects the fix.
       if (typeof onFixed === 'function') await onFixed();
     } catch (e) {
       console.error('applyFix failed:', e);
-      alert(`התיקון נכשל: ${e.message}`);
+      alert(`${t('healthFixFailed')}: ${e.message}`);
     }
     setFixing(false);
   };
@@ -71,19 +71,19 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false, t =
   const removeOne = async (file) => {
     if (fixing) return;
     const ok = window.confirm(
-      `למחוק את ה-datapack "${file}" מהשרת "${issue.serverName}"?\n\nהקובץ יימחק מתיקיית world/datapacks. לא ניתן לבטל.`
+      t('healthDatapackDeleteConfirm', { file, server: issue.serverName || '' })
     );
     if (!ok) return;
     setFixing(true);
     try {
       const res = await removeDatapackFn({ serverId: issue.serverId, file });
       const d = res.data || res;
-      if (!d.success) throw new Error(d.error || 'הפעולה נכשלה');
+      if (!d.success) throw new Error(d.error || t('commonActionFailed'));
       if (d.note) alert(d.note);
       if (typeof onFixed === 'function') await onFixed();
     } catch (e) {
       console.error('removeOne failed:', e);
-      alert(`התיקון נכשל: ${e.message}`);
+      alert(`${t('healthFixFailed')}: ${e.message}`);
     }
     setFixing(false);
   };
@@ -100,14 +100,14 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false, t =
     try {
       const res = await restartServerFn({ serverId: issue.serverId });
       const d = res.data || res;
-      if (!d.success) throw new Error(d.error || 'הפעולה נכשלה');
+      if (!d.success) throw new Error(d.error || t('commonActionFailed'));
       if (d.note) alert(d.note);
       // Re-scan AFTER the restart so the panel reflects the current (post-boot)
       // state — the issue clears if resolved, or re-reports if a real problem remains.
       if (typeof onFixed === 'function') await onFixed();
     } catch (e) {
       console.error('restartToApply failed:', e);
-      alert(`התיקון נכשל: ${e.message}`);
+      alert(`${t('healthFixFailed')}: ${e.message}`);
     }
     setFixing(false);
   };
@@ -126,12 +126,12 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false, t =
     try {
       const res = await archiveIncompatibleFilesFn({ serverId: issue.serverId });
       const d = res.data || res;
-      if (!d.success) throw new Error(d.error || 'הפעולה נכשלה');
+      if (!d.success) throw new Error(d.error || t('commonActionFailed'));
       if (d.note) alert(d.note);
       if (typeof onFixed === 'function') await onFixed();
     } catch (e) {
       console.error('archiveIncompatible failed:', e);
-      alert(`התיקון נכשל: ${e.message}`);
+      alert(`${t('healthFixFailed')}: ${e.message}`);
     }
     setFixing(false);
   };
@@ -210,7 +210,7 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false, t =
                 className="bg-zinc-800 hover:bg-rose-600 text-zinc-200 hover:text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 whitespace-nowrap"
               >
                 {fixing ? <RefreshCw size={14} className="animate-spin" /> : <Wrench size={14} />}
-                <span className="max-w-[150px] truncate">הסר {file}</span>
+                <span className="max-w-[150px] truncate">{t('commonRemove')} {file}</span>
               </button>
             ))}
             {/* FIX #6 — restart-to-apply: shown on datapack-failed rows AFTER the

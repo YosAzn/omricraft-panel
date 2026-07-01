@@ -30,7 +30,7 @@ export default function FilesTab({ server, t, userRole }) {
       const res = await listFilesFn({ serverId: server.id, path: pathStr });
       const d = res.data || res;
       if (d.success) setEntries(d.entries || []);
-      else setError(d.error || 'שגיאה בטעינת קבצים');
+      else setError(d.error || t('filesLoadError'));
     } catch (e) { setError(e.message); }
     setLoading(false);
   };
@@ -46,8 +46,8 @@ export default function FilesTab({ server, t, userRole }) {
     try {
       const res = await readFileFn({ serverId: server.id, path: [...currentPath, entry.name].join('/') });
       const d = res.data || res;
-      if (!d.success) { setFileNote(d.error || 'שגיאה בקריאת הקובץ'); return; }
-      if (d.binary) { setFileNote(d.tooLarge ? 'הקובץ גדול מדי לתצוגה' : 'קובץ בינארי — לא ניתן לעריכה'); return; }
+      if (!d.success) { setFileNote(d.error || t('filesReadError')); return; }
+      if (d.binary) { setFileNote(d.tooLarge ? t('filesTooLargeView') : t('filesBinary')); return; }
       setEditingFile(entry.name);
       setFileContent(d.content || '');
     } catch (e) { setFileNote(e.message); }
@@ -65,7 +65,7 @@ export default function FilesTab({ server, t, userRole }) {
       const res = await writeFileFn({ serverId: server.id, path: [...currentPath, editingFile].join('/'), content: fileContent });
       const d = res.data || res;
       if (d.success) { setSavedMsg(true); setTimeout(() => setSavedMsg(false), 4000); }
-      else setFileNote(d.error || 'שמירה נכשלה');
+      else setFileNote(d.error || t('filesSaveError'));
     } catch (e) { setFileNote(e.message); }
     setSaving(false);
   };
@@ -73,13 +73,13 @@ export default function FilesTab({ server, t, userRole }) {
   const handleDelete = async (entry, e) => {
     e.stopPropagation();
     if (userRole !== 'admin') return;
-    if (!window.confirm(`למחוק את "${entry.name}"? פעולה בלתי הפיכה.`)) return;
+    if (!window.confirm(t('filesDeleteConfirm', { name: entry.name }))) return;
     setFileNote(null);
     try {
       const res = await deleteFileFn({ serverId: server.id, path: [...currentPath, entry.name].join('/') });
       const d = res.data || res;
       if (d.success) loadDir();
-      else setFileNote(d.error || 'מחיקה נכשלה');
+      else setFileNote(d.error || t('filesDeleteError'));
     } catch (err) { setFileNote(err.message); }
   };
 
@@ -91,7 +91,7 @@ export default function FilesTab({ server, t, userRole }) {
       const comma = res.indexOf(',');
       resolve(comma >= 0 ? res.slice(comma + 1) : res);
     };
-    reader.onerror = () => reject(reader.error || new Error('קריאת הקובץ נכשלה'));
+    reader.onerror = () => reject(reader.error || new Error(t('filesReadFailed')));
     reader.readAsDataURL(file);
   });
 
@@ -106,11 +106,11 @@ export default function FilesTab({ server, t, userRole }) {
 
     const ext = (file.name.slice(file.name.lastIndexOf('.')) || '').toLowerCase();
     if (ext !== '.jar' && ext !== '.zip') {
-      setUploadMsg('רק קבצי .jar או .zip נתמכים / Only .jar or .zip'); return;
+      setUploadMsg(t('filesUploadTypeError')); return;
     }
     if (file.size > UPLOAD_MAX_BYTES) {
       const maxMb = Math.floor(UPLOAD_MAX_BYTES / (1024 * 1024));
-      setUploadMsg(`הקובץ גדול מדי — מקסימום ${maxMb}MB / Max ${maxMb}MB`); return;
+      setUploadMsg(t('filesUploadSizeError', { maxMb })); return;
     }
 
     setUploading(true);
@@ -118,7 +118,7 @@ export default function FilesTab({ server, t, userRole }) {
       const contentBase64 = await fileToBase64(file);
       const res = await uploadServerFileFn({ serverId: server.id, dir: pathStr, filename: file.name, contentBase64 });
       const d = res.data || res;
-      if (!d.success) throw new Error(d.error || 'העלאה נכשלה');
+      if (!d.success) throw new Error(d.error || t('filesUploadFailed'));
       setUploadMsg(`✅ ${t('uploadOk')}: ${file.name}`);
       await loadDir();
     } catch (err) {
@@ -160,7 +160,7 @@ export default function FilesTab({ server, t, userRole }) {
           </button>
         )}
         {!editingFile && (
-          <button onClick={loadDir} className={`${userRole === 'admin' ? '' : 'ml-auto'} text-zinc-500 hover:text-white transition-colors text-xs`}>↻ רענן</button>
+          <button onClick={loadDir} className={`${userRole === 'admin' ? '' : 'ml-auto'} text-zinc-500 hover:text-white transition-colors text-xs`}>↻ {t('commonRefresh')}</button>
         )}
       </div>
 
@@ -196,7 +196,7 @@ export default function FilesTab({ server, t, userRole }) {
           <div className="bg-zinc-900 border-b border-zinc-800 p-3 flex justify-between items-center">
             <span className="font-mono text-sm text-zinc-300">{editingFile}</span>
             <div className="flex items-center gap-3">
-              {savedMsg && <span className="text-green-400 text-xs font-bold animate-pulse">{t('fileSaved')} — ייתכן שצריך הפעלה מחדש</span>}
+              {savedMsg && <span className="text-green-400 text-xs font-bold animate-pulse">{t('fileSaved')} — {t('filesRestartMayBeNeeded')}</span>}
               {fileNote && <span className="text-red-400 text-xs font-bold">{fileNote}</span>}
               {userRole === 'admin' && (
                 <button onClick={handleSave} disabled={saving} className="bg-green-600 hover:bg-green-500 text-white px-4 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors disabled:opacity-50">
@@ -220,11 +220,11 @@ export default function FilesTab({ server, t, userRole }) {
       ) : (
         <div className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl overflow-y-auto">
           {loading ? (
-            <div className="p-8 text-center text-zinc-600">טוען...</div>
+            <div className="p-8 text-center text-zinc-600">{t('commonLoading')}</div>
           ) : error ? (
             <div className="p-8 text-center text-red-400 text-sm">{error}</div>
           ) : entries.length === 0 ? (
-            <div className="p-8 text-center text-zinc-600">תיקייה ריקה</div>
+            <div className="p-8 text-center text-zinc-600">{t('filesEmptyFolder')}</div>
           ) : entries.map((entry) => {
             const isFolder = entry.type === 'dir';
             return (
@@ -241,7 +241,7 @@ export default function FilesTab({ server, t, userRole }) {
                   {!isFolder && <span className="text-xs text-zinc-600">{fmtSize(entry.size)}</span>}
                   {!isFolder && userRole === 'admin' && <Edit3 size={16} className="text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity"/>}
                   {!isFolder && userRole === 'admin' && (
-                    <button onClick={(e) => handleDelete(entry, e)} title="מחק"
+                    <button onClick={(e) => handleDelete(entry, e)} title={t('commonDelete')}
                       className="text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all">
                       <Trash2 size={16}/>
                     </button>

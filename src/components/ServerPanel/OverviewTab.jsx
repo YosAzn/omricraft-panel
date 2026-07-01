@@ -48,7 +48,7 @@ export default function OverviewTab({ server, t, playersLive }) {
           <div className="flex items-center gap-2 shrink-0">
             {copiedDomain && (
               <span className="text-xs text-emerald-400">
-                הועתק
+                {t('overviewCopied')}
               </span>
             )}
 
@@ -72,7 +72,7 @@ export default function OverviewTab({ server, t, playersLive }) {
               }}
               className="text-sm bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-lg transition-colors"
             >
-              {copiedDomain ? 'הועתק! ✓' : t('copyIp')}
+              {copiedDomain ? t('overviewCopiedCheck') : t('copyIp')}
             </button>
           </div>
         </div>
@@ -97,7 +97,7 @@ export default function OverviewTab({ server, t, playersLive }) {
         </div>
         <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-xl">
           <div className="text-zinc-400 text-xs mb-1">{t('opPlayers')}</div>
-          <div className="font-bold text-sm truncate" title={server.ops?.join(', ')}>{server.ops?.join(', ') || 'אין מנהלים'}</div>
+          <div className="font-bold text-sm truncate" title={server.ops?.join(', ')}>{server.ops?.join(', ') || t('overviewNoOps')}</div>
         </div>
       </div>
 

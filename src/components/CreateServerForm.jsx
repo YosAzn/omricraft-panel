@@ -215,7 +215,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
   // the createServer function is admin-enforced server-side regardless). The submit
   // button label reflects which action will happen.
   const submitLabel = isCreatingServer
-    ? (isAdmin ? 'יוצר עולם...' : '...')
+    ? (isAdmin ? t('csfCreatingWorld') : '...')
     : (isAdmin ? t('create') : t('requestServerCta'));
 
   return (
@@ -242,7 +242,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                <input type="text" value={name} onChange={(e) => setName(e.target.value)} required
                  placeholder="My Awesome Server" autoFocus
                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-4 text-white text-lg font-bold focus:outline-none focus:border-green-500 transition-all shadow-inner placeholder:text-zinc-600 placeholder:font-normal" />
-               <p className="text-xs text-zinc-500 mt-2">זה השם שיופיע לשחקנים ברשימת השרתים בתוך המשחק.</p>
+               <p className="text-xs text-zinc-500 mt-2">{t('csfNameHint')}</p>
              </div>
           </div>
 
@@ -280,7 +280,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
               <label className="block text-sm font-bold text-zinc-400 mb-2">{t('version')}</label>
               <select value={version} onChange={(e) => setVersion(e.target.value)}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 transition-all">
-                {typeVersions.map(v => <option key={v} value={v}>{v}{v === '1.21.4' ? ' (מומלץ)' : ''}</option>)}
+                {typeVersions.map(v => <option key={v} value={v}>{v}{v === '1.21.4' ? ` (${t('recommendedBadge')})` : ''}</option>)}
               </select>
               {/* Phase 5a — ViaVersion is PLUGIN-family only (Paper/Purpur/Folia + the
                   Mohist/Youer hybrids that run the plugin). It translates vanilla packets,
@@ -368,7 +368,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
             </div>
             <div>
               <label className="block text-sm font-bold text-zinc-400 mb-2">
-                זיכרון (RAM)
+                {t('csfRamLabel')}
                 <span className="ms-2 text-[11px] font-normal text-green-400">
                   {t('ramRecommendedLabel')}: {recommendedRamGb}GB
                 </span>
@@ -382,7 +382,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-zinc-500 mt-2">כמה זיכרון מוקצה לשרת. מודים/הרבה שחקנים → יותר. {t('ramModpackNote')}</p>
+              <p className="text-xs text-zinc-500 mt-2">{t('csfRamHint')} {t('ramModpackNote')}</p>
               {/* Phase 5c — soft warning when a selected modpack's weight+player-count
                   recommendation exceeds the chosen RAM. Hint only — never blocks creation. */}
               {modpackRamBelow && (
@@ -398,7 +398,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
              <label className="block text-sm font-bold text-red-400 mb-2">{t('opPlayers')}</label>
              <input type="text" placeholder={t('opPlayersDesc')} value={opsString} onChange={(e) => setOpsString(e.target.value)}
                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 transition-all placeholder:text-zinc-600" />
-             <p className="text-xs text-zinc-500 mt-2">רק השחקנים ברשימה זו יוכלו להשתמש בפקודות ניהול בשרת.</p>
+             <p className="text-xs text-zinc-500 mt-2">{t('csfOpHint')}</p>
           </div>
 
           {/* Private / Public toggle + Whitelist (no gap between them) */}
@@ -412,8 +412,8 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                   <Shield size={18} className={isPrivate ? 'text-yellow-400' : 'text-zinc-500'} />
                 </div>
                 <div>
-                  <p className={`font-bold text-sm ${isPrivate ? 'text-yellow-400' : 'text-zinc-300'}`}>{isPrivate ? 'שרת פרטי' : 'שרת ציבורי'}</p>
-                  <p className="text-xs text-zinc-500">{isPrivate ? 'רק שחקנים ב-Whitelist יוכלו להתחבר' : 'כל שחקן יכול להתחבר'}</p>
+                  <p className={`font-bold text-sm ${isPrivate ? 'text-yellow-400' : 'text-zinc-300'}`}>{isPrivate ? t('settingsPrivateServer') : t('settingsPublicServer')}</p>
+                  <p className="text-xs text-zinc-500">{isPrivate ? t('settingsPrivateHint') : t('settingsPublicHint')}</p>
                 </div>
               </div>
               <div className={`w-11 h-6 rounded-full transition-colors relative ${isPrivate ? 'bg-yellow-500' : 'bg-zinc-700'}`}>
@@ -425,7 +425,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                 <label className="block text-sm font-bold text-yellow-400 mb-2">{t('whitelistPlayers')}</label>
                 <input type="text" placeholder={t('whitelistPlayersDesc')} value={whitelistString} onChange={(e) => setWhitelistString(e.target.value)}
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500 transition-all placeholder:text-zinc-600" />
-                <p className="text-xs text-zinc-500 mt-2">שחקנים שלא ברשימה לא יוכלו להתחבר לשרת.</p>
+                <p className="text-xs text-zinc-500 mt-2">{t('csfWhitelistHint')}</p>
               </div>
             )}
           </div>
@@ -439,7 +439,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                       <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                       <input
                         type="text"
-                        placeholder="חיפוש תוסף..."
+                        placeholder={t('csfAddonSearch')}
                         value={addonSearch}
                         onChange={(e) => setAddonSearch(e.target.value)}
                         className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pr-9 pl-3 py-1.5 text-xs text-white focus:outline-none focus:border-zinc-600"
@@ -555,7 +555,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                     </div>
                     );
                  })}
-                 {searchedAddons.length === 0 && <div className="col-span-full p-4 text-center text-zinc-600 text-sm">לא נמצאו תוספים התואמים לחיפוש.</div>}
+                 {searchedAddons.length === 0 && <div className="col-span-full p-4 text-center text-zinc-600 text-sm">{t('csfNoAddonsFound')}</div>}
                </div>
             </div>
           )}
@@ -571,9 +571,9 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
               {eulaAccepted && <Check size={14} className="text-white" />}
             </div>
             <div className="min-w-0">
-              <p className={`font-bold text-sm ${eulaAccepted ? 'text-green-400' : 'text-zinc-300'}`}>אני מקבל את תנאי ה-EULA של Minecraft *</p>
+              <p className={`font-bold text-sm ${eulaAccepted ? 'text-green-400' : 'text-zinc-300'}`}>{t('csfEulaAccept')}</p>
               <p className="text-xs text-zinc-500 mt-1">
-                בהפעלת שרת אתה מסכים ל&rlm;{' '}
+                {t('csfEulaPrefix')}{' '}
                 <a
                   href="https://www.minecraft.net/en-us/eula"
                   target="_blank"
@@ -581,7 +581,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                   onClick={(e) => e.stopPropagation()}
                   className="inline-flex items-center text-green-400 hover:text-green-300 font-bold border border-green-500/30 bg-green-500/5 rounded px-1.5 py-0.5 transition-colors"
                 >
-                  תנאי השימוש של Mojang
+                  {t('csfEulaMojangTos')}
                 </a>
               </p>
             </div>

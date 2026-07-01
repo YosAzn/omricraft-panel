@@ -36,7 +36,7 @@ export default function App() {
   const [lang, setLang] = useState('he');
   // translate() falls back current lang -> en -> he -> key, so the 8 partial
   // languages never render blank while their dictionaries are still empty.
-  const t = (key) => translate(lang, key);
+  const t = (key, params) => translate(lang, key, params);
   const dir = dirForLang(lang); // 'rtl' for he & ar, 'ltr' otherwise
   const isRtl = dir === 'rtl';
 

@@ -27,10 +27,10 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
   const applyServerProperty = async (field, value) => {
     try {
       const res = await updateServerPropertiesFn({ serverId: server.id, properties: { [field]: value } });
-      if (!res.data?.success) throw new Error(res.data?.error || 'שגיאה לא ידועה');
+      if (!res.data?.success) throw new Error(res.data?.error || t('settingsUnknownError'));
     } catch(e) {
       console.error('updateServerProperties error:', e);
-      alert(`שגיאה בעדכון הגדרות: ${e.message}`);
+      alert(`${t('settingsUpdateError')}: ${e.message}`);
     }
   };
 
@@ -75,20 +75,20 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
     const staleIds = new Set(stale.map(a => a.id));
 
     const newName = (SOFTWARE_TYPES.find(s => s.id === newType) || {}).name || newType;
-    let warn = `שינוי סוג השרת ל-${newName} יבצע את הפעולות הבאות:\n` +
-      `• השרת יופעל מחדש (downtime קצר).\n` +
-      `• גרסת השרת תיקבע ל-${newVersion}.\n`;
+    let warn = t('settingsTypeWarnIntro', { newName }) + `\n` +
+      `• ${t('settingsTypeWarnRestart')}\n` +
+      `• ${t('settingsTypeWarnVersion', { newVersion })}\n`;
     if (isCrossFamily(prevType, newType)) {
-      warn += `• ⚠️ הפלאגינים/מודים הקיימים לא יעברו! מעבר בין Bukkit (paper/purpur/folia/mohist) ל-Fabric (מודים) הוא מעבר משפחה — תצטרך להתקין מחדש את התוספות המתאימות לסוג החדש.\n`;
+      warn += `• ${t('settingsTypeWarnCrossFamily')}\n`;
     }
     if (newType === 'fabric') {
-      warn += `• יותקן אוטומטית FabricProxy-Lite (נדרש כדי שהשחקנים יוכלו להתחבר דרך הפרוקסי שלנו).\n`;
+      warn += `• ${t('settingsTypeWarnFabricProxy')}\n`;
     }
     if (stale.length) {
       const names = stale.map(a => a.name || a.id).join(', ');
-      warn += `• ⚠️ התוספות הבאות אינן תואמות ל-${newName} ויוסרו מהרשימה: ${names}.\n`;
+      warn += `• ${t('settingsTypeWarnStale', { newName, names })}\n`;
     }
-    warn += `\nהעולם (world) לא ייפגע. להמשיך?`;
+    warn += `\n${t('settingsTypeWarnWorldSafe')}`;
     if (!window.confirm(warn)) return;
 
     setTypeSaving(true);
@@ -100,13 +100,13 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
     updateServer(optimistic); // optimistic
     try {
       const res = await changeServerTypeFn({ serverId: server.id, type: newType, version: newVersion });
-      if (!res.data?.success) throw new Error(res.data?.error || 'שינוי סוג השרת נכשל');
+      if (!res.data?.success) throw new Error(res.data?.error || t('settingsTypeChangeFailed'));
     } catch (e) {
       console.error('changeServerType error:', e);
       const rollback = { software: prevType, version: prevVersion };
       if (staleIds.size) rollback.installedAddons = prevInstalledAddons; // restore pruned addons
       updateServer(rollback); // rollback
-      alert(`שגיאה בשינוי סוג השרת: ${e.message}`);
+      alert(`${t('settingsTypeChangeError')}: ${e.message}`);
     } finally {
       setTypeSaving(false);
     }
@@ -116,16 +116,16 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
   const handleVersionChange = async (newVersion) => {
     const prevVersion = server.version;
     if (!newVersion || newVersion === prevVersion) return;
-    if (!window.confirm('שינוי גרסה יוריד גרסה חדשה ויפעיל מחדש את השרת. להמשיך?')) return;
+    if (!window.confirm(t('settingsVersionConfirm'))) return;
     setVersionSaving(true);
     updateServer({ version: newVersion }); // optimistic
     try {
       const res = await changeServerVersionFn({ serverId: server.id, version: newVersion, type: server.software });
-      if (!res.data?.success) throw new Error(res.data?.error || 'שינוי הגרסה נכשל');
+      if (!res.data?.success) throw new Error(res.data?.error || t('settingsVersionChangeFailed'));
     } catch (e) {
       console.error('changeServerVersion error:', e);
       updateServer({ version: prevVersion }); // rollback
-      alert(`שגיאה בשינוי הגרסה: ${e.message}`);
+      alert(`${t('settingsVersionChangeError')}: ${e.message}`);
     } finally {
       setVersionSaving(false);
     }
@@ -138,11 +138,11 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
     updateServer({ memoryMb: newMemoryMb }); // optimistic
     try {
       const res = await updateServerMemoryFn({ serverId: server.id, memoryMb: newMemoryMb });
-      if (!res.data?.success) throw new Error(res.data?.error || 'עדכון ה-RAM נכשל');
+      if (!res.data?.success) throw new Error(res.data?.error || t('settingsRamChangeFailed'));
     } catch (e) {
       console.error('updateServerMemory error:', e);
       updateServer({ memoryMb: prev }); // rollback
-      alert(`שגיאה בעדכון ה-RAM: ${e.message}`);
+      alert(`${t('settingsRamChangeError')}: ${e.message}`);
     }
   };
 
@@ -165,7 +165,7 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
                    } catch(e) {
                      console.error('updateServerIcon error:', e);
                      updateServer({ icon: prevIcon }); // rollback — keep Firestore and VPS in sync
-                     alert(`שגיאה בעדכון הלוגו: ${e.message}`);
+                     alert(`${t('settingsIconError')}: ${e.message}`);
                    }
                  }
                }}
@@ -184,7 +184,7 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
           <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-4">
             <label className="block text-sm text-zinc-400 mb-2 flex items-center gap-2">
               {t('software')}
-              {typeSaving && <span className="text-xs text-zinc-500 animate-pulse">מחליף סוג שרת...</span>}
+              {typeSaving && <span className="text-xs text-zinc-500 animate-pulse">{t('settingsSwitchingType')}</span>}
             </label>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
               {changeableSoftware.map(sw => (
@@ -199,7 +199,7 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
               ))}
             </div>
             <p className="text-xs text-zinc-500 mt-2">
-              שינוי הסוג מפעיל מחדש את השרת. מעבר בין Bukkit (paper/purpur/folia/mohist) ל-Fabric לא מעביר את הפלאגינים/מודים.
+              {t('settingsTypeHint')}
             </p>
           </div>
 
@@ -207,23 +207,23 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
             <div>
               <label className="block text-sm text-zinc-400 mb-1 flex items-center gap-2">
                 {t('version')}
-                {versionSaving && <span className="text-xs text-zinc-500 animate-pulse">מחליף גרסה...</span>}
+                {versionSaving && <span className="text-xs text-zinc-500 animate-pulse">{t('settingsSwitchingVersion')}</span>}
               </label>
               <select value={server.version} disabled={versionSaving} onChange={(e) => handleVersionChange(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2 text-white outline-none focus:border-zinc-600 disabled:opacity-50">
-                {currentVersionMissing && <option value={server.version} disabled>{server.version} (נוכחית/legacy)</option>}
+                {currentVersionMissing && <option value={server.version} disabled>{server.version} {t('settingsVersionLegacy')}</option>}
                 {typeVersions.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
               {currentVersionMissing && (
                 <p className="text-xs text-amber-400 mt-1">
-                  הגרסה הנוכחית ({server.version}) אינה ברשימת הגרסאות הזמינות לסוג זה — בחר גרסה חדשה כדי לעדכן.
+                  {t('settingsVersionMissing', { version: server.version })}
                 </p>
               )}
               <p className="text-xs text-blue-400 mt-1">
-                💡 ViaVersion מותקן אצלנו — שחקנים מ<b>כל</b> גרסה (כולל 26.x) מתחברים לשרת הזה.
+                {t('settingsViaVersionInfo')}
               </p>
               {isViaVersion(server.version) && (
                 <p className="text-xs text-zinc-500 mt-1">
-                  זו גרסה חדשה מ-Paper — כאן יש תוכן {server.version} מלא (לתוכן 26.x בחר Purpur/Fabric).
+                  {t('settingsPaperContentInfo', { version: server.version })}
                 </p>
               )}
             </div>
@@ -238,7 +238,7 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
                   <option key={mb} value={mb}>{(mb / 1024).toFixed(mb % 1024 === 0 ? 0 : 1)} GB ({mb} MB)</option>
                 ))}
               </select>
-              <p className="text-xs text-zinc-500 mt-1">נכנס לתוקף בהפעלה הבאה (מקסימום כולל ~12000MB לכל השרתים)</p>
+              <p className="text-xs text-zinc-500 mt-1">{t('settingsRamHint')}</p>
             </div>
             <div>
               <label className="block text-sm text-zinc-400 mb-1">{t('gamemode')}</label>
@@ -275,7 +275,7 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
               } catch(e) {
                 console.error('setServerPrivacy error:', e);
                 updateServer({ isPrivate: !newVal }); // rollback
-                alert(`שגיאה בשינוי פרטיות השרת: ${e.message}`);
+                alert(`${t('settingsPrivacyError')}: ${e.message}`);
               }
             }}
             className={`flex items-center justify-between rounded-xl p-4 cursor-pointer border transition-all ${server.isPrivate ? 'bg-yellow-500/10 border-yellow-500/40' : 'bg-zinc-950 border-zinc-800 hover:border-zinc-600'}`}
@@ -285,8 +285,8 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
                 <Shield size={18} className={server.isPrivate ? 'text-yellow-400' : 'text-zinc-500'} />
               </div>
               <div>
-                <p className={`font-bold text-sm ${server.isPrivate ? 'text-yellow-400' : 'text-zinc-300'}`}>{server.isPrivate ? 'שרת פרטי' : 'שרת ציבורי'}</p>
-                <p className="text-xs text-zinc-500">{server.isPrivate ? 'רק שחקנים ב-Whitelist יוכלו להתחבר' : 'כל שחקן יכול להתחבר'}</p>
+                <p className={`font-bold text-sm ${server.isPrivate ? 'text-yellow-400' : 'text-zinc-300'}`}>{server.isPrivate ? t('settingsPrivateServer') : t('settingsPublicServer')}</p>
+                <p className="text-xs text-zinc-500">{server.isPrivate ? t('settingsPrivateHint') : t('settingsPublicHint')}</p>
               </div>
             </div>
             <div className={`w-11 h-6 rounded-full transition-colors relative ${server.isPrivate ? 'bg-yellow-500' : 'bg-zinc-700'}`}>
@@ -294,15 +294,15 @@ export default function SettingsTab({ server, onDelete, updateServer, t, mcVersi
             </div>
           </div>
 
-          <OpsEditor server={server} updateServer={updateServer} />
+          <OpsEditor server={server} updateServer={updateServer} t={t} />
 
           {/* Whitelist players — only shown when server is private */}
           {server.isPrivate && (
-            <WhitelistEditor server={server} updateServer={updateServer} />
+            <WhitelistEditor server={server} updateServer={updateServer} t={t} />
           )}
 
           <div>
-            <label className="block text-sm text-zinc-400 mb-1 flex items-center gap-2"><MessageCircle size={16} className="text-indigo-400" /> {t('discordWebhook')} <span className="text-xs bg-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">בקרוב</span></label>
+            <label className="block text-sm text-zinc-400 mb-1 flex items-center gap-2"><MessageCircle size={16} className="text-indigo-400" /> {t('discordWebhook')} <span className="text-xs bg-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{t('comingSoon')}</span></label>
             <input type="text" disabled placeholder="https://discord.com/api/webhooks/..." value={server.discordWebhook || ''} className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2 text-zinc-500 outline-none text-sm cursor-not-allowed" />
           </div>
         </div>

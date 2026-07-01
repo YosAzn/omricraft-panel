@@ -12,14 +12,14 @@ export default function DifficultyControl({ server, updateServer, t }) {
     try {
       const res = await changeDifficultyFn({ serverId: server.id, difficulty: newDifficulty });
       if (res && res.data && res.data.success === false) {
-        throw new Error(res.data.error || 'שינוי הדרגה נכשל');
+        throw new Error(res.data.error || t('difficultyChangeFailed'));
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (e) {
       console.error('changeDifficulty error', e);
       updateServer({ difficulty: prevDifficulty }); // rollback — keep Firestore/VPS in sync
-      alert(`שגיאה בשינוי דרגת הקושי: ${e.message}`);
+      alert(`${t('difficultyChangeError')}: ${e.message}`);
     } finally {
       setSaving(false);
     }
@@ -37,8 +37,8 @@ export default function DifficultyControl({ server, updateServer, t }) {
     <div>
       <label className="block text-sm text-zinc-400 mb-2 flex items-center gap-2">
         {t('difficulty')}
-        {saving && <span className="text-xs text-zinc-500 animate-pulse">שומר...</span>}
-        {saved && <span className="text-xs text-green-400">✓ נשמר</span>}
+        {saving && <span className="text-xs text-zinc-500 animate-pulse">{t('commonSaving')}</span>}
+        {saved && <span className="text-xs text-green-400">{t('commonSaved')}</span>}
       </label>
       <div className="flex gap-2 flex-wrap">
         {options.map(opt => (
@@ -55,7 +55,7 @@ export default function DifficultyControl({ server, updateServer, t }) {
           </button>
         ))}
       </div>
-      <p className="text-xs text-zinc-500 mt-1">מעדכן את server.properties ושולח פקודה RCON לשרת פעיל</p>
+      <p className="text-xs text-zinc-500 mt-1">{t('difficultyHint')}</p>
     </div>
   );
 }

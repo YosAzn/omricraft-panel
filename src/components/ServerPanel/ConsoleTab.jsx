@@ -18,7 +18,7 @@ export default function ConsoleTab({ server, t, userRole }) {
           setLogs(data.log);
         }
       } catch(e) {
-        if (!cancelled) setLogs([`[ERROR]: לא ניתן לטעון לוג: ${e.message}`]);
+        if (!cancelled) setLogs([`[ERROR]: ${t('consoleLogLoadError')}: ${e.message}`]);
       }
     };
     fetchLogs();
@@ -40,7 +40,7 @@ export default function ConsoleTab({ server, t, userRole }) {
       const result = await sendMcCommand({ serverId: server.id, command: cmd });
       const data = result.data || result;
       if (data.success) {
-        setLogs(prev => [...prev, `[RCON]: ${data.output || '✓ הפקודה בוצעה'}`]);
+        setLogs(prev => [...prev, `[RCON]: ${data.output || t('consoleCommandDone')}`]);
       } else {
         setLogs(prev => [...prev, `[ERROR]: ${data.error || 'Command failed'}`]);
       }
@@ -59,7 +59,7 @@ export default function ConsoleTab({ server, t, userRole }) {
     <div className="h-full flex flex-col animate-in fade-in">
       <div className="bg-zinc-950 border border-zinc-800 rounded-t-xl p-3 flex justify-between items-center">
         <h3 className="font-bold flex items-center gap-2"><Terminal size={18} className="text-zinc-400" /> {t('console')}</h3>
-        {server.status !== 'online' && <span className="text-xs text-yellow-400 flex items-center gap-1"><AlertCircle size={14}/> סטטוס לא ידוע — נסה לשלוח פקודה</span>}
+        {server.status !== 'online' && <span className="text-xs text-yellow-400 flex items-center gap-1"><AlertCircle size={14}/> {t('consoleUnknownStatus')}</span>}
       </div>
       <div className="flex-1 bg-black border-x border-zinc-800 p-4 font-mono text-sm overflow-y-auto text-zinc-300 min-h-[300px]" dir="ltr">
         {logs.map((log, i) => {
@@ -80,7 +80,7 @@ export default function ConsoleTab({ server, t, userRole }) {
       <div className="border border-zinc-800 rounded-b-xl overflow-hidden flex">
         <input
           type="text"
-          placeholder={userRole === 'admin' ? 'הכנס פקודה...' : 'אין הרשאה'}
+          placeholder={userRole === 'admin' ? t('consolePlaceholder') : t('consoleNoPermission')}
           disabled={userRole !== 'admin' || sending}
           value={consoleInput}
           onChange={e => setConsoleInput(e.target.value)}

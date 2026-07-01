@@ -90,7 +90,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
     try {
       const res = await suggestModpackFn({ theme: builderTheme.trim(), model: builderModel, mcVersion: '1.21.11' });
       const data = res?.data;
-      if (!data?.success) throw new Error(data?.error || 'הבקשה נכשלה');
+      if (!data?.success) throw new Error(data?.error || t('repoRequestFailed'));
       setBuilderResult(data);
     } catch (e) {
       console.error('Modpack Builder failed:', e);
@@ -111,7 +111,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
       onAdd({
         id,
         name: m.title,
-        desc: m.description || `מוד מ-Modrinth (${m.slug})`,
+        desc: m.description || t('repoModrinthModDesc', { slug: m.slug }),
         type: 'mods',
         fileUrl: m.url,
         downloads: typeof m.downloads === 'number' ? m.downloads.toLocaleString() : 'Custom'
@@ -121,7 +121,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
     const themeLabel = builderResult?.theme || builderTheme.trim();
     onAdd({
       name: `Modpack: ${themeLabel}`.slice(0, 60),
-      desc: `${mods.length} מודים מ-Modrinth סביב הנושא "${themeLabel}"`,
+      desc: t('repoModrinthPackDesc', { count: mods.length, theme: themeLabel }),
       type: 'modpacks',
       includedAddons: ids,
       downloads: 'Custom'
@@ -161,7 +161,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
     onAdd({
         id: newId,
         name: qaName,
-        desc: qaDesc || 'נוסף דרך יצירת מודפאק',
+        desc: qaDesc || t('repoAddedViaModpack'),
         type: qaType,
         fileUrl: qaUrl,
         downloads: 'Custom'
@@ -247,7 +247,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
                 <input required value={newDesc} onChange={e=>setNewDesc(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white outline-none focus:border-green-500" />
              </div>
              <div>
-                <label className="block text-xs text-zinc-400 mb-1">סוג התוסף</label>
+                <label className="block text-xs text-zinc-400 mb-1">{t('repoAddonType')}</label>
                 <select value={newType} onChange={e=>setNewType(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-white outline-none focus:border-green-500">
                   <option value="mods">{t('mods')}</option>
                   <option value="plugins">{t('plugins')}</option>
@@ -266,7 +266,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
              <label className="block text-xs text-zinc-400 mb-0.5 font-bold flex items-center gap-1"><LinkIcon size={14}/> {t('orLink')}</label>
              <p className="text-[11px] text-green-400/80 mb-1.5">{t('addCustomAddonHint')}</p>
              <input type="url" placeholder="https://modrinth.com/..." value={fileUrl} onChange={e=>setFileUrl(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-green-500" />
-             <p className="text-[11px] text-zinc-500 mt-1">התוסף נשמר כהפניה בספרייה הגלובלית. להתקנה אוטומטית בשרת — השתמש בקטלוג המובנה (Modrinth); תוסף מותאם מותקן ידנית.</p>
+             <p className="text-[11px] text-zinc-500 mt-1">{t('repoCustomAddonHelp')}</p>
            </div>
            
            <div className="flex justify-end mt-4">
@@ -311,26 +311,26 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
 
                <div>
                   <div className="flex justify-between items-center mb-1">
-                     <label className="block text-xs text-zinc-400">{t('selectModsForPack')} ({mpSelectedMods.length} נבחרו)</label>
+                     <label className="block text-xs text-zinc-400">{t('selectModsForPack')} ({t('repoSelectedCount', { n: mpSelectedMods.length })})</label>
                      <button type="button" onClick={() => setQuickAdd(!quickAdd)} className="text-xs font-bold text-pink-400 hover:text-pink-300 flex items-center gap-1 transition-colors">
-                        <Plus size={14}/> תוסף חסר במאגר? הוסף עכשיו
+                        <Plus size={14}/> {t('repoQuickAddCta')}
                      </button>
                   </div>
                   <p className="text-[11px] text-zinc-500 mb-2">{t('modpackLibraryNote')}</p>
 
                   {quickAdd && (
                      <div className="bg-zinc-950 p-4 rounded-xl border border-pink-500/30 mb-3 animate-in fade-in">
-                        <h4 className="text-xs font-bold text-pink-400 mb-3">הוספה מהירה למאגר</h4>
+                        <h4 className="text-xs font-bold text-pink-400 mb-3">{t('repoQuickAddTitle')}</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                           <input placeholder="שם התוסף" value={qaName} onChange={e=>setQaName(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-pink-500" />
+                           <input placeholder={t('repoQaNamePlaceholder')} value={qaName} onChange={e=>setQaName(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-pink-500" />
                            <select value={qaType} onChange={e=>setQaType(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-pink-500">
                               <option value="mods">{t('mods')}</option>
                               <option value="textures">{t('textures')}</option>
                            </select>
-                           <input placeholder="תיאור קצר (אופציונלי)" value={qaDesc} onChange={e=>setQaDesc(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-pink-500 sm:col-span-2" />
-                           <input placeholder="קישור להורדה" value={qaUrl} onChange={e=>setQaUrl(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-pink-500 sm:col-span-2" />
+                           <input placeholder={t('repoQaDescPlaceholder')} value={qaDesc} onChange={e=>setQaDesc(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-pink-500 sm:col-span-2" />
+                           <input placeholder={t('repoQaUrlPlaceholder')} value={qaUrl} onChange={e=>setQaUrl(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-pink-500 sm:col-span-2" />
                         </div>
-                        <button type="button" onClick={handleQuickAddSubmit} className="bg-pink-600 hover:bg-pink-500 text-white text-xs px-4 py-2 rounded-lg font-bold w-full transition-colors">שמור במאגר וסמן במודפאק</button>
+                        <button type="button" onClick={handleQuickAddSubmit} className="bg-pink-600 hover:bg-pink-500 text-white text-xs px-4 py-2 rounded-lg font-bold w-full transition-colors">{t('repoQuickAddSave')}</button>
                      </div>
                   )}
 
@@ -475,7 +475,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
               <div className="flex items-center gap-4 overflow-hidden">
                 <div className="w-12 h-12 flex-shrink-0 bg-zinc-950 rounded-lg flex items-center justify-center border border-zinc-800 relative">
                   <IconComp size={20} className={isCustom ? "text-green-400" : typeTextColor(a.type)} />
-                  {isCustom && (a.fileUrl || a.fileName) && <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border border-zinc-950" title="קובץ מקושר" />}
+                  {isCustom && (a.fileUrl || a.fileName) && <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border border-zinc-950" title={t('repoLinkedFile')} />}
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-1">

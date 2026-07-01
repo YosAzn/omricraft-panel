@@ -305,7 +305,7 @@ export default function Dashboard({
                   onClick={onDeleteAll}
                   className="bg-red-900/40 hover:bg-red-800/60 text-red-400 border border-red-800/40 px-3 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-all whitespace-nowrap"
                 >
-                  <Trash2 size={16} /> <span>מחק הכל</span>
+                  <Trash2 size={16} /> <span>{t('dashDeleteAll')}</span>
                 </button>
               )}
             </>
@@ -362,7 +362,7 @@ export default function Dashboard({
                   <div className="flex items-center gap-2">
                     {server.isPrivate && (
                       <div className="px-2 py-1 rounded-full text-[10px] font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 flex items-center gap-1">
-                        <Shield size={10} /> פרטי
+                        <Shield size={10} /> {t('dashPrivateBadge')}
                       </div>
                     )}
                     <div className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold flex items-center gap-1.5 whitespace-nowrap
@@ -386,7 +386,7 @@ export default function Dashboard({
                     </div>
                   )}
                   <div className="flex items-center gap-2 text-sm text-zinc-400">
-                    <HardDrive size={14} /> <span>{server.installedAddons.length} תוספים מותקנים</span>
+                    <HardDrive size={14} /> <span>{server.installedAddons.length} {t('dashAddons')}</span>
                   </div>
                 </div>
               </div>

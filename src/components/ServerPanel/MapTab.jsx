@@ -20,11 +20,11 @@ export default function MapTab({ server, t }) {
           <div className="text-zinc-500 flex flex-col items-center gap-3 text-center px-8 z-10">
             <MapIcon size={40} className="text-zinc-700"/>
             {server.status !== 'online' ? (
-              <p>הפעל את השרת כדי לצפות במפה החיה</p>
+              <p>{t('mapStartToView')}</p>
             ) : (
               <>
-                <p className="text-sm">מפת BlueMap החיה</p>
-                <p className="text-xs text-zinc-600">בקרוב — מפת תלת-ממד חיה של העולם, ישירות בדפדפן</p>
+                <p className="text-sm">{t('mapBlueMapLive')}</p>
+                <p className="text-xs text-zinc-600">{t('mapComingSoon')}</p>
               </>
             )}
           </div>

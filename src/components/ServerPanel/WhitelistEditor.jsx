@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Shield, X } from 'lucide-react';
 import { updateWhitelistPlayersFn } from '../../lib/api';
 
-export default function WhitelistEditor({ server, updateServer }) {
+export default function WhitelistEditor({ server, updateServer, t = (k) => k }) {
   const [input, setInput] = useState('');
   const [saving, setSaving] = useState(false);
   const players = server.whitelistPlayers || [];
@@ -19,7 +19,7 @@ export default function WhitelistEditor({ server, updateServer }) {
     } catch(e) {
       console.error('updateWhitelistPlayers error:', e);
       updateServer({ whitelistPlayers: players }); // rollback — remove the player we just added
-      alert(`שגיאה בהוספת שחקן ל-Whitelist: ${e.message}`);
+      alert(`${t('whitelistAddError')}: ${e.message}`);
     }
     setSaving(false);
   };
@@ -33,7 +33,7 @@ export default function WhitelistEditor({ server, updateServer }) {
     } catch(e) {
       console.error('updateWhitelistPlayers error:', e);
       updateServer({ whitelistPlayers: players }); // rollback — re-add the player we just removed
-      alert(`שגיאה בהסרת שחקן מה-Whitelist: ${e.message}`);
+      alert(`${t('whitelistRemoveError')}: ${e.message}`);
     }
     setSaving(false);
   };
@@ -42,13 +42,13 @@ export default function WhitelistEditor({ server, updateServer }) {
     <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-4 space-y-3">
       <div className="flex items-center gap-2">
         <Shield size={16} className="text-yellow-400" />
-        <span className="text-sm font-bold text-yellow-400">ניהול Whitelist</span>
-        {saving && <span className="text-xs text-zinc-500 animate-pulse">שומר...</span>}
+        <span className="text-sm font-bold text-yellow-400">{t('whitelistManageTitle')}</span>
+        {saving && <span className="text-xs text-zinc-500 animate-pulse">{t('commonSaving')}</span>}
       </div>
       <div className="flex gap-2">
         <input
           type="text"
-          placeholder="הכנס שם שחקן..."
+          placeholder={t('whitelistPlaceholder')}
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && addPlayer()}
@@ -56,7 +56,7 @@ export default function WhitelistEditor({ server, updateServer }) {
           dir="ltr"
         />
         <button onClick={addPlayer} className="px-3 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 rounded-lg text-sm font-bold transition-colors">
-          הוסף
+          {t('commonAdd')}
         </button>
       </div>
       {players.length > 0 ? (
@@ -71,7 +71,7 @@ export default function WhitelistEditor({ server, updateServer }) {
           ))}
         </div>
       ) : (
-        <p className="text-xs text-zinc-500">אין שחקנים ב-Whitelist — אף אחד לא יוכל להתחבר (מלבד OPs)</p>
+        <p className="text-xs text-zinc-500">{t('whitelistEmpty')}</p>
       )}
     </div>
   );
