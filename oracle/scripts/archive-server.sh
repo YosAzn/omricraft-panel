@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: ./archive-server.sh SERVER_ID
+# Usage: ./archive-server.sh SERVER_ID [ADDONS_JSON]
+#
+# ADDONS_JSON (optional): a JSON array of the server's installedAddons catalog ids
+#   (e.g. ["m3","p4","d2","t3"]) passed THROUGH from the Firestore server doc at
+#   delete time. Mod/plugin JAR *filenames* alone are not enough to re-fetch mods
+#   precisely on restore, so the authoritative catalog id list is captured here as
+#   manifest.installedAddons — restore-server.sh drives the SAME install flow the
+#   create flow uses (install-mod by slug, datapacks, resourcepacks) from these ids.
+#   Additive: when omitted (old 1-arg call) installedAddons is written as [].
 #
 # Creates a REVERSIBLE soft-delete archive of a server BEFORE it is hard-deleted.
 # The archive lives on the VPS (NOT Firestore) to avoid the Oracle<->Firestore
@@ -22,11 +30,14 @@ set -euo pipefail
 # Prints "OK <tarball> <bytes>" on success (mirrors backup-server.sh contract).
 
 if [ "$#" -lt 1 ]; then
-  echo "Usage: $0 SERVER_ID" >&2
+  echo "Usage: $0 SERVER_ID [ADDONS_JSON]" >&2
   exit 1
 fi
 
 SERVER_ID="$1"
+# Optional catalog-id array (from the Firestore server doc's installedAddons),
+# passed through by delete-server.sh. Default to an empty array for old callers.
+ADDONS_JSON="${2:-[]}"
 
 BASE="/home/ubuntu/omricraft"
 SERVERS_DIR="$BASE/servers"
@@ -125,12 +136,20 @@ SIZE_BYTES=$(stat -c '%s' "$TARBALL")
 # (no fragile shell round-trip). loader is derived from type. ---
 MODS_DIR="$SERVER_DIR/mods"
 PLUGINS_DIR="$SERVER_DIR/plugins"
+# ADDONS_JSON is passed as argv[1] (NOT interpolated into the JS source) so arbitrary
+# characters can never break out of the string / inject code. It is parsed defensively:
+# a malformed value degrades to [] rather than aborting the archive.
 node -e "
   const fs=require('fs');
   function jars(dir){
     try { return fs.readdirSync(dir).filter(f=>f.toLowerCase().endsWith('.jar')); }
     catch(e){ return []; }
   }
+  let installedAddons=[];
+  try {
+    const parsed=JSON.parse(process.argv[1]||'[]');
+    if(Array.isArray(parsed)) installedAddons=parsed.filter(x=>typeof x==='string');
+  } catch(e){ installedAddons=[]; }
   let meta={};
   try {
     let arr=JSON.parse(fs.readFileSync('$SERVERS_JSON','utf8'));
@@ -149,11 +168,12 @@ node -e "
     purgeAt: $PURGE_AT,
     mods: jars('$MODS_DIR'),
     plugins: jars('$PLUGINS_DIR'),
+    installedAddons: installedAddons,
     sizeBytes: $SIZE_BYTES,
     archiveFile: '${SERVER_ID}-${EPOCH}.tar.gz'
   };
   fs.writeFileSync('$MANIFEST', JSON.stringify(manifest, null, 2));
-"
+" "$ADDONS_JSON"
 
 if [ ! -s "$MANIFEST" ]; then
   echo "[$(date)] ERROR: manifest not written: $MANIFEST — removing tarball and failing." >&2

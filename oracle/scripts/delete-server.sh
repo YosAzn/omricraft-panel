@@ -1,21 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: ./delete-server.sh SERVER_ID [MODE]
+# Usage: ./delete-server.sh SERVER_ID [MODE] [ADDONS_JSON]
 #   MODE = soft (default) | permanent
+#   ADDONS_JSON = JSON array of the server's installedAddons catalog ids (optional)
 #
 # soft (default): archive the server FIRST (reversible 30-day VPS backup via
 #   archive-server.sh — must SUCCEED), THEN do the existing hard removal.
 # permanent: skip the archive and do the current hard-delete behaviour.
 # Backward-compatible: an old 1-arg call (no MODE) behaves as soft.
+#
+# ADDONS_JSON is passed THROUGH to archive-server.sh so the manifest records the
+# authoritative catalog id list (installedAddons) for a faithful restore (D2). It
+# is only used in soft mode; permanent skips the archive. Omitting it → [].
 
 if [ "$#" -lt 1 ]; then
-  echo "Usage: $0 SERVER_ID [soft|permanent]"
+  echo "Usage: $0 SERVER_ID [soft|permanent] [ADDONS_JSON]"
   exit 1
 fi
 
 SERVER_ID="$1"
 MODE="${2:-soft}"
+ADDONS_JSON="${3:-[]}"
 
 if [ "$MODE" != "soft" ] && [ "$MODE" != "permanent" ]; then
   echo "[$(date)] ERROR: invalid MODE '$MODE' (expected soft|permanent)." >&2
@@ -70,7 +76,7 @@ bash "$SCRIPTS_DIR/stop-server.sh" "$SERVER_ID" 2>/dev/null || true
 if [ "$MODE" = "soft" ]; then
   if [ -d "$SERVER_DIR" ]; then
     echo "[$(date)] Soft delete: archiving $SERVER_ID before removal..."
-    if ! bash "$SCRIPTS_DIR/archive-server.sh" "$SERVER_ID"; then
+    if ! bash "$SCRIPTS_DIR/archive-server.sh" "$SERVER_ID" "$ADDONS_JSON"; then
       echo "[$(date)] ERROR: archive failed for $SERVER_ID — ABORTING delete (server left intact)." >&2
       exit 1
     fi

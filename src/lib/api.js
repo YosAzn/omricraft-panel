@@ -45,6 +45,10 @@ export const restoreBackupFn = httpsCallable(functionsInstance, 'restoreBackup')
 // Recycle bin — lists SOFT-DELETE archives (deleted servers, 30-day VPS backups).
 // Distinct from listBackups (per-server manual world backups). Restore/UI = D2/D3.
 export const listServerBackupsFn = httpsCallable(functionsInstance, 'listServerBackups');
+// Recycle bin — RESTORE a soft-deleted server from its archive (D2). Accepts
+// { serverId } (newest archive) or { backupId } (explicit "<id>-<epoch>.tar.gz").
+// The recycle-bin UI that calls this is D3.
+export const restoreServerFn = httpsCallable(functionsInstance, 'restoreServer');
 // War Room / חמ"ל — health diagnostics (admin-only)
 export const getDiagnosticsFn = httpsCallable(functionsInstance, 'getDiagnostics');
 export const resetServerStatusFn = httpsCallable(functionsInstance, 'resetServerStatus');

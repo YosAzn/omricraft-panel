@@ -584,7 +584,13 @@ export default function App() {
         deletingAt: new Date().toISOString()
       });
 
-      const result = await deleteServerFn({ serverId: id });
+      // Pass the server's installedAddons (catalog ids) THROUGH to the soft-delete
+      // manifest so a restore (D2) can re-fetch mods/datapacks/resourcepacks faithfully
+      // via the same catalog install flow — mod JAR filenames alone aren't enough.
+      const result = await deleteServerFn({
+        serverId: id,
+        installedAddons: Array.isArray(currentServer.installedAddons) ? currentServer.installedAddons : []
+      });
 
       if (!result.data?.success) {
         throw new Error(result.data?.error || 'Delete failed');

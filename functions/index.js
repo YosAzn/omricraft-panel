@@ -488,7 +488,7 @@ exports.deleteServer = onCall(
   },
   async (request) => {
     assertAdmin(request);
-    const { serverId, permanent } = request.data || {};
+    const { serverId, permanent, installedAddons } = request.data || {};
 
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
       return { success: false, error: 'Invalid serverId' };
@@ -498,12 +498,20 @@ exports.deleteServer = onCall(
     // boolean true triggers a permanent (non-archived) hard delete.
     const isPermanent = permanent === true;
 
+    // installedAddons (catalog ids from the Firestore server doc) are passed THROUGH
+    // to the Manager API so the soft-delete manifest records the authoritative addon
+    // list for a faithful restore (D2). Only string ids are forwarded; a bad shape
+    // degrades to []. Ignored on a permanent delete (no archive is written).
+    const addonIds = Array.isArray(installedAddons)
+      ? installedAddons.filter((x) => typeof x === 'string')
+      : [];
+
     const BASE_URL = managerApiUrl.value().trim();
     const API_KEY  = managerApiKey.value().trim();
 
-    console.log(`deleteServer: id=${serverId} permanent=${isPermanent}`);
+    console.log(`deleteServer: id=${serverId} permanent=${isPermanent} addons=${addonIds.length}`);
 
-    const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/delete-server', { serverId, permanent: isPermanent });
+    const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/delete-server', { serverId, permanent: isPermanent, installedAddons: addonIds });
 
     if (!result.success) {
       return { success: false, error: result.error || 'Delete failed' };
@@ -1434,6 +1442,158 @@ exports.restoreBackup = onCall(
     } catch (error) {
       return { success: false, error: error?.message || String(error) };
     }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// restoreServer — RESTORE a soft-deleted server from its 30-day archive (D2).
+// Calls Manager API POST /restore-server (which re-creates the dir, extracts the
+// tarball, re-downloads the jar, re-applies forwarding config, allocates a FREE
+// port+rcon and re-registers in servers.json + velocity), then RE-CREATES the
+// Firestore server doc and RE-INSTALLS the catalog addons the SAME way createServer
+// does (mods via installMod-by-id, datapacks via install-datapack-by-id,
+// resourcepacks via install-resourcepack). Plugins (p*) are already restored from the
+// archive's plugins/ dir, so they are NOT re-downloaded.
+//
+// Auth: admins may restore any archive. A non-admin cannot prove ownership of a
+// DELETED server (its Firestore doc is gone and the manifest does not yet carry
+// ownerUid — D3), so non-admins are rejected fail-CLOSED here rather than silently.
+// Accepts { serverId } (newest archive for the id) or { backupId } (an explicit
+// archive basename, e.g. "<id>-<epoch>.tar.gz").
+// ---------------------------------------------------------------------------
+exports.restoreServer = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 300 },
+  async (request) => {
+    requireAuth(request);
+    if (!isAdminRequest(request)) {
+      // A deleted server has no Firestore doc + the manifest lacks ownerUid, so
+      // ownership cannot be verified. Fail closed (never a silent no-op). D3 adds
+      // ownerUid to the manifest to let owners self-restore.
+      throw new HttpsError('permission-denied', 'Only an admin can restore a deleted server for now');
+    }
+
+    const data = request.data || {};
+    // Derive serverId from an explicit backupId (basename "<serverId>-<epoch>.tar.gz")
+    // when serverId is not supplied directly.
+    let serverId = (typeof data.serverId === 'string' && data.serverId.trim()) ? data.serverId.trim() : '';
+    let archiveFile = (typeof data.backupId === 'string' && data.backupId.trim()) ? data.backupId.trim() : '';
+    if (!serverId && archiveFile) {
+      const mm = archiveFile.match(/^([a-z0-9_-]+)-\d+\.tar\.gz$/);
+      if (mm) serverId = mm[1];
+    }
+    if (!serverId || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId/backupId' };
+    }
+    if (archiveFile && (archiveFile.includes('/') || archiveFile.includes('..') ||
+        archiveFile.indexOf(serverId + '-') !== 0 || !/\.tar\.gz$/.test(archiveFile))) {
+      return { success: false, error: 'Invalid backupId' };
+    }
+
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+
+    console.log(`restoreServer: id=${serverId} archive=${archiveFile || '(newest)'}`);
+
+    // 1. Restore on the VPS (dir + jar + port + velocity + servers.json).
+    let result;
+    try {
+      result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/restore-server',
+        archiveFile ? { serverId, archiveFile } : { serverId });
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+    if (!result || !result.success) {
+      return { success: false, error: (result && result.error) || 'Restore failed' };
+    }
+
+    const type = result.type || 'paper';
+    const version = result.version || '1.21.1';
+    const slug = result.slug || serverId;
+    const name = result.name || slug;
+    const installedAddons = Array.isArray(result.installedAddons)
+      ? result.installedAddons.filter((x) => typeof x === 'string')
+      : [];
+    // The restored server is OWNED by the restoring admin unless a target owner was
+    // explicitly supplied (mirrors createServer's optional ownerUid).
+    const ownerUid = (typeof data.ownerUid === 'string' && data.ownerUid.trim())
+      ? data.ownerUid.trim()
+      : (request.auth && request.auth.uid) || null;
+
+    // 2. Re-create the Firestore server doc (mirrors the App.jsx create path shape).
+    try {
+      await db.collection('omricraft/main/servers').doc(serverId).set({
+        id: serverId,
+        name,
+        displayName: name,
+        slug,
+        type,
+        version,
+        gamePort: result.gamePort || null,
+        rconPort: result.rconPort || null,
+        address: result.address || `${slug}.omricraft.com`,
+        publicHost: result.publicHost || `${slug}.omricraft.com`,
+        installedAddons,
+        ownerUid,
+        status: 'stopped',
+        restoredAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (e) {
+      // The VPS restore already succeeded — report the doc-write failure loudly but
+      // do NOT claim success (the recycle-bin UI can retry / an admin can inspect).
+      console.error('restoreServer: Firestore doc write failed for', serverId, e);
+      return { success: false, error: 'Server restored on VPS but Firestore doc write failed: ' + (e?.message || String(e)) };
+    }
+
+    // 3. Re-install catalog addons the SAME way the create flow does. Route by id
+    // prefix: m* = mods, d* = datapacks, t* = resourcepacks. p* plugins are already
+    // restored from the archive's plugins/ dir → skip. Client-only ids (Sodium/etc.)
+    // are absent from the server-side allowlists and are rejected by the install
+    // endpoints; we catch per-addon and continue (skip-loud), never failing the whole
+    // restore over one addon — the server is already up.
+    const addonResults = [];
+    for (const addonId of installedAddons) {
+      try {
+        let endpoint = null;
+        let payload = null;
+        if (/^m\d/.test(addonId)) {            // mod
+          endpoint = '/install-mod';
+          payload = { serverId, modId: addonId };
+        } else if (/^d\d/.test(addonId)) {     // datapack
+          endpoint = '/install-datapack-by-id';
+          payload = { serverId, addonId };
+        } else if (/^t\d/.test(addonId)) {     // resource pack (texture)
+          endpoint = '/install-resourcepack';
+          payload = { serverId, addonId };
+        } else {
+          // p* plugins come back from the archive; c_* custom/manual addons and any
+          // client-only ids have no server install path → skip.
+          continue;
+        }
+        const r = await callManagerApi(BASE_URL, API_KEY, 'POST', endpoint, payload);
+        addonResults.push({ addonId, success: !!(r && r.success), error: (r && !r.success) ? r.error : undefined });
+      } catch (e) {
+        console.error('restoreServer: addon re-install failed for', addonId, e.message);
+        addonResults.push({ addonId, success: false, error: e.message });
+      }
+    }
+
+    return {
+      success: true,
+      id: serverId,
+      serverId,
+      slug,
+      name,
+      type,
+      version,
+      gamePort: result.gamePort || null,
+      rconPort: result.rconPort || null,
+      address: result.address || `${slug}.omricraft.com`,
+      publicHost: result.publicHost || `${slug}.omricraft.com`,
+      installedAddons,
+      ownerUid,
+      status: 'stopped',
+      addonResults
+    };
   }
 );
 

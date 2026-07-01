@@ -247,10 +247,17 @@ app.post('/delete-server', async function(req, res) {
   // archive and does the classic hard delete. MODE is a fixed enum string, never
   // interpolated user input, so it is injection-safe.
   const mode = (req.body.permanent === true) ? 'permanent' : 'soft';
+  // installedAddons: the authoritative catalog id list (from the Firestore server
+  // doc), passed THROUGH to delete-server.sh → archive-server.sh so the soft-delete
+  // manifest records it for a faithful restore (D2). Only string ids are kept; a bad
+  // shape degrades to [] (never breaks the delete). Serialized as one JSON argv.
+  const rawAddons = Array.isArray(req.body.installedAddons) ? req.body.installedAddons : [];
+  const installedAddons = rawAddons.filter(function(x) { return typeof x === 'string'; });
+  const addonsJson = JSON.stringify(installedAddons);
   // Archiving worlds can take a while for large maps → allow up to the backup timeout.
   const timeout = (mode === 'soft') ? BACKUP_TIMEOUT_MS : 120000;
   try {
-    await runScript('delete-server.sh', [serverId, mode], timeout);
+    await runScript('delete-server.sh', [serverId, mode, addonsJson], timeout);
     return res.json({ success: true, serverId: serverId, mode: mode });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
@@ -1903,6 +1910,111 @@ app.post('/restore-backup', async function(req, res) {
     return res.json({ success: true, restartNeeded: true });
   } catch (err) {
     console.error('restore-backup error ' + serverId + ':', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ===================================================================
+// POST /restore-server { serverId, [archiveFile] } — RESTORE a soft-deleted server
+// from its 30-day archive (D2). Resolves the archive (newest for the id when
+// archiveFile is omitted), reads its manifest, then runs restore-server.sh which
+// re-creates the dir, extracts the tarball, re-downloads the jar, re-applies
+// forwarding config, allocates a FREE port+rcon and re-registers in servers.json +
+// velocity. On success returns the manifest metadata (type/version/slug/name/
+// installedAddons) + the allocated ports, so the restoreServer callable can rebuild
+// the Firestore doc and re-install the catalog addons. The backup is NOT deleted.
+// ===================================================================
+app.post('/restore-server', async function(req, res) {
+  const serverId = req.body.serverId;
+  if (!validateId(serverId, res)) return;
+
+  // Optional explicit archive basename; validated the same way restore-server.sh does.
+  let archiveFile = req.body.archiveFile;
+  if (archiveFile !== undefined && archiveFile !== null && archiveFile !== '') {
+    if (typeof archiveFile !== 'string' ||
+        archiveFile.indexOf('/') !== -1 || archiveFile.indexOf('..') !== -1 ||
+        archiveFile.indexOf(serverId + '-') !== 0 || !/\.tar\.gz$/.test(archiveFile)) {
+      return res.status(400).json({ success: false, error: 'Invalid archiveFile' });
+    }
+  } else {
+    archiveFile = '';
+  }
+
+  // Refuse up front if the server already exists (mirrors the script; gives a clean 409).
+  const serverDir = path.join(SERVERS_DIR, serverId);
+  if (fs.existsSync(serverDir)) {
+    return res.status(409).json({ success: false, error: 'A server with this id already exists — cannot restore over it' });
+  }
+  try {
+    if (readServersArray().some(function(s) { return s && s.id === serverId; })) {
+      return res.status(409).json({ success: false, error: 'Server id still present in servers.json — cannot restore over it' });
+    }
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not read servers.json: ' + e.message });
+  }
+
+  // Resolve the archive we will restore from, so we can read its manifest for the
+  // response even when the caller did not name it (newest-with-manifest for the id).
+  let resolvedArchive = archiveFile;
+  try {
+    if (!resolvedArchive) {
+      const prefix = serverId + '-';
+      const cands = fs.readdirSync(BACKUP_DIR)
+        .filter(function(n) {
+          return n.indexOf(prefix) === 0 && n.endsWith('.tar.gz') &&
+            fs.existsSync(path.join(BACKUP_DIR, n.replace(/\.tar\.gz$/, '.manifest.json')));
+        })
+        .map(function(n) { return { name: n, mtime: fs.statSync(path.join(BACKUP_DIR, n)).mtimeMs }; })
+        .sort(function(a, b) { return b.mtime - a.mtime; });
+      if (!cands.length) {
+        return res.status(404).json({ success: false, error: 'No archive with a manifest found for this server' });
+      }
+      resolvedArchive = cands[0].name;
+    } else if (!fs.existsSync(path.join(BACKUP_DIR, resolvedArchive))) {
+      return res.status(404).json({ success: false, error: 'Archive not found: ' + resolvedArchive });
+    }
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not resolve archive: ' + e.message });
+  }
+
+  // Read the manifest (metadata + installedAddons) to echo back to the callable.
+  let manifest = {};
+  try {
+    const manifestPath = path.join(BACKUP_DIR, resolvedArchive.replace(/\.tar\.gz$/, '.manifest.json'));
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) || {};
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not read manifest: ' + e.message });
+  }
+
+  try {
+    console.log('[' + new Date().toISOString() + '] restore-server ' + serverId + ' from ' + resolvedArchive);
+    const stdout = await runScript('restore-server.sh', [serverId, resolvedArchive], BACKUP_TIMEOUT_MS);
+    // restore-server.sh prints: "OK restored <id> port <GAME> rcon <RCON>"
+    const m = stdout.match(/^OK restored\s+\S+\s+port\s+(\d+)\s+rcon\s+(\d+)\s*$/m);
+    if (!m) {
+      return res.status(500).json({ success: false, error: 'Restore script did not confirm success: ' + stdout.trim() });
+    }
+    const gamePort = parseInt(m[1], 10);
+    const rconPort = parseInt(m[2], 10);
+    const installedAddons = Array.isArray(manifest.installedAddons)
+      ? manifest.installedAddons.filter(function(x) { return typeof x === 'string'; })
+      : [];
+    return res.json({
+      success: true,
+      serverId: serverId,
+      archiveFile: resolvedArchive,
+      type: manifest.type || 'paper',
+      version: manifest.version || '',
+      slug: manifest.slug || serverId,
+      name: manifest.name || manifest.slug || serverId,
+      installedAddons: installedAddons,
+      gamePort: gamePort,
+      rconPort: rconPort,
+      address: (manifest.slug || serverId) + '.omricraft.com',
+      publicHost: (manifest.slug || serverId) + '.omricraft.com'
+    });
+  } catch (err) {
+    console.error('restore-server error ' + serverId + ':', err.message);
     return res.status(500).json({ success: false, error: err.message });
   }
 });
