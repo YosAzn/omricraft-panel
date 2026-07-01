@@ -868,7 +868,7 @@ export default function App() {
                   open: getDiagnostics is callable by any authed user (scoped) and
                   the fix callables are owner-or-admin, which powers that panel. */}
               {isAdmin && (
-                <NavBtn active={currentView === 'health'} onClick={() => setCurrentView('health')} icon={<Activity size={18}/>} label={'חמ"ל'} />
+                <NavBtn active={currentView === 'health'} onClick={() => setCurrentView('health')} icon={<Activity size={18}/>} label={t('healthNav')} />
               )}
             </div>
           </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Server, Trash2, Plus, Package, HardDrive, RefreshCw, Square, Play, Shield,
   Users, Activity, AlertTriangle, ArrowUpCircle,
-  ChevronRight, CheckCircle2, Search
+  ChevronRight, ChevronDown, CheckCircle2, Search
 } from 'lucide-react';
 import { getDiagnosticsFn, getVersionMatrixFn } from '../lib/api';
 import PendingRequests from './PendingRequests';
@@ -49,6 +49,13 @@ export default function Dashboard({
 }) {
   // Client-side server search (filters the visible servers grid by name).
   const [serverSearch, setServerSearch] = useState('');
+
+  // Accordion state — both the חמ"ל/Health summary and the admin pending-requests
+  // panels are COLLAPSED BY DEFAULT so they don't dominate the dashboard. The
+  // server list + stat cards stay the focus; the long issue list only shows on
+  // demand. Each header (title + count badge + chevron) toggles its own panel.
+  const [healthOpen, setHealthOpen] = useState(false);
+  const [requestsOpen, setRequestsOpen] = useState(false);
 
   // --- חמ"ל diagnostics — fetched ONCE for EVERY signed-in user, reused by both
   //     the stat card and the summary card below (no double-call). The function
@@ -155,90 +162,107 @@ export default function Dashboard({
       }, [])
     : [];
 
+  // Per-server update lookup (serverId → {current, latest}) so each card can show
+  // its OWN "update available" indicator below its action buttons (FIX #2), not
+  // just the aggregate updates section above.
+  const updateByServerId = updates.reduce((m, u) => { m[u.server.id] = u; return m; }, {});
+
   return (
     <div className="animate-in fade-in duration-300">
       {/* ===== Greeting + header (keeps the role-aware heading + count) ===== */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-4 mb-6">
-        <div>
-          <p className="text-sm text-emerald-400 font-bold mb-1">
-            {userRole === 'admin' ? t('dashGreetingAdmin') : t('dashGreeting')}
-          </p>
-          <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
-            {/* heading is dynamic by role: admin sees all, client sees only their own */}
-            {userRole === 'admin' ? t('allServers') : t('yourServers')}
-            <span className="text-base font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-0.5">
-              {servers.length}
-            </span>
-          </h2>
-          <p className="text-zinc-400">{t('manageDesc')}</p>
-        </div>
-        {/* Create button is ALWAYS visible to every signed-in user. Admins create
-            directly; non-admins submit a request (App.jsx routes the submit). */}
-        <div className="flex gap-2">
-          <button
-            onClick={onCreateClick}
-            className="bg-green-600 hover:bg-green-500 text-white px-5 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-900/20"
-          >
-            <Plus size={20} /> <span>{isAdmin ? t('newServer') : t('requestServerCta')}</span>
-          </button>
-        </div>
+      <div className="mb-6">
+        <p className="text-sm text-emerald-400 font-bold mb-1">
+          {userRole === 'admin' ? t('dashGreetingAdmin') : t('dashGreeting')}
+        </p>
+        <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
+          {/* heading is dynamic by role: admin sees all, client sees only their own */}
+          {userRole === 'admin' ? t('allServers') : t('yourServers')}
+          <span className="text-base font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-0.5">
+            {servers.length}
+          </span>
+        </h2>
+        <p className="text-zinc-400">{t('manageDesc')}</p>
       </div>
-
-      {/* ===== Pending server requests (ADMIN only) — non-admins submit create
-              requests; admins approve/deny here. Data via admin-SDK callables. ===== */}
-      {isAdmin && (
-        <PendingRequests t={t} onApproved={onApproveRequest} />
-      )}
 
       {/* ===== Stat cards (section 1) — REAL, scoped to the user's servers. The
               חמ"ל open-issues card shows for ALL users (scoped to their own
               issues by getDiagnostics({scope:'mine'})). ===== */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard icon={Server} label={t('dashStatTotalServers')} value={totalServersValue} accent="emerald" />
         <StatCard icon={Activity} label={t('dashStatOnlineNow')} value={onlineNowValue} accent="emerald" />
         <StatCard icon={Users} label={t('dashStatPlayersOnline')} value={playersOnlineValue} accent="sky" />
         <StatCard icon={AlertTriangle} label={t('dashStatOpenIssues')} value={issueCount} loading={diagLoading && diagnostics === null} accent={issueCount > 0 ? 'rose' : 'emerald'} />
       </div>
 
-      {/* ===== חמ"ל summary (section 3) — ALL users. This is the FULL חמ"ל
-              experience for non-admins: every issue on THEIR servers (scoped by
-              getDiagnostics({scope:'mine'})) rendered in a scrollable bordered
-              panel, each row carrying the SAME fix button as the dedicated tab
-              (reset-status / restart / remove-datapack, via <HealthIssueRow>).
-              The 'open full' link is ADMIN-only (admins also get the mine/all
-              tab); for non-admins this panel IS their full חמ"ל. ===== */}
-      <div className="mb-8 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-zinc-300 flex items-center gap-2">
-            <Activity size={16} className="text-rose-400" /> {t('dashHamalSummary')}
-          </h3>
-          {isAdmin && (
-            <button onClick={onOpenHealth} className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors">
-              {t('dashHamalOpenFull')} <ChevronRight size={14} className="rtl:rotate-180" />
+      {/* ===== Collapsible panels — STACKED (Health above Requests), both
+              COLLAPSED BY DEFAULT so the server list stays the focus. ===== */}
+      <div className="mb-8 space-y-3">
+        {/* --- חמ"ל / Health summary accordion (ALL users). This is the FULL חמ"ל
+                experience for non-admins: every issue on THEIR servers (scoped by
+                getDiagnostics({scope:'mine'})), each row carrying the SAME fix
+                button as the dedicated tab (via <HealthIssueRow>). The 'open full'
+                link is ADMIN-only. Collapsed = header only; expand = issue list. --- */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl">
+          <div className="flex items-center justify-between p-4">
+            <button
+              type="button"
+              onClick={() => setHealthOpen(o => !o)}
+              className="flex items-center gap-2 min-w-0 flex-1 text-start"
+              aria-expanded={healthOpen}
+            >
+              <ChevronDown size={16} className={`text-zinc-400 flex-shrink-0 transition-transform ${healthOpen ? '' : '-rotate-90 rtl:rotate-90'}`} />
+              <Activity size={16} className={`flex-shrink-0 ${issueCount > 0 ? 'text-rose-400' : 'text-emerald-400'}`} />
+              <span className="text-sm font-bold text-zinc-300">🩺 {t('dashHamalSummary')}</span>
+              <span className="text-[11px] font-bold text-zinc-400 flex-shrink-0">·</span>
+              <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 flex-shrink-0 whitespace-nowrap ${issueCount > 0 ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20' : 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'}`}>
+                {issueCount === null ? '…' : `${issueCount} ${t('issuesUnit')}`}
+              </span>
             </button>
+            {isAdmin && healthOpen && (
+              <button onClick={onOpenHealth} className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors flex-shrink-0">
+                {t('dashHamalOpenFull')} <ChevronRight size={14} className="rtl:rotate-180" />
+              </button>
+            )}
+          </div>
+          {healthOpen && (
+            <div className="px-4 pb-4">
+              {diagLoading && diagnostics === null ? (
+                <div className="text-zinc-500 text-sm flex items-center gap-2"><RefreshCw size={14} className="animate-spin" /> {t('dashLoading')}</div>
+              ) : issues.length === 0 ? (
+                <div className="text-emerald-300 text-sm font-bold flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-emerald-400" /> {t('dashHamalAllOk')}
+                </div>
+              ) : (
+                /* Scrollable panel — same look as the create-server addon-picker /
+                   HealthTab list. The flat list isn't grouped by server, so each
+                   row shows its server name. */
+                <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 max-h-[40vh] overflow-y-auto space-y-2">
+                  {sortedIssues.map((iss, idx) => (
+                    <HealthIssueRow
+                      key={`${iss.serverId}:${iss.category}:${idx}`}
+                      issue={iss}
+                      onFixed={refreshDiagnostics}
+                      showServer
+                      t={t}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
-        {diagLoading && diagnostics === null ? (
-          <div className="text-zinc-500 text-sm flex items-center gap-2"><RefreshCw size={14} className="animate-spin" /> {t('dashLoading')}</div>
-        ) : issues.length === 0 ? (
-          <div className="text-emerald-300 text-sm font-bold flex items-center gap-2">
-            <CheckCircle2 size={16} className="text-emerald-400" /> {t('dashHamalAllOk')}
-          </div>
-        ) : (
-          /* Scrollable panel — same look as the create-server addon-picker /
-             HealthTab list (bg-zinc-950 + bordered + max-height + overflow). The
-             flat list isn't grouped by server, so each row shows its server name. */
-          <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 max-h-[40vh] overflow-y-auto space-y-2">
-            {sortedIssues.map((iss, idx) => (
-              <HealthIssueRow
-                key={`${iss.serverId}:${iss.category}:${idx}`}
-                issue={iss}
-                onFixed={refreshDiagnostics}
-                showServer
-                t={t}
-              />
-            ))}
-          </div>
+
+        {/* --- Pending server requests accordion (ADMIN only) — non-admins submit
+                create requests; admins approve/deny here. Data via admin-SDK
+                callables. Collapsed by default; header shows the pending count. --- */}
+        {isAdmin && (
+          <PendingRequests
+            t={t}
+            onApproved={onApproveRequest}
+            collapsible
+            open={requestsOpen}
+            onToggle={() => setRequestsOpen(o => !o)}
+          />
         )}
       </div>
 
@@ -279,31 +303,42 @@ export default function Dashboard({
 
       {/* ===== Servers at-a-glance (section 2) — existing grid, enhanced with
               real player counts. Keeps onOpenServer / toggleServerStatus.
-              Section header carries the search box + admin "delete all". ===== */}
+              Section header carries the search box + admin "delete all" +
+              the "create server / request server" button, grouped together. ===== */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
         <h3 className="text-sm font-bold text-zinc-400">{t('dashServersGlance')}</h3>
-        {servers.length > 0 && (
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search size={15} className="absolute top-1/2 -translate-y-1/2 start-3 text-zinc-500 pointer-events-none" />
-              <input
-                type="text"
-                value={serverSearch}
-                onChange={(e) => setServerSearch(e.target.value)}
-                placeholder={t('dashSearchServer')}
-                className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500/40 focus:outline-none rounded-lg ps-9 pe-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 w-full sm:w-56"
-              />
-            </div>
-            {userRole === 'admin' && (
-              <button
-                onClick={onDeleteAll}
-                className="bg-red-900/40 hover:bg-red-800/60 text-red-400 border border-red-800/40 px-3 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-all whitespace-nowrap"
-              >
-                <Trash2 size={16} /> <span>מחק הכל</span>
-              </button>
-            )}
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {servers.length > 0 && (
+            <>
+              <div className="relative">
+                <Search size={15} className="absolute top-1/2 -translate-y-1/2 start-3 text-zinc-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={serverSearch}
+                  onChange={(e) => setServerSearch(e.target.value)}
+                  placeholder={t('dashSearchServer')}
+                  className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500/40 focus:outline-none rounded-lg ps-9 pe-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 w-full sm:w-56"
+                />
+              </div>
+              {userRole === 'admin' && (
+                <button
+                  onClick={onDeleteAll}
+                  className="bg-red-900/40 hover:bg-red-800/60 text-red-400 border border-red-800/40 px-3 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-all whitespace-nowrap"
+                >
+                  <Trash2 size={16} /> <span>מחק הכל</span>
+                </button>
+              )}
+            </>
+          )}
+          {/* Create button is ALWAYS visible to every signed-in user. Admins create
+              directly; non-admins submit a request (App.jsx routes the submit). */}
+          <button
+            onClick={onCreateClick}
+            className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-900/20 whitespace-nowrap"
+          >
+            <Plus size={18} /> <span>{isAdmin ? t('newServer') : t('requestServerCta')}</span>
+          </button>
+        </div>
       </div>
       {servers.length === 0 ? (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center">
@@ -323,6 +358,7 @@ export default function Dashboard({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredServers.map(server => {
             const playerCount = playerCountFor(server);
+            const upd = updateByServerId[server.id]; // {current, latest} if behind
             return (
             <div key={server.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-zinc-700 transition-colors group flex flex-col relative">
               {server.needsRestart && (
@@ -393,6 +429,24 @@ export default function Dashboard({
                   {t('manage')}
                 </button>
               </div>
+              {/* Per-server version-update indicator (FIX #2) — sits BELOW the
+                  start/manage action buttons so it never overlaps or hides them.
+                  Only shown when the matrix has a strictly newer version. */}
+              {upd && (
+                <button
+                  onClick={() => onOpenServer(server.id)}
+                  className="w-full px-4 py-2 bg-amber-500/5 hover:bg-amber-500/10 border-t border-amber-500/20 text-start transition-colors flex items-center gap-2"
+                  title={t('dashUpdateAvailable')}
+                >
+                  <ArrowUpCircle size={14} className="text-amber-400 flex-shrink-0" />
+                  <span className="text-[11px] font-bold text-amber-400 flex-shrink-0">{t('dashUpdateAvailable')}</span>
+                  <span className="text-xs text-zinc-400 flex items-center gap-1.5 ms-auto" dir="ltr">
+                    <span className="text-zinc-500">{upd.current}</span>
+                    <ChevronRight size={12} className="text-zinc-600" />
+                    <span className="text-emerald-400 font-bold">{upd.latest}</span>
+                  </span>
+                </button>
+              )}
             </div>
             );
           })}
