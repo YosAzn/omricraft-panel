@@ -3,7 +3,8 @@ export const DICT = {
   he: {
     appTitle: "OmriCraft",
     dashboard: "לוח בקרה",
-    repo: "מאגר תוספים",
+    repo: "תוספים",
+    navCreateShort: "שרת",
     ourServers: "השרתים שלנו",
     yourServers: "השרתים שלך",
     allServers: "כל השרתים",
@@ -681,7 +682,8 @@ export const DICT = {
   en: {
     appTitle: "OmriCraft",
     dashboard: "Dashboard",
-    repo: "Add-ons Repo",
+    repo: "Add-ons",
+    navCreateShort: "Server",
     ourServers: "Our Servers",
     yourServers: "Your servers",
     allServers: "All servers",
@@ -1354,7 +1356,8 @@ export const DICT = {
   ru: {
     appTitle: "OmriCraft",
     dashboard: "Панель",
-    repo: "Каталог дополнений",
+    repo: "Дополнения",
+    navCreateShort: "Сервер",
     ourServers: "Наши серверы",
     yourServers: "Ваши серверы",
     allServers: "Все серверы",
@@ -1635,7 +1638,8 @@ export const DICT = {
   fr: {
     appTitle: "OmriCraft",
     dashboard: "Tableau de bord",
-    repo: "Dépôt d'add-ons",
+    repo: "Add-ons",
+    navCreateShort: "Serveur",
     ourServers: "Nos serveurs",
     yourServers: "Vos serveurs",
     allServers: "Tous les serveurs",
@@ -1916,7 +1920,8 @@ export const DICT = {
   it: {
     appTitle: "OmriCraft",
     dashboard: "Dashboard",
-    repo: "Repository Add-on",
+    repo: "Add-on",
+    navCreateShort: "Server",
     ourServers: "I nostri server",
     yourServers: "I tuoi server",
     allServers: "Tutti i server",
@@ -2197,7 +2202,8 @@ export const DICT = {
   es: {
     appTitle: "OmriCraft",
     dashboard: "Panel",
-    repo: "Repositorio de complementos",
+    repo: "Complementos",
+    navCreateShort: "Servidor",
     ourServers: "Nuestros servidores",
     yourServers: "Tus servidores",
     allServers: "Todos los servidores",
@@ -2478,7 +2484,8 @@ export const DICT = {
   de: {
     appTitle: "OmriCraft",
     dashboard: "Dashboard",
-    repo: "Add-on-Repo",
+    repo: "Add-ons",
+    navCreateShort: "Server",
     ourServers: "Unsere Server",
     yourServers: "Deine Server",
     allServers: "Alle Server",
@@ -2759,7 +2766,8 @@ export const DICT = {
   pt: {
     appTitle: "OmriCraft",
     dashboard: "Painel",
-    repo: "Repositório de Add-ons",
+    repo: "Add-ons",
+    navCreateShort: "Servidor",
     ourServers: "Nossos Servidores",
     yourServers: "Seus servidores",
     allServers: "Todos os servidores",
@@ -3040,7 +3048,8 @@ export const DICT = {
   ar: {
     appTitle: "OmriCraft",
     dashboard: "لوحة التحكم",
-    repo: "مستودع الإضافات",
+    repo: "الإضافات",
+    navCreateShort: "خادم",
     ourServers: "خوادمنا",
     yourServers: "خوادمك",
     allServers: "كل الخوادم",
@@ -3321,7 +3330,8 @@ export const DICT = {
   pl: {
     appTitle: "OmriCraft",
     dashboard: "Panel",
-    repo: "Repozytorium dodatków",
+    repo: "Dodatki",
+    navCreateShort: "Serwer",
     ourServers: "Nasze serwery",
     yourServers: "Twoje serwery",
     allServers: "Wszystkie serwery",

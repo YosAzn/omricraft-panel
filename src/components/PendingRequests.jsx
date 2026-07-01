@@ -81,33 +81,25 @@ export default function PendingRequests({ t, onApproved, collapsible = false, op
   const bodyVisible = !collapsible || open;
 
   return (
-    <div className={`bg-zinc-900 border border-zinc-800 rounded-2xl ${collapsible ? 'p-0' : 'p-5 mb-8'}`}>
+    <div className={`bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden ${collapsible ? 'p-0' : 'p-5 mb-8'}`}>
       {collapsible ? (
-        <div className="flex items-center justify-between p-4">
-          <button
-            type="button"
-            onClick={() => (typeof onToggle === 'function' ? onToggle() : null)}
-            className="flex items-center gap-2 min-w-0 flex-1 text-start"
-            aria-expanded={open}
-          >
-            <ChevronDown size={16} className={`text-zinc-400 flex-shrink-0 transition-transform ${open ? '' : '-rotate-90 rtl:rotate-90'}`} />
-            <Inbox size={16} className="text-emerald-400 flex-shrink-0" />
-            <span className="text-sm font-bold text-zinc-300">📥 {t('pendingRequests')}</span>
-            <span className="text-[11px] font-bold text-zinc-400 flex-shrink-0">·</span>
-            <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 flex-shrink-0 ${count > 0 ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-zinc-400 bg-zinc-800 border border-zinc-700'}`}>
-              {count === null ? '…' : count}
-            </span>
-          </button>
-          {open && (
-            <button
-              onClick={fetchRequests}
-              disabled={loading}
-              className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors disabled:opacity-50 flex-shrink-0"
-            >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> {t('requestRefresh')}
-            </button>
-          )}
-        </div>
+        // DECLUTTERED header (mirrors the חמ"ל summary) — ONE leading icon + title +
+        // count badge, single trailing chevron affordance, whole row a hover button.
+        // Dropped the 📥 emoji + "·" dot + duplicate chevron; the refresh button
+        // moves into the expanded body below.
+        <button
+          type="button"
+          onClick={() => (typeof onToggle === 'function' ? onToggle() : null)}
+          className="w-full flex items-center gap-2 p-4 text-start hover:bg-zinc-800/40 transition-colors"
+          aria-expanded={open}
+        >
+          <Inbox size={16} className="text-emerald-400 flex-shrink-0" />
+          <span className="text-sm font-bold text-zinc-300">{t('pendingRequests')}</span>
+          <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 flex-shrink-0 ${count > 0 ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-zinc-400 bg-zinc-800 border border-zinc-700'}`}>
+            {count === null ? '…' : count}
+          </span>
+          <ChevronDown size={18} className={`text-zinc-400 flex-shrink-0 ms-auto transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
       ) : (
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-bold text-zinc-300 flex items-center gap-2">
@@ -130,6 +122,19 @@ export default function PendingRequests({ t, onApproved, collapsible = false, op
 
       {bodyVisible && (<>
       <div className={collapsible ? 'px-4 pb-4' : ''}>
+      {/* Refresh — in accordion mode it lives here (moved out of the decluttered
+          header); the always-expanded layout keeps its own refresh in the header. */}
+      {collapsible && (
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={fetchRequests}
+            disabled={loading}
+            className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> {t('requestRefresh')}
+          </button>
+        </div>
+      )}
       {error && (
         <div className="text-rose-400 text-xs mb-2">{error}</div>
       )}

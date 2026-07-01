@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Server, Library, Shield, Users, Activity, BookOpen, Rocket } from 'lucide-react';
+import { Server, Library, Shield, Users, Activity, BookOpen, Rocket, Plus } from 'lucide-react';
 
 import { signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
@@ -910,8 +910,13 @@ export default function App() {
       {/* Faint edge decoration behind ALL content (fixed, z-0, pointer-events:none) */}
       <SideCreepers />
       <nav className="bg-zinc-900 border-b border-zinc-800 p-4 sticky top-0 z-20 shadow-lg">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-          
+        {/* NAV BAR is pinned physical LTR (dir="ltr") — regardless of the app's
+            RTL/LTR direction the LOGO stays on the visual LEFT, then the nav
+            buttons, with the role/lang/auth group on the right. Only THIS row is
+            forced LTR; page content still follows the app `dir`. Button labels are
+            single words/icons so each still renders correctly inside its own span. */}
+        <div dir="ltr" className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+
           <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-start">
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')} title={t('appTitle')}>
               <div className="bg-green-600 p-2 rounded-lg"><Server size={24} className="text-white" /></div>
@@ -922,13 +927,14 @@ export default function App() {
             <div className="flex items-center gap-2">
               <NavBtn active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} icon={<Server size={18}/>} label={t('dashboard')} />
               {/* PRIMARY action — create a server, up top next to Dashboard.
-                  Custom emerald button (not a plain NavBtn) so it stands out. */}
+                  Custom emerald button (not a plain NavBtn) so it stands out.
+                  Slim (py-1, matches NavBtn) + Plus icon + SHORT label ("שרת"). */}
               <button
                 onClick={() => setCurrentView('create')}
-                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-3.5 py-2 rounded-lg transition-all shadow-lg shadow-emerald-900/30 hover:-translate-y-0.5"
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-3.5 py-1 rounded-lg transition-all shadow-lg shadow-emerald-900/30 hover:-translate-y-0.5"
                 title={t('landingCtaCreate')}
               >
-                <Rocket size={18} /> <span className="hidden sm:inline">{t('landingCtaCreate')}</span>
+                <Plus size={18} /> <span className="hidden sm:inline">{t('navCreateShort')}</span>
               </button>
               <NavBtn active={currentView === 'repository'} onClick={() => setCurrentView('repository')} icon={<Library size={18}/>} label={t('repo')} />
               {/* Guide / מדריך — PUBLIC reference center (servers + add-ons). Visible

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Server, Trash2, Plus, Package, HardDrive, RefreshCw, Square, Play, Shield,
-  Users, Activity, AlertTriangle, ArrowUpCircle,
+  Users, Activity, ArrowUpCircle,
   ChevronRight, ChevronDown, CheckCircle2, Search
 } from 'lucide-react';
 import { getDiagnosticsFn, getVersionMatrixFn } from '../lib/api';
@@ -109,26 +109,11 @@ export default function Dashboard({
     return info && Number.isFinite(info.count) ? info.count : null;
   };
 
-  // --- Per-user stat cards (REAL, scoped to the servers this user can see) ---
-  // These describe the user's own servers — NOT the global/public landing stat.
-  const onlineServers = servers.filter(s => s.status === 'online');
-
-  // "Servers online" = how many of THIS user's servers are online right now.
+  // --- Single "Total servers" stat (REAL, scoped to the servers this user sees) ---
+  // The online-now / players-online / open-issues cards were removed (open-issues
+  // duplicated the חמ"ל summary; the others were noise), so their derived values
+  // are gone too. `playerCountFor` above is still used by the server cards.
   const totalServersValue = servers.length;
-  const onlineNowValue = onlineServers.length;
-
-  // "Players online" = sum of player counts across the user's ONLINE servers.
-  // 0 online servers → a real 0. Online servers but no count known yet →
-  // neutral dash (null), never an invented number.
-  const knownOnlinePlayerCounts = onlineServers
-    .map(playerCountFor)
-    .filter(Number.isFinite);
-  const playersOnlineValue =
-    onlineServers.length === 0
-      ? 0
-      : knownOnlinePlayerCounts.length === 0
-      ? null
-      : knownOnlinePlayerCounts.reduce((sum, c) => sum + c, 0);
 
   // Servers shown in the at-a-glance grid, filtered by the search box (by name,
   // case-insensitive). Empty query → all visible servers.
@@ -185,14 +170,41 @@ export default function Dashboard({
         <p className="text-zinc-400">{t('manageDesc')}</p>
       </div>
 
-      {/* ===== Stat cards (section 1) — REAL, scoped to the user's servers. The
-              חמ"ל open-issues card shows for ALL users (scoped to their own
-              issues by getDiagnostics({scope:'mine'})). ===== */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={Server} label={t('dashStatTotalServers')} value={totalServersValue} accent="emerald" />
-        <StatCard icon={Activity} label={t('dashStatOnlineNow')} value={onlineNowValue} accent="emerald" />
-        <StatCard icon={Users} label={t('dashStatPlayersOnline')} value={playersOnlineValue} accent="sky" />
-        <StatCard icon={AlertTriangle} label={t('dashStatOpenIssues')} value={issueCount} loading={diagLoading && diagnostics === null} accent={issueCount > 0 ? 'rose' : 'emerald'} />
+      {/* ===== PRIMARY ACTIONS (top of dashboard) — the dashboard LEADS with
+              actions: prominent emerald "New Server", the server search, and a
+              quieter danger-outline "Delete all" (admin). Search drives the
+              at-a-glance grid below (filteredServers). Moved up here from the old
+              "Servers at a glance" header so actions are the first thing seen. ===== */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+        {/* Create — ALWAYS visible; admins create, non-admins submit a request. */}
+        <button
+          onClick={onCreateClick}
+          className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-900/30 hover:-translate-y-0.5 whitespace-nowrap"
+        >
+          <Plus size={18} /> <span>{isAdmin ? t('newServer') : t('requestServerCta')}</span>
+        </button>
+        {servers.length > 0 && (
+          <>
+            <div className="relative flex-1 sm:max-w-xs">
+              <Search size={16} className="absolute top-1/2 -translate-y-1/2 start-3 text-zinc-500 pointer-events-none" />
+              <input
+                type="text"
+                value={serverSearch}
+                onChange={(e) => setServerSearch(e.target.value)}
+                placeholder={t('dashSearchServer')}
+                className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500/40 focus:outline-none rounded-xl ps-9 pe-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 w-full"
+              />
+            </div>
+            {userRole === 'admin' && (
+              <button
+                onClick={onDeleteAll}
+                className="border border-red-800/50 text-red-400 hover:bg-red-900/30 hover:border-red-700 px-4 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-all whitespace-nowrap sm:ms-auto"
+              >
+                <Trash2 size={16} /> <span>{t('dashDeleteAll')}</span>
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       {/* ===== Collapsible panels — STACKED (Health above Requests), both
@@ -203,30 +215,36 @@ export default function Dashboard({
                 getDiagnostics({scope:'mine'})), each row carrying the SAME fix
                 button as the dedicated tab (via <HealthIssueRow>). The 'open full'
                 link is ADMIN-only. Collapsed = header only; expand = issue list. --- */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl">
-          <div className="flex items-center justify-between p-4">
-            <button
-              type="button"
-              onClick={() => setHealthOpen(o => !o)}
-              className="flex items-center gap-2 min-w-0 flex-1 text-start"
-              aria-expanded={healthOpen}
-            >
-              <ChevronDown size={16} className={`text-zinc-400 flex-shrink-0 transition-transform ${healthOpen ? '' : '-rotate-90 rtl:rotate-90'}`} />
-              <Activity size={16} className={`flex-shrink-0 ${issueCount > 0 ? 'text-rose-400' : 'text-emerald-400'}`} />
-              <span className="text-sm font-bold text-zinc-300">🩺 {t('dashHamalSummary')}</span>
-              <span className="text-[11px] font-bold text-zinc-400 flex-shrink-0">·</span>
-              <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 flex-shrink-0 whitespace-nowrap ${issueCount > 0 ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20' : 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'}`}>
-                {issueCount === null ? '…' : `${issueCount} ${t('issuesUnit')}`}
-              </span>
-            </button>
-            {isAdmin && healthOpen && (
-              <button onClick={onOpenHealth} className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors flex-shrink-0">
-                {t('dashHamalOpenFull')} <ChevronRight size={14} className="rtl:rotate-180" />
-              </button>
-            )}
-          </div>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+          {/* DECLUTTERED header — ONE leading icon (state-coloured) + title + count
+              badge, and a single trailing chevron as the expand affordance. The
+              whole row is one button with a clear hover state so it's obviously
+              clickable-to-expand (dropped the extra 🩺 emoji + "·" dot + the second
+              chevron). Admin "open full" moves inside the expanded panel below. */}
+          <button
+            type="button"
+            onClick={() => setHealthOpen(o => !o)}
+            className="w-full flex items-center gap-2 p-4 text-start hover:bg-zinc-800/40 transition-colors"
+            aria-expanded={healthOpen}
+          >
+            <Activity size={16} className={`flex-shrink-0 ${issueCount > 0 ? 'text-rose-400' : 'text-emerald-400'}`} />
+            <span className="text-sm font-bold text-zinc-300">{t('dashHamalSummary')}</span>
+            <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 flex-shrink-0 whitespace-nowrap ${issueCount > 0 ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20' : 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'}`}>
+              {issueCount === null ? '…' : `${issueCount} ${t('issuesUnit')}`}
+            </span>
+            <ChevronDown size={18} className={`text-zinc-400 flex-shrink-0 ms-auto transition-transform ${healthOpen ? 'rotate-180' : ''}`} />
+          </button>
           {healthOpen && (
             <div className="px-4 pb-4">
+              {/* Admin-only "open full חמ"ל" — moved out of the header into the
+                  expanded panel so the collapsed row stays clean. */}
+              {isAdmin && (
+                <div className="flex justify-end mb-2">
+                  <button onClick={onOpenHealth} className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors">
+                    {t('dashHamalOpenFull')} <ChevronRight size={14} className="rtl:rotate-180" />
+                  </button>
+                </div>
+              )}
               {diagLoading && diagnostics === null ? (
                 <div className="text-zinc-500 text-sm flex items-center gap-2"><RefreshCw size={14} className="animate-spin" /> {t('dashLoading')}</div>
               ) : issues.length === 0 ? (
@@ -281,44 +299,21 @@ export default function Dashboard({
           `updates` / `updateByServerId` computation above is kept because that
           per-server strip still relies on it. */}
 
+      {/* ===== SINGLE stat card — only "Total servers" is kept. The old 4-card grid
+              (online-now / players-online / open-issues) was removed: open-issues
+              duplicated the חמ"ל summary row above, and online/players were noise.
+              Compact + start-aligned (not a full-width grid) so one card doesn't
+              stretch awkwardly. Sits just above the server grid it counts. ===== */}
+      <div className="mb-6 max-w-xs">
+        <StatCard icon={Server} label={t('dashStatTotalServers')} value={totalServersValue} accent="emerald" />
+      </div>
+
       {/* ===== Servers at-a-glance (section 2) — existing grid, enhanced with
               real player counts. Keeps onOpenServer / toggleServerStatus.
-              Section header carries the search box + admin "delete all" +
-              the "create server / request server" button, grouped together. ===== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+              The search / delete-all / create actions moved UP to the primary
+              actions row at the top of the dashboard, so this header is title-only. ===== */}
+      <div className="mb-3">
         <h3 className="text-sm font-bold text-zinc-400">{t('dashServersGlance')}</h3>
-        <div className="flex flex-wrap items-center gap-2">
-          {servers.length > 0 && (
-            <>
-              <div className="relative">
-                <Search size={15} className="absolute top-1/2 -translate-y-1/2 start-3 text-zinc-500 pointer-events-none" />
-                <input
-                  type="text"
-                  value={serverSearch}
-                  onChange={(e) => setServerSearch(e.target.value)}
-                  placeholder={t('dashSearchServer')}
-                  className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500/40 focus:outline-none rounded-lg ps-9 pe-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 w-full sm:w-56"
-                />
-              </div>
-              {userRole === 'admin' && (
-                <button
-                  onClick={onDeleteAll}
-                  className="bg-red-900/40 hover:bg-red-800/60 text-red-400 border border-red-800/40 px-3 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-all whitespace-nowrap"
-                >
-                  <Trash2 size={16} /> <span>{t('dashDeleteAll')}</span>
-                </button>
-              )}
-            </>
-          )}
-          {/* Create button is ALWAYS visible to every signed-in user. Admins create
-              directly; non-admins submit a request (App.jsx routes the submit). */}
-          <button
-            onClick={onCreateClick}
-            className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-900/20 whitespace-nowrap"
-          >
-            <Plus size={18} /> <span>{isAdmin ? t('newServer') : t('requestServerCta')}</span>
-          </button>
-        </div>
       </div>
       {servers.length === 0 ? (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center">
@@ -344,18 +339,22 @@ export default function Dashboard({
               {server.needsRestart && (
                 <div className="absolute top-0 left-0 w-full h-1 bg-yellow-500"></div>
               )}
-              <div className="p-5 flex-1">
-                <div className="flex justify-between items-start mb-4">
+              <div className="p-4 flex-1">
+                <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center gap-3 w-full pr-2 overflow-hidden">
-                    <div className="w-12 h-12 flex-shrink-0 bg-zinc-950 rounded-lg flex items-center justify-center border border-zinc-800 overflow-hidden">
+                    {/* Avatar blends gently into the card: soft rounded-xl tile with a
+                        faint top-down gradient + inset ring instead of a hard square
+                        border, so the icon melts into the surface rather than sitting
+                        on a thumbnail. */}
+                    <div className="w-10 h-10 flex-shrink-0 rounded-xl flex items-center justify-center overflow-hidden bg-gradient-to-br from-zinc-800/70 to-zinc-900 ring-1 ring-inset ring-zinc-700/50">
                       {server.icon ? (
-                        <img src={server.icon} alt={server.name} className="w-full h-full object-cover" />
+                        <img src={server.icon} alt={server.name} className="w-full h-full object-cover rounded-xl" />
                       ) : (
-                        <Server size={20} className="text-zinc-500" />
+                        <Server size={18} className="text-zinc-500" />
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                       <h3 className="text-xl font-bold truncate" title={server.name}>{server.name}</h3>
+                       <h3 className="text-lg font-bold truncate" title={server.name}>{server.name}</h3>
                     </div>
                   </div>
 
@@ -375,7 +374,7 @@ export default function Dashboard({
                     </div>
                   </div>
                 </div>
-                <div className="space-y-2 mb-2 ml-14 rtl:ml-0 rtl:mr-14">
+                <div className="space-y-1.5 mb-1 ml-[52px] rtl:ml-0 rtl:mr-[52px]">
                   <div className="flex items-center gap-2 text-sm text-zinc-400">
                     <Package size={14} /> <span>{server.software} {server.version}</span>
                   </div>
@@ -390,12 +389,12 @@ export default function Dashboard({
                   </div>
                 </div>
               </div>
-              <div className="p-4 bg-zinc-950/50 border-t border-zinc-800 flex gap-2">
+              <div className="p-3 bg-zinc-950/50 border-t border-zinc-800 flex gap-2">
                 <button
                   onClick={() => toggleServerStatus(server.id)}
                   disabled={userRole !== 'admin'}
                   title={userRole !== 'admin' ? t('noPermission') : ''}
-                  className={`flex-1 py-2 rounded-lg font-medium flex justify-center items-center gap-2 transition-colors disabled:opacity-30
+                  className={`flex-1 py-1.5 rounded-lg text-sm font-medium flex justify-center items-center gap-2 transition-colors disabled:opacity-30
                     ${server.status === 'online' ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20' : 'bg-green-600 hover:bg-green-500 text-white'}`}
                 >
                   {server.status === 'starting'
@@ -405,7 +404,7 @@ export default function Dashboard({
                     : <Play size={16} fill="currentColor" />}
                   {server.status === 'online' ? t('stop') : t('start')}
                 </button>
-                <button onClick={() => onOpenServer(server.id)} className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-2 rounded-lg font-medium transition-colors text-zinc-100">
+                <button onClick={() => onOpenServer(server.id)} className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-1.5 rounded-lg text-sm font-medium transition-colors text-zinc-100">
                   {t('manage')}
                 </button>
               </div>
