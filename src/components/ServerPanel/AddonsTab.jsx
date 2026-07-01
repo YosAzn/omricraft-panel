@@ -6,7 +6,7 @@ import {
 import { listFilesFn, removePluginJarFn, reloadPluginFn } from '../../lib/api';
 import { TYPE_COLORS, iconForType, typeTextColor, getInstallMethod, isBukkitBased, isWorldgenDatapack, isCoreIncompatible, collectRequiredIds, compatibleCoresLabel, isPluginBoundBlocked, isModpackIncompatible, modpackRequirementLabel } from '../../lib/constants';
 import { addonDesc } from '../../lib/addonI18n';
-import { ClientDownloadLink, RequirementsAccordion, CoreIncompatibleNote, ResourcePackInstallChoice, PluginBoundTag, ModpackPlayerRequirements } from '../AddonClientExtras';
+import { ClientDownloadLink, RequirementsAccordion, CoreIncompatibleNote, ResourcePackInstallChoice, PluginBoundTag, ModpackPlayerRequirements, PremiumPluginGuide } from '../AddonClientExtras';
 
 export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, userRole }) {
   const [filter, setFilter] = useState('all');
@@ -303,6 +303,8 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
                     <span className="text-zinc-500">({item.reviews || 0})</span>
                   </div>
                   <RequirementsAccordion addon={item} allAddons={allAddons} t={t} lang={lang} addonDesc={addonDesc} />
+                  {/* Batch G2 — paid plugin (ItemsAdder) step-by-step manual-install guide. */}
+                  <PremiumPluginGuide addon={item} t={t} />
                   {/* TASK 2 — plugin-bound RP warning (Custom Hats etc.); enriched on a plugin-capable core (Phase 5d). */}
                   <PluginBoundTag addon={item} allAddons={allAddons} t={t} software={server.software} />
                   {/* TASK 1 — server-RP vs PC-download choice for normal texture packs. */}

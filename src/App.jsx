@@ -744,6 +744,27 @@ export default function App() {
       return;
     }
 
+    // Dependency enforcement (REMOVE side): a required dep must not be orphaned while
+    // a still-installed parent needs it. When the user tries to REMOVE this addon,
+    // block it if ANY OTHER currently-installed addon lists it (transitively) in its
+    // `requires`. Show which parent(s) still need it so the user removes those first.
+    // (The INSTALL side already co-installs deps below via autoDeps.)
+    if (isInstalled) {
+      const dependents = currentServer.installedAddons
+        .filter(id => id !== addon.id)
+        .filter(parentId => collectRequiredIds([parentId], allAddons).includes(addon.id))
+        .map(parentId => allAddons.find(a => a.id === parentId))
+        .filter(Boolean);
+      if (dependents.length > 0) {
+        const names = dependents.map(d => d.name).join(', ');
+        // "X נדרש ע"י Y — הסר קודם את Y" (X = this dep, Y = the parent(s) that need it).
+        alert(t('depRemoveBlocked')
+          .replace('{dep}', addon.name)
+          .replace('{parents}', names));
+        return;
+      }
+    }
+
     // Install a single SERVER addon on the VPS via the matching Cloud Function.
     // Used for the parent AND for each auto-installed dependency. Throws on failure
     // so the caller can roll Firestore back. `removing` only matters for plugins

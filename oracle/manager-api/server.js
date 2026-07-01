@@ -516,7 +516,7 @@ var PLUGIN_NAMES = {
   'p23':'spark','p24':'PlugManX','p25':'ExcellentEnchants','p26':'AdvancedShulkerboxes',
   'p27':'MythicMounts','p28':'ItemsAdder','p29':'GrimAC','p30':'ViaVersion',
   'p31':'InteractiveChat','p32':'Chunky','p33':'TAB','p34':'InvisibleItemFrames',
-  'p35':'ClearLag','p36':'nightcore',
+  'p35':'ClearLag','p36':'nightcore','p37':'ProtocolLib',
   'p-chatfmt':'ChatFormatter','p-axiom':'Axiom','p-viaversion':'ViaVersion'
 };
 

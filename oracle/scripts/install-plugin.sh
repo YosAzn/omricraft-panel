@@ -43,6 +43,24 @@ if [[ -n "${PAID_PLUGINS[$PLUGIN_ID]:-}" ]]; then
   exit 2
 fi
 
+# --- GitHub-release plugins (free, NOT on Modrinth) ---
+# Some free plugins are distributed only via GitHub releases (e.g. ProtocolLib).
+# For these we resolve the current release's .jar asset from the GitHub API via the
+# shared install-plugin-url.sh primitive, so we always grab the latest build. A
+# pinned fallback URL (exported below) is used only if the API call fails.
+declare -A PLUGIN_GITHUB_REPOS
+declare -A PLUGIN_GITHUB_FALLBACK
+# p37 ProtocolLib — dmulloy2/ProtocolLib. Latest asset = ProtocolLib.jar.
+PLUGIN_GITHUB_REPOS["p37"]="dmulloy2/ProtocolLib"
+PLUGIN_GITHUB_FALLBACK["p37"]="https://github.com/dmulloy2/ProtocolLib/releases/download/5.4.0/ProtocolLib.jar"
+
+if [[ -n "${PLUGIN_GITHUB_REPOS[$PLUGIN_ID]:-}" ]]; then
+  echo "[$(date)] $PLUGIN_ID resolves via GitHub release (${PLUGIN_GITHUB_REPOS[$PLUGIN_ID]})"
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  export PLUGIN_FALLBACK_URL="${PLUGIN_GITHUB_FALLBACK[$PLUGIN_ID]:-}"
+  exec bash "$SCRIPT_DIR/install-plugin-url.sh" "$SERVER_DIR" "github:${PLUGIN_GITHUB_REPOS[$PLUGIN_ID]}"
+fi
+
 # Download URLs — verified 2026-06-08 (pinned versions preferred over /latest/download/ redirects)
 declare -A PLUGIN_URLS
 # --- Core ---

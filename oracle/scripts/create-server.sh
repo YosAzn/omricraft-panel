@@ -241,6 +241,14 @@ declare -A PLUGIN_FILENAMES
 PLUGIN_FILENAMES["p2"]="Geyser-Spigot.jar"
 PLUGIN_FILENAMES["p33"]="TAB.jar"
 
+# GitHub-release plugins (free, NOT on Modrinth) — resolved via install-plugin-url.sh
+# (latest .jar asset from the GitHub API, with a pinned fallback URL on API failure).
+# Keep in sync with install-plugin.sh PLUGIN_GITHUB_REPOS.
+declare -A PLUGIN_GITHUB_REPOS
+declare -A PLUGIN_GITHUB_FALLBACK
+PLUGIN_GITHUB_REPOS["p37"]="dmulloy2/ProtocolLib"       # ProtocolLib — packet library
+PLUGIN_GITHUB_FALLBACK["p37"]="https://github.com/dmulloy2/ProtocolLib/releases/download/5.4.0/ProtocolLib.jar"
+
 if [ "$TYPE" != "fabric" ] && [ "$TYPE" != "forge" ] && [ "$TYPE" != "neoforge" ] && [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
   echo "[$(date)] Installing plugins..."
   while IFS= read -r addonId; do
@@ -258,6 +266,16 @@ if [ "$TYPE" != "fabric" ] && [ "$TYPE" != "forge" ] && [ "$TYPE" != "neoforge" 
         echo "[$(date)] OK: $addonId ($filename)"
       else
         echo "[$(date)] FAILED (invalid jar): $addonId ($filename)"
+      fi
+    elif [[ -n "${PLUGIN_GITHUB_REPOS[$addonId]:-}" ]]; then
+      # GitHub-release plugin (e.g. p37 ProtocolLib) — delegate to install-plugin-url.sh,
+      # which resolves the latest .jar asset via the GitHub API (pinned fallback on failure).
+      echo "[$(date)] Installing $addonId via GitHub release (${PLUGIN_GITHUB_REPOS[$addonId]})"
+      if PLUGIN_FALLBACK_URL="${PLUGIN_GITHUB_FALLBACK[$addonId]:-}" \
+         bash "$SCRIPTS_DIR_SELF/install-plugin-url.sh" "$SERVER_DIR" "github:${PLUGIN_GITHUB_REPOS[$addonId]}"; then
+        echo "[$(date)] OK: $addonId (GitHub)"
+      else
+        echo "[$(date)] FAILED (GitHub install): $addonId"
       fi
     else
       echo "[$(date)] No URL mapped for addon: $addonId (skipping)"

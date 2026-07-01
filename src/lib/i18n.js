@@ -152,6 +152,15 @@ export const DICT = {
     autoAddedTag: "נוסף אוטומטית",
     autoAddedByNote: "נוסף אוטומטית כתלות של תוסף אחר",
     depAutoInstallNote: "תוסף זה דורש את הפלאגינים הבאים — המערכת מסמנת ומתקינה אותם עבורך אוטומטית.",
+    // Blocked when trying to REMOVE a dep that a still-installed parent needs.
+    // {dep} = the required plugin, {parents} = the addon(s) that depend on it.
+    depRemoveBlocked: "{dep} נדרש ע\"י {parents} — הסר קודם את {parents}, ואז אפשר להסיר את {dep}.",
+    // --- ItemsAdder / premium plugin step-by-step manual guide ---
+    iaGuideTitle: "🛠️ התקנה ידנית (פרימיום) — האתר לא יכול להוריד אותו עבורך (בתשלום).",
+    iaGuideStep1: "צעד 1: קנה+הורד מהאתר הרשמי את קובץ ה-.jar למחשב שלך.",
+    iaGuideStep1Link: "🔗 קנה + הורד את ItemsAdder",
+    iaGuideStep2: "צעד 2: כנס ל'ניהול הקבצים' של השרת → תיקיית plugins → העלה את הקובץ (כפתור 📤 שהוספנו).",
+    iaGuideAuto: "✅ מה האתר עושה אוטומטית כשתסמן: מתקין את ProtocolLib (מ-GitHub) + מכין את תיקיות ההגדרות.",
     coreIncompatibleNote: "פועל רק על",
     coreIncompatibleOnly: "בלבד",
     // Modpack exact loader + MC-version gate ({req} = e.g. "Forge 1.20.1").
@@ -564,6 +573,15 @@ export const DICT = {
     autoAddedTag: "added automatically",
     autoAddedByNote: "Added automatically as a dependency of another add-on",
     depAutoInstallNote: "This add-on requires the following plugins — the system selects and installs them for you automatically.",
+    // Blocked when trying to REMOVE a dep that a still-installed parent needs.
+    // {dep} = the required plugin, {parents} = the addon(s) that depend on it.
+    depRemoveBlocked: "{dep} is required by {parents} — remove {parents} first, then you can remove {dep}.",
+    // --- ItemsAdder / premium plugin step-by-step manual guide ---
+    iaGuideTitle: "🛠️ Manual install (premium) — the site can't download it for you (it's paid).",
+    iaGuideStep1: "Step 1: Buy + download the .jar file from the official site to your computer.",
+    iaGuideStep1Link: "🔗 Buy + download ItemsAdder",
+    iaGuideStep2: "Step 2: Open the server's File Manager → the plugins folder → upload the file (the 📤 button we added).",
+    iaGuideAuto: "✅ What the site does automatically when you check it: installs ProtocolLib (from GitHub) + prepares the config folders.",
     coreIncompatibleNote: "Works on",
     coreIncompatibleOnly: "only",
     // Modpack exact loader + MC-version gate ({req} = e.g. "Forge 1.20.1").

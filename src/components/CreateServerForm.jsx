@@ -5,7 +5,7 @@ import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType, is
 import { addonDesc } from '../lib/addonI18n';
 import { isViaVersion } from '../lib/utils';
 import ImageUploader from './ImageUploader';
-import { ClientDownloadLink, RequirementsAccordion, CoreIncompatibleNote, ResourcePackInstallChoice, PluginBoundTag, ModpackPlayerRequirements } from './AddonClientExtras';
+import { ClientDownloadLink, RequirementsAccordion, CoreIncompatibleNote, ResourcePackInstallChoice, PluginBoundTag, ModpackPlayerRequirements, PremiumPluginGuide } from './AddonClientExtras';
 import ClientRequirements from './ClientRequirements';
 
 export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lang, userRole, isAdmin = false, mcVersions, versionMatrix = {}, isCreatingServer = false }) {
@@ -543,6 +543,8 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                           </span>
                         )}
                         <RequirementsAccordion addon={a} allAddons={allAddons} t={t} lang={lang} addonDesc={addonDesc} />
+                        {/* Batch G2 — paid plugin (ItemsAdder) step-by-step manual-install guide. */}
+                        <PremiumPluginGuide addon={a} t={t} />
                         {/* TASK 2 — plugin-bound RP warning (Custom Hats etc.); enriched on a plugin-capable core (Phase 5d). */}
                         <PluginBoundTag addon={a} allAddons={allAddons} t={t} software={software} />
                         {/* TASK 1 — server-RP vs PC-download choice for normal texture packs. */}

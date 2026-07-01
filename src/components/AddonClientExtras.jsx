@@ -218,6 +218,59 @@ export function PluginBoundTag({ addon, allAddons, t }) {
   );
 }
 
+// Batch G2 — step-by-step manual-install guide for a PAID plugin (ItemsAdder etc.).
+// A premium plugin genuinely can't be auto-downloaded (it's behind a paywall) — only
+// UPLOADED. This replaces the vague "manual install" text with a clear numbered guide:
+//   1) buy + download the .jar (buyUrl)
+//   2) upload it via the server's File Manager → plugins folder (the 📤 upload button)
+//   ✅ what the site DOES do automatically on select: install the free deps (ProtocolLib
+//      from GitHub) + prepare config folders.
+// Shown only for addon.paid plugins. Inline slide-down (NO popup). Pure presentational.
+export function PremiumPluginGuide({ addon, t }) {
+  const [open, setOpen] = useState(false);
+  if (!addon?.paid || addon.type !== 'plugins') return null;
+  return (
+    <div className="mt-2 w-full">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
+        className="flex items-center gap-1.5 text-[11px] font-bold text-yellow-400 hover:text-yellow-300 transition-colors"
+      >
+        <ChevronDown size={13} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        {t('iaGuideTitle')}
+      </button>
+      {open && (
+        <div className="mt-1.5 space-y-2 ps-2 border-s border-yellow-500/20 animate-in slide-in-from-top-2 duration-200">
+          {/* Step 1 — buy + download the .jar (buyUrl). */}
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg p-2">
+            <p className="text-xs text-zinc-200 leading-relaxed">{t('iaGuideStep1')}</p>
+            {addon.buyUrl && (
+              <a
+                href={addon.buyUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                onClick={(e) => e.stopPropagation()}
+                className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-yellow-300 hover:text-yellow-200 border border-yellow-500/30 bg-yellow-500/10 rounded px-1.5 py-0.5 transition-colors whitespace-nowrap"
+              >
+                {t('iaGuideStep1Link')} <ExternalLink size={11} />
+              </a>
+            )}
+          </div>
+          {/* Step 2 — upload via the File Manager → plugins folder. */}
+          <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg p-2">
+            <p className="text-xs text-zinc-200 leading-relaxed">{t('iaGuideStep2')}</p>
+          </div>
+          {/* ✅ what the site auto-does on select (install free deps + prep configs). */}
+          <p className="flex items-start gap-1.5 text-[11px] text-green-400 bg-green-500/10 border border-green-500/30 rounded-lg px-2 py-1.5 leading-relaxed">
+            <Check size={13} className="flex-shrink-0 mt-0.5" />
+            {t('iaGuideAuto')}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // TASK 1 — Resource-pack install CHOICE accordion. For a server-applied texture
 // pack we let the user choose how it behaves:
 //   (a) server-resource-pack — auto-push to every player (recommended for communities)

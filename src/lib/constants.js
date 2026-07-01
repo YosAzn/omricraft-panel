@@ -419,10 +419,10 @@ export const DEFAULT_ADDONS = [
 
   // --- תוספות RPG, חיות רכיבה ואנטי-צ'יט (חדש) ---
   { id: 'p27', name: 'MythicMounts', desc: 'חיות רכיבה מיוחדות! מאפשר לרכוב על אפיגאסט (Epigast), לשים לו הארנס (רתמה) עם כישוף Soul Speed שככל שרמתו גבוהה יותר, החיה טסה מהר יותר! (דורש MythicMobs)', type: 'plugins', requires: ['p21'], downloads: '1.5M', rating: 4.8, reviews: 4200, paid: true, buyUrl: 'https://mythiccraft.io/index.php?resources/' },
-  { id: 'p28', name: 'ItemsAdder', desc: 'הוספת אלפי חפצים, נשקים, רהיטים ובלוקים חדשים לשרת (כולל טקסטורות) בלי שאף שחקן יצטרך להוריד מודים (דורש ProtocolLib — אינו ב-Modrinth, התקנה ידנית מ-SpigotMC)', type: 'plugins', requires: ['p37'], downloads: '4.5M', rating: 4.9, reviews: 18000, paid: true, buyUrl: 'https://itemsadder.devs.beer/' },
+  { id: 'p28', name: 'ItemsAdder', desc: 'הוספת אלפי חפצים, נשקים, רהיטים ובלוקים חדשים לשרת (כולל טקסטורות) בלי שאף שחקן יצטרך להוריד מודים (פלאגין בתשלום — מעלים ידנית; ProtocolLib הנדרש מותקן אוטומטית מ-GitHub)', type: 'plugins', requires: ['p37'], downloads: '4.5M', rating: 4.9, reviews: 18000, paid: true, buyUrl: 'https://itemsadder.devs.beer/' },
   { id: 'p29', name: 'Grim AntiCheat', desc: 'מערכת האנטי-צ\'יט (נגד האקרים) המתקדמת בעולם כיום. חוסמת צ\'יטים מבלי לפגוע בשחקנים רגילים', type: 'plugins', downloads: '8M', rating: 4.9, reviews: 25000 },
   { id: 'p30', name: 'ViaVersion', desc: 'חובה! מאפשר לשחקנים מגרסאות מיינקראפט ישנות או חדשות יותר (מ-1.8 עד 1.26) להיכנס לשרת שלך בלי בעיות', type: 'plugins', downloads: '45M', rating: 4.9, reviews: 150000 },
-  { id: 'p31', name: 'InteractiveChat', desc: 'משדרג את הצ\'אט: שחקנים יכולים לכתוב [item] או [inv] כדי להראות את הנשק או התיק שלהם לכולם בצ\'אט (דורש ProtocolLib (ידני, אינו ב-Modrinth) + PlaceholderAPI + Vault)', type: 'plugins', requires: ['p37', 'p14', 'p5'], downloads: '6M', rating: 4.8, reviews: 9200 },
+  { id: 'p31', name: 'InteractiveChat', desc: 'משדרג את הצ\'אט: שחקנים יכולים לכתוב [item] או [inv] כדי להראות את הנשק או התיק שלהם לכולם בצ\'אט (דורש ProtocolLib (מותקן אוטומטית מ-GitHub) + PlaceholderAPI + Vault)', type: 'plugins', requires: ['p37', 'p14', 'p5'], downloads: '6M', rating: 4.8, reviews: 9200 },
   { id: 'p32', name: 'Chunky', desc: 'כלי חובה לשרתים פתוחים: טוען את כל העולם מראש! מונע לחלוטין את הלאגים שנוצרים כששחקנים חוקרים אזורים חדשים', type: 'plugins', downloads: '12M', rating: 4.9, reviews: 14000 },
 
   // --- כלים ועיצוב ---
@@ -436,9 +436,11 @@ export const DEFAULT_ADDONS = [
 
   // --- ספריות תלות (dependency libraries) ---
   // p36 NightCore — ספריית הליבה של מפתח ExcellentEnchants (p25); מותקנת אוטומטית מ-Modrinth.
-  // p37 ProtocolLib — אינו ב-Modrinth (מופץ דרך SpigotMC) → installMethod:'manual', אין התקנה אוטומטית בשרת.
+  // p37 ProtocolLib — אינו ב-Modrinth (מופץ דרך GitHub releases). `githubRepo` → install-plugin.sh
+  // מזהה אותו, מוריד את ה-.jar האחרון דרך GitHub API (fallback לגרסה נעולה), ומתקין אוטומטית כמו כל
+  // תוסף-שרת. אין installMethod:'manual' יותר → נבחר ומותקן אוטומטית (למשל כתלות של ItemsAdder).
   { id: 'p36', name: 'NightCore', desc: 'ספריית ליבה הכרחית לפלאגינים של אותו מפתח (כמו ExcellentEnchants) — בלעדיה הם לא עולים', type: 'plugins', downloads: '2.5M', rating: 4.8, reviews: 3900 },
-  { id: 'p37', name: 'ProtocolLib', desc: 'ספריית פאקטים הכרחית לפלאגינים כמו ItemsAdder ו-InteractiveChat (אינו ב-Modrinth — מופץ דרך SpigotMC, התקנה ידנית)', type: 'plugins', installMethod: 'manual', downloads: '50M', rating: 4.9, reviews: 60000 },
+  { id: 'p37', name: 'ProtocolLib', desc: 'ספריית פאקטים הכרחית לפלאגינים כמו ItemsAdder ו-InteractiveChat (אינו ב-Modrinth — מותקן אוטומטית מ-GitHub releases)', type: 'plugins', githubRepo: 'dmulloy2/ProtocolLib', downloads: '50M', rating: 4.9, reviews: 60000 },
 
   // --- Datapacks ---
   // installMethod: 'server' = מותקן בשרת דרך installDatapack endpoint. 'manual' = אין URL מתארח → הורדה ידנית.
