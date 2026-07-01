@@ -161,7 +161,11 @@ export default function App() {
   const getAddonsPath = () => 'omricraft/main/customAddons';
 
   useEffect(() => {
-    if (!db) return;
+    // Wait for auth before subscribing: the Firestore rules require request.auth
+    // (owner OR admin-email) to read servers. If we subscribe during the pre-auth /
+    // anonymous phase the listen is permission-denied and dies; re-running on
+    // authUser change (below) re-subscribes with the real (admin/Google) identity.
+    if (!db || !authUser) return;
 
     const serversPath = getServersPath();
     const addonsPath = getAddonsPath();
@@ -177,7 +181,9 @@ export default function App() {
     }, (err) => console.error("Firestore Listen Error (Addons):", err));
 
     return () => { unsubServers(); unsubAddons(); };
-  }, []);
+    // Re-subscribe whenever the signed-in identity changes (anon → Google/admin),
+    // so a listen that was denied while anonymous is re-established once authed.
+  }, [authUser]);
 
   // Poll player counts every 30s (non-blocking, best-effort)
   useEffect(() => {
