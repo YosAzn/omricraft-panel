@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ChevronDown, ExternalLink, Check, Lock, Server, Monitor, AlertTriangle, Rocket } from 'lucide-react';
 import {
   getInstallMethod, resolveRequires, compatibleCoresLabel,
-  canPcDownloadRP, modrinthModpackUri, curseforgeInstallUri, isBukkitBased,
+  canPcDownloadRP, modrinthModpackUri, curseforgeInstallUri,
 } from '../lib/constants';
 import ClientRequirements from './ClientRequirements';
 
@@ -170,47 +170,49 @@ export function ClientDepsChooser({ deps, allAddons, t, lang, addonDesc, startOp
   );
 }
 
-// TASK 2 — Prominent "plugin-bound" tag for resource packs whose items only exist
-// via a plugin (Custom Hats / ItemsAdder-style). A bare RP can't add the items, so
-// we warn loudly and (when `suggestsPlugin` is set) name the plugin that does.
-// Pure presentational; shown only for addon.pluginBound packs.
-// Phase 5d — when `software` is a plugin-capable (Bukkit) core, prepend an enriched
-// explanation that the pack adds brand-new items and the backing plugin (ItemsAdder)
-// is auto-installed, so players just join with vanilla. The "requires ItemsAdder"
-// requirement note stays. When software is omitted, behave as before (no enriched line).
-export function PluginBoundTag({ addon, allAddons, t, software }) {
+// TASK 2 — Prominent "plugin-bound" note for resource packs whose items only exist
+// via a plugin (Custom Hats / ItemsAdder-style). A bare RP can't add the items.
+// ONE clean, de-duplicated block: what it does / mandatory requirement / installation /
+// no PC download. The backing plugin (from `suggestsPlugin`) is named EXACTLY ONCE
+// (bolded inline in the "required" line, with an optional buy-link on the same name) —
+// this replaces the old label+note+enriched+suggest markup that printed the plugin name
+// twice ("ItemsAdder ItemsAdder") and ran a "דורש פלאגין" heading straight into a
+// "דורש ItemsAdder…" note with no separation. `software` is accepted for API
+// compatibility with the call sites (Phase 5d) but the note now reads the same on any
+// plugin-capable core. Pure presentational; shown only for addon.pluginBound packs.
+export function PluginBoundTag({ addon, allAddons, t }) {
   if (!addon?.pluginBound) return null;
   const sugg = addon.suggestsPlugin
     ? (allAddons || []).find(a => a.id === addon.suggestsPlugin)
     : null;
-  const enriched = software ? isBukkitBased(software) : false;
+  // Name the backing plugin once: prefer the catalog name, else the literal in the note.
+  const pluginName = sugg?.name || 'ItemsAdder';
+  // The "required" text embeds the plugin name literally ("...את פלאגין-התשתית ItemsAdder...");
+  // when the catalog plugin name differs, swap it in so the name stays consistent + single.
+  const requiredText = t('pluginBoundRequired').replace('ItemsAdder', pluginName);
   return (
     <div className="mt-2 w-full flex items-start gap-2 text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
       <AlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
-      <div className="text-xs leading-relaxed">
-        {enriched && (
-          <span className="block mb-1.5 text-amber-100/90">{t('pluginBoundEnriched')}</span>
-        )}
-        <span className="font-bold uppercase tracking-wide me-1">{t('pluginBoundTag')}</span>
-        {t('pluginBoundNote')}
-        {sugg && (
-          <span className="block mt-1 text-amber-200/90">
-            {t('pluginBoundSuggest')} <b>{sugg.name}</b>
-            {sugg.buyUrl && (
-              <>{' '}
-                <a
-                  href={sugg.buyUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-1 font-bold text-amber-300 hover:text-amber-200 underline decoration-dotted"
-                >
-                  {sugg.name} <ExternalLink size={11} />
-                </a>
-              </>
-            )}
-          </span>
-        )}
+      <div className="text-xs leading-relaxed space-y-1.5">
+        <p><span className="me-1">🔽</span><span className="font-bold text-amber-100/90">{t('pluginBoundWhatLabel')}:</span> {t('pluginBoundWhat')}</p>
+        <p>
+          <span className="me-1">⚠️</span><span className="font-bold text-amber-100/90">{t('pluginBoundRequiredLabel')}:</span> {requiredText}
+          {sugg?.buyUrl && (
+            <>{' '}
+              <a
+                href={sugg.buyUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 font-bold text-amber-300 hover:text-amber-200 underline decoration-dotted"
+              >
+                {pluginName} <ExternalLink size={11} />
+              </a>
+            </>
+          )}
+        </p>
+        <p><span className="me-1">🛠️</span><span className="font-bold text-amber-100/90">{t('pluginBoundInstallLabel')}:</span> {t('pluginBoundInstall')}</p>
+        <p><span className="me-1">❌</span><span className="font-bold text-amber-100/90">{t('pluginBoundNoPcLabel')}:</span> {t('pluginBoundNoPc')}</p>
       </div>
     </div>
   );

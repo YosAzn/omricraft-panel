@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Play, Search, Check, Shield, Lock } from 'lucide-react';
+import { ArrowLeft, Play, Search, Check, Shield, Lock, ChevronDown } from 'lucide-react';
 
 import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType, isBukkitBased, isWorldgenDatapack, getClientLoader, isCoreIncompatible, collectRequiredIds, getRecommendedRamMb, isEolCore, forgeNeoForgeHint, modpackRamRecommendationMb, isPluginBoundBlocked, isModpackIncompatible, modpackRequirementLabel } from '../lib/constants';
 import { addonDesc } from '../lib/addonI18n';
@@ -37,6 +37,10 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
 
   // State חדש לחיפוש תוספים
   const [addonSearch, setAddonSearch] = useState('');
+  // Expand the addon-picker scroll area from a comfortable default (~46vh) to a large
+  // view (~78vh) so the user can scan many addons at once, and back. Default was
+  // max-h-56 (~224px) which only showed 2-3 rows — unusable for a big catalog.
+  const [addonsExpanded, setAddonsExpanded] = useState(false);
 
   // Keep these lists in sync with AddonsTab.jsx (Bukkit family = plugins,
   // mod-loaders = mods; Mohist + Youer are hybrids → both). folia/mohist/neoforge were
@@ -430,19 +434,30 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
             <div className="space-y-4">
                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                   <label className="block text-sm font-bold text-zinc-400">{t('selectAddons')} ({selectedAddons.length})</label>
-                  <div className="relative w-full sm:w-64">
-                    <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-                    <input
-                      type="text"
-                      placeholder="חיפוש תוסף..."
-                      value={addonSearch}
-                      onChange={(e) => setAddonSearch(e.target.value)}
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pr-9 pl-3 py-1.5 text-xs text-white focus:outline-none focus:border-zinc-600"
-                    />
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="relative flex-1 sm:w-64">
+                      <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                      <input
+                        type="text"
+                        placeholder="חיפוש תוסף..."
+                        value={addonSearch}
+                        onChange={(e) => setAddonSearch(e.target.value)}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pr-9 pl-3 py-1.5 text-xs text-white focus:outline-none focus:border-zinc-600"
+                      />
+                    </div>
+                    {/* Expand/collapse the picker's scroll height so many addons are visible at once. */}
+                    <button
+                      type="button"
+                      onClick={() => setAddonsExpanded(v => !v)}
+                      className="flex-shrink-0 flex items-center gap-1 bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs font-bold text-zinc-300 hover:text-white hover:border-zinc-600 transition-colors whitespace-nowrap"
+                    >
+                      <ChevronDown size={13} className={`transition-transform ${addonsExpanded ? 'rotate-180' : ''}`} />
+                      {addonsExpanded ? t('addonsCollapse') : t('addonsExpand')}
+                    </button>
                   </div>
                </div>
 
-               <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-2 max-h-56 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2">
+               <div className={`bg-zinc-950 border border-zinc-800 rounded-xl p-2 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2 transition-[max-height] duration-200 ${addonsExpanded ? 'max-h-[78vh]' : 'max-h-[46vh]'}`}>
                  {searchedAddons.map(a => {
                     const installMethod = getInstallMethod(a); // 'server' | 'manual' | 'client'
                     const worldgenBlocked = isWorldgenBlocked(a);

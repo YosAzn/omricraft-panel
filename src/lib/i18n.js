@@ -49,6 +49,8 @@ export const DICT = {
     seed: "Seed לעולם (מושאר ריק? ניצור אחד רנדומלי)",
     cancel: "ביטול",
     selectAddons: "בחר תוספים מראש (אופציונלי)",
+    addonsExpand: "הרחב",
+    addonsCollapse: "כווץ",
     overview: "מבט כללי",
     console: "קונסולה",
     addonsTab: "תוספים וטקסטורות",
@@ -119,6 +121,17 @@ export const DICT = {
     // 5d — pluginBound packs are plugin-capable-core only (block on Vanilla + pure-mod).
     pluginBoundCoreBlocked: "🔒 דורש שרת תומך-פלאגינים (Paper/Purpur/Folia/Mohist/Youer) — הפריטים נוצרים על-ידי פלאגין-תשתית. בשרת ונילה או מודים אין דרך להזריק אותם.",
     pluginBoundEnriched: "מוסיף לשרת כובעים ופריטים תלת-ממדיים חדשים לחלוטין — שחקנים חובשים, אוספים וסוחרים בהם. ✓ המערכת מתקינה אוטומטית את פלאגין-התשתית ItemsAdder ומגדירה את הטקסטורות. השחקנים לא מתקינים כלום במחשב — נכנסים עם ונילה נקי ומקבלים את הכובעים אוטומטית.",
+    // Consolidated, de-duplicated plugin-bound note (Custom Hats). One clean block:
+    // what it does / mandatory requirement / installation / no PC download. ItemsAdder
+    // is named ONCE and "דורש" appears once (replaces the old label+note+enriched overlap).
+    pluginBoundWhatLabel: "מה התוסף עושה",
+    pluginBoundWhat: "מוסיף לשרת כובעים ופריטים תלת-ממדיים חדשים (כתרים, כובעי-קסם) — שחקנים חובשים, אוספים וסוחרים בהם.",
+    pluginBoundRequiredLabel: "דרישת חובה",
+    pluginBoundRequired: "חבילת-משאבים לבדה לא מייצרת פריטים חדשים — היא רק משנה מראה של קיימים. כדי שהכובעים יהיו במשחק, השרת חייב להריץ את פלאגין-התשתית ItemsAdder (מסומן אוטומטית).",
+    pluginBoundInstallLabel: "התקנה",
+    pluginBoundInstall: "מוגדר כחלק מ-ItemsAdder — המערכת מזריקה את החבילה להגדרות הפלאגין. השחקנים לא מתקינים כלום — מקבלים אוטומטית בכניסה.",
+    pluginBoundNoPcLabel: "אין הורדה למחשב",
+    pluginBoundNoPc: "תלוי בפלאגין בשרת, לא יעבוד לבד במחשב.",
     // --- Modpack player-side requirements (Phase 3 / TASK 3) ---
     modpackPlayerReqTitle: "מה השחקנים צריכים כדי להיכנס?",
     modpackInstallTitle: "התקנה אוטומטית למחשב שלך (לחיצה אחת):",
@@ -453,6 +466,8 @@ export const DICT = {
     seed: "World Seed (Leave empty for random)",
     cancel: "Cancel",
     selectAddons: "Pre-install Add-ons (Optional)",
+    addonsExpand: "Expand",
+    addonsCollapse: "Collapse",
     overview: "Overview",
     console: "Console",
     addonsTab: "Mods & Textures",
@@ -516,6 +531,15 @@ export const DICT = {
     pluginBoundSuggest: "Recommended to install:",
     pluginBoundCoreBlocked: "🔒 Needs a plugin-capable server (Paper/Purpur/Folia/Mohist/Youer) — the items are created by a backing plugin. A Vanilla or mod server has no way to inject them.",
     pluginBoundEnriched: "Adds brand-new 3D hats and items to the server — players wear, collect and trade them. ✓ The system auto-installs the ItemsAdder backing plugin and sets up the textures. Players install nothing on their PC — they join with plain vanilla and get the hats automatically.",
+    // Consolidated, de-duplicated plugin-bound note (Custom Hats). ItemsAdder named ONCE.
+    pluginBoundWhatLabel: "What it does",
+    pluginBoundWhat: "Adds brand-new 3D hats and items to the server (crowns, magic hats) — players wear, collect and trade them.",
+    pluginBoundRequiredLabel: "Required",
+    pluginBoundRequired: "A resource pack alone doesn't create new items — it only re-skins existing ones. For the hats to exist in-game the server must run the ItemsAdder backing plugin (checked automatically).",
+    pluginBoundInstallLabel: "Installation",
+    pluginBoundInstall: "Set up as part of ItemsAdder — the system injects the pack into the plugin's config. Players install nothing — they get it automatically on join.",
+    pluginBoundNoPcLabel: "No PC download",
+    pluginBoundNoPc: "Depends on the server plugin; it won't work on its own on a PC.",
     // --- Modpack player-side requirements (Phase 3 / TASK 3) ---
     modpackPlayerReqTitle: "What players need to join",
     modpackInstallTitle: "One-click install on your PC:",
