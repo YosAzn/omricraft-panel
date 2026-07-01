@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import {
   Layers, X, Plus, UploadCloud, Link as LinkIcon, Search,
-  Package, Palette, Star, Trash2, Download, Check, Sparkles, ExternalLink, Loader2, Boxes, Monitor
+  Palette, Star, Trash2, Download, Check, Sparkles, ExternalLink, Loader2, Boxes, Monitor
 } from 'lucide-react';
 
-import { TYPE_COLORS, ADDON_TYPES, getInstallMethod, canPcDownloadRP } from '../lib/constants';
+import { TYPE_COLORS, ADDON_TYPES, iconForType, typeTextColor, getInstallMethod, canPcDownloadRP } from '../lib/constants';
 import { addonDesc } from '../lib/addonI18n';
 import { suggestModpackFn } from '../lib/api';
 import AiTextureGenerator from './AiTextureGenerator';
@@ -465,18 +465,16 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
         {filtered.map(a => {
           const isCustom = customAddons.some(c => c.id === a.id);
           const badgeStyle = TYPE_COLORS[a.type] || 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20';
-          
-          let IconComp = Package;
-          if (a.type === 'modpacks') IconComp = Layers;
-          if (a.type === 'textures') IconComp = Palette;
-          if (a.type === 'shaders') IconComp = Sparkles;
-          if (a.type === 'client-mods') IconComp = Boxes;
+
+          // Distinct, type-coloured icon per group (FIX #3). Custom addons keep the
+          // green tint that flags a user-added entry; catalog entries take their type colour.
+          const IconComp = iconForType(a.type);
 
           return (
             <div key={a.id} onClick={() => setSelectedAddon(a)} className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex items-center justify-between group hover:border-zinc-700 transition-all cursor-pointer">
               <div className="flex items-center gap-4 overflow-hidden">
                 <div className="w-12 h-12 flex-shrink-0 bg-zinc-950 rounded-lg flex items-center justify-center border border-zinc-800 relative">
-                  <IconComp size={20} className={isCustom ? "text-green-400" : (a.type==='textures' ? "text-teal-500" : "text-zinc-400")} />
+                  <IconComp size={20} className={isCustom ? "text-green-400" : typeTextColor(a.type)} />
                   {isCustom && (a.fileUrl || a.fileName) && <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border border-zinc-950" title="קובץ מקושר" />}
                 </div>
                 <div className="min-w-0">
@@ -516,7 +514,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center gap-4">
                 <div className={`w-14 h-14 rounded-xl flex items-center justify-center border border-zinc-800 bg-zinc-950`}>
-                  <Package size={28} className="text-green-500" />
+                  {(() => { const ModalIcon = iconForType(selectedAddon.type); return <ModalIcon size={28} className={typeTextColor(selectedAddon.type)} />; })()}
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold">{selectedAddon.name}</h3>

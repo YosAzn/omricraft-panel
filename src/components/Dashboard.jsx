@@ -266,40 +266,11 @@ export default function Dashboard({
         )}
       </div>
 
-      {/* ===== Available updates (section 4) — REAL server/MC version only ===== */}
-      {servers.length > 0 && matrix !== null && (
-        <div className="mb-8">
-          <h3 className="text-sm font-bold text-zinc-400 mb-3 flex items-center gap-2">
-            <ArrowUpCircle size={16} className="text-emerald-400" /> {t('dashUpdatesTitle')}
-          </h3>
-          {updates.length === 0 ? (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-sm text-emerald-300 font-bold flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-emerald-400" /> {t('dashUpdatesAllCurrent')}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {updates.map(({ server, current, latest }) => (
-                <button
-                  key={server.id}
-                  onClick={() => onOpenServer(server.id)}
-                  className="bg-zinc-900 hover:bg-zinc-800 border border-amber-500/20 hover:border-amber-500/40 rounded-2xl p-4 text-start transition-all"
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <ArrowUpCircle size={16} className="text-amber-400 flex-shrink-0" />
-                    <span className="text-xs font-bold text-amber-400">{t('dashUpdateAvailable')}</span>
-                  </div>
-                  <div className="font-bold text-zinc-100 truncate mb-1" title={server.name}>{server.name}</div>
-                  <div className="text-sm text-zinc-400 flex items-center gap-2" dir="ltr">
-                    <span className="text-zinc-500">{current}</span>
-                    <ChevronRight size={14} className="text-zinc-600" />
-                    <span className="text-emerald-400 font-bold">{latest}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* NOTE: the top aggregate "available updates" section was removed — it was
+          redundant with the per-server update strip shown BELOW each server card's
+          action buttons (see updateByServerId + the strip further down). The
+          `updates` / `updateByServerId` computation above is kept because that
+          per-server strip still relies on it. */}
 
       {/* ===== Servers at-a-glance (section 2) — existing grid, enhanced with
               real player counts. Keeps onOpenServer / toggleServerStatus.

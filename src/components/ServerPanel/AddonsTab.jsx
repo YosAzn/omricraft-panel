@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
   Package, RefreshCw, RefreshCcw, AlertCircle, X, Search,
-  Star, Download, Layers, Palette, Sparkles, Boxes, Lock
+  Star, Download, Lock
 } from 'lucide-react';
 import { listFilesFn, removePluginJarFn, reloadPluginFn } from '../../lib/api';
-import { TYPE_COLORS, getInstallMethod, isBukkitBased, isWorldgenDatapack, isCoreIncompatible, collectRequiredIds, compatibleCoresLabel, isPluginBoundBlocked, isModpackIncompatible, modpackRequirementLabel } from '../../lib/constants';
+import { TYPE_COLORS, iconForType, typeTextColor, getInstallMethod, isBukkitBased, isWorldgenDatapack, isCoreIncompatible, collectRequiredIds, compatibleCoresLabel, isPluginBoundBlocked, isModpackIncompatible, modpackRequirementLabel } from '../../lib/constants';
 import { addonDesc } from '../../lib/addonI18n';
 import { ClientDownloadLink, RequirementsAccordion, CoreIncompatibleNote, ResourcePackInstallChoice, PluginBoundTag, ModpackPlayerRequirements } from '../AddonClientExtras';
 
@@ -259,17 +259,15 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
           const modpackBlocked = isModpackBlocked(item); // modpack loader/version mismatch
           const greyed = worldgenBlocked || coreBlocked || pluginBoundBlocked || modpackBlocked;
 
-          let IconComp = Package;
-          if (item.type === 'modpacks') IconComp = Layers;
-          if (item.type === 'textures') IconComp = Palette;
-          if (item.type === 'shaders') IconComp = Sparkles;
-          if (item.type === 'client-mods') IconComp = Boxes;
+          // Distinct, type-coloured icon (FIX #3). Installed → the type's own colour;
+          // not-installed → neutral zinc so the "install me" state still reads.
+          const IconComp = iconForType(item.type);
 
           return (
             <div key={item.id} className={`bg-zinc-950 border border-zinc-800 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-zinc-700 transition-all ${greyed ? 'opacity-50' : ''}`}>
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-zinc-900 rounded-lg flex items-center justify-center border border-zinc-800 flex-shrink-0 relative">
-                  <IconComp size={24} className={isInstalled ? (item.type === 'textures' ? 'text-teal-500' : 'text-green-500') : 'text-zinc-600'} />
+                  <IconComp size={24} className={isInstalled ? typeTextColor(item.type) : 'text-zinc-600'} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">

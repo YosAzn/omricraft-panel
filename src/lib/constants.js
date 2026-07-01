@@ -1,4 +1,5 @@
 // --- Shared constants ---
+import { Boxes, Plug, ScrollText, Package, Palette, MonitorSmartphone, Sparkles } from 'lucide-react';
 
 // installMethod — איך התוסף מותקן:
 //   'server' (ברירת מחדל) — מותקן בשרת ה-VPS דרך Cloud Function (installPlugin / installDatapack).
@@ -140,8 +141,10 @@ export const collectRequiredIds = (seedIds, allAddons) => {
 
 // Full literal Tailwind class strings per addon type (so the JIT compiler keeps
 // them in the build — never build these from a variable). `shaders` (gray) and
-// `client-mods` (yellow) are CLIENT-ONLY groups: their addons carry
+// `client-mods` (YELLOW) are CLIENT-ONLY groups: their addons carry
 // installMethod:'client', so they never reach the VPS installer.
+// datapacks (ORANGE) vs client-mods (YELLOW) are deliberately DIFFERENT families
+// so the two never read as the same colour in the badges/icons.
 export const TYPE_COLORS = {
   mods: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   plugins: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
@@ -149,12 +152,46 @@ export const TYPE_COLORS = {
   modpacks: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
   textures: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
   shaders: 'bg-zinc-500/10 text-zinc-300 border-zinc-500/30',
-  'client-mods': 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+  'client-mods': 'bg-yellow-400/10 text-yellow-300 border-yellow-400/20'
 };
+
+// Distinct lucide icon per addon type — no two types share one. Used consistently
+// across the catalog cards, the addon-detail modal, the type-filter tabs and
+// AddonsTab so a type always reads the same everywhere. datapacks (ScrollText),
+// client-mods (MonitorSmartphone) and plugins (Plug) were previously too similar
+// (all box-like) → each now has an obviously different glyph.
+export const TYPE_ICONS = {
+  mods: Boxes,
+  plugins: Plug,
+  datapacks: ScrollText,
+  modpacks: Package,
+  textures: Palette,
+  shaders: Sparkles,
+  'client-mods': MonitorSmartphone
+};
+
+// The icon for a type (falls back to Package for an unknown/custom type).
+export const iconForType = (type) => TYPE_ICONS[type] || Package;
+
+// The type's OWN text-colour class (the `text-*` token pulled out of TYPE_COLORS),
+// so an icon can be tinted to match its type name/badge. Full literal strings only
+// (JIT-safe — never derived from a variable). Unknown type → neutral zinc.
+export const TYPE_TEXT_COLORS = {
+  mods: 'text-blue-400',
+  plugins: 'text-purple-400',
+  datapacks: 'text-orange-400',
+  modpacks: 'text-pink-400',
+  textures: 'text-teal-400',
+  shaders: 'text-zinc-300',
+  'client-mods': 'text-yellow-300'
+};
+export const typeTextColor = (type) => TYPE_TEXT_COLORS[type] || 'text-zinc-400';
 
 // Ordered list of every addon group, used to render filter tabs / pickers
 // everywhere consistently. Keep in sync with TYPE_COLORS + i18n labels.
-export const ADDON_TYPES = ['mods', 'plugins', 'datapacks', 'modpacks', 'textures', 'shaders', 'client-mods'];
+// client-mods sits right AFTER textures (a client mod is essentially a
+// texture-like client-side thing) and before shaders.
+export const ADDON_TYPES = ['mods', 'plugins', 'datapacks', 'modpacks', 'textures', 'client-mods', 'shaders'];
 
 // Client-only groups — never installed on the server (player-PC only). Used by
 // the UI to render them as their own group without a server "install" button.
