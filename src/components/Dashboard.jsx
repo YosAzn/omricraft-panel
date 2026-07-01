@@ -7,6 +7,7 @@ import {
 import { getDiagnosticsFn, getVersionMatrixFn } from '../lib/api';
 import PendingRequests from './PendingRequests';
 import HealthIssueRow from './HealthIssueRow';
+import RecycleBin from './RecycleBin';
 
 // Numeric MC-version compare (newest-first): "1.21.11" must rank above "1.21.9".
 // String compare gets this wrong, so we tuple-compare integer segments.
@@ -45,7 +46,7 @@ function StatCard({ icon: Icon, label, value, loading, accent = 'emerald' }) {
 
 export default function Dashboard({
   servers, onOpenServer, onCreateClick, toggleServerStatus, onDeleteAll, t, userRole,
-  playersData = {}, isAdmin = false, onOpenHealth, onApproveRequest,
+  playersData = {}, isAdmin = false, onOpenHealth, onApproveRequest, onServerRestored,
 }) {
   // Client-side server search (filters the visible servers grid by name).
   const [serverSearch, setServerSearch] = useState('');
@@ -264,6 +265,14 @@ export default function Dashboard({
             onToggle={() => setRequestsOpen(o => !o)}
           />
         )}
+
+        {/* --- Recycle bin (deleted servers) accordion — COLLAPSED by default,
+                renders ONLY when there is at least one soft-delete archive. Each
+                entry shows type/version, "deleted X days ago", the restore
+                countdown, and size, with per-entry restore + permanent-purge.
+                Restore is admin-gated server-side (restoreServer callable); a
+                non-admin with no archives simply never sees the section. --- */}
+        <RecycleBin t={t} onRestored={onServerRestored} />
       </div>
 
       {/* NOTE: the top aggregate "available updates" section was removed — it was

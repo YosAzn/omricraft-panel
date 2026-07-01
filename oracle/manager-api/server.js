@@ -2019,6 +2019,73 @@ app.post('/restore-server', async function(req, res) {
   }
 });
 
+// POST /delete-backup { archiveFile } — PERMANENTLY purge ONE soft-delete archive
+// (the recycle-bin "🔥 מחק לצמיתות" per-entry action, D3). Deletes both the
+// "<stem>.tar.gz" tarball AND its "<stem>.manifest.json". STRICT path-safety mirrors
+// /remove-datapack + /archive-incompatible:
+//   • archiveFile must be a plain basename ending in ".tar.gz" (reject '/', '\', '..')
+//   • realpath the BACKUP_DIR; every target path must resolve STRICTLY inside it
+//   • ONLY the matching <stem>.tar.gz + <stem>.manifest.json are ever touched
+// The tarball must exist (404 otherwise); a missing manifest is tolerated (best-effort
+// sibling delete) so a half-written archive can still be purged. Fail-loud on any
+// unlink error.
+app.post('/delete-backup', function(req, res) {
+  var archiveFile = req.body.archiveFile;
+  if (!archiveFile || typeof archiveFile !== 'string') {
+    return res.status(400).json({ success: false, error: 'Missing archiveFile' });
+  }
+  // 1. basename-only + extension guard — reject any path separators / traversal.
+  if (archiveFile.indexOf('/') !== -1 || archiveFile.indexOf('\\') !== -1 ||
+      archiveFile.indexOf('..') !== -1 || path.basename(archiveFile) !== archiveFile ||
+      !/\.tar\.gz$/.test(archiveFile)) {
+    return res.status(400).json({ success: false, error: 'Invalid archiveFile (must be a plain <id>-<epoch>.tar.gz filename)' });
+  }
+  // 2. resolve the backups dir to its real path.
+  var realDir;
+  try {
+    realDir = fs.realpathSync(BACKUP_DIR);
+  } catch (e) {
+    return res.status(404).json({ success: false, error: 'backups dir not found' });
+  }
+  var stem = archiveFile.replace(/\.tar\.gz$/, '');
+  var manifestFile = stem + '.manifest.json';
+  var tarTarget = path.resolve(realDir, archiveFile);
+  var manifestTarget = path.resolve(realDir, manifestFile);
+  // 3. both targets MUST be strictly inside the backups dir (no symlink escape, no traversal).
+  if (tarTarget !== path.join(realDir, archiveFile) || tarTarget.indexOf(realDir + path.sep) !== 0 ||
+      manifestTarget !== path.join(realDir, manifestFile) || manifestTarget.indexOf(realDir + path.sep) !== 0) {
+    return res.status(400).json({ success: false, error: 'Resolved path escapes backups dir' });
+  }
+  // 4. the tarball must be an existing regular file.
+  try {
+    var st = fs.statSync(tarTarget);
+    if (!st.isFile()) return res.status(400).json({ success: false, error: 'Not a file' });
+  } catch (e) {
+    return res.status(404).json({ success: false, error: 'Archive not found: ' + archiveFile });
+  }
+
+  // 5. delete the tarball (fail-loud), then best-effort delete the sibling manifest.
+  try {
+    fs.unlinkSync(tarTarget);
+  } catch (e) {
+    return res.status(500).json({ success: false, error: 'Could not delete archive: ' + e.message });
+  }
+  var manifestDeleted = false;
+  try {
+    if (fs.existsSync(manifestTarget)) {
+      fs.unlinkSync(manifestTarget);
+      manifestDeleted = true;
+    }
+  } catch (e) {
+    // The tarball is already gone — the archive is no longer restorable. Report the
+    // manifest-delete failure loudly (a lingering manifest points at a now-missing
+    // tarball) but do NOT fail the whole purge.
+    console.error('[' + new Date().toISOString() + '] delete-backup: manifest unlink failed for ' + manifestFile + ':', e.message);
+  }
+  console.log('[' + new Date().toISOString() + '] delete-backup -> purged ' + archiveFile + (manifestDeleted ? ' + manifest' : ''));
+  return res.json({ success: true, archiveFile: archiveFile, manifestDeleted: manifestDeleted });
+});
+
 // ===================================================================
 // War Room / חמ"ל — GET /diagnostics : auto-detect server health problems.
 // Read-only scan; each server is wrapped in its own try/catch so one bad

@@ -11,9 +11,10 @@ import {
   installPluginFn, installDatapackFn, installModFn, installResourcepackFn, getPlayersOnlineFn, restartServerFn
 } from './lib/api';
 import { DICT, translate, dirForLang } from './lib/i18n';
-import { DEFAULT_ADDONS, getInstallMethod, collectRequiredIds, isCoreIncompatible, isWorldgenDatapack, isBukkitBased } from './lib/constants';
+import { DEFAULT_ADDONS, getInstallMethod, collectRequiredIds, isCoreIncompatible, isWorldgenDatapack, isBukkitBased, SOFTWARE_TYPES } from './lib/constants';
 import { NavBtn } from './components/ui';
 import Dashboard from './components/Dashboard';
+import DeleteServerModal from './components/DeleteServerModal';
 import CreateServerForm from './components/CreateServerForm';
 import GlobalRepository from './components/GlobalRepository';
 import ServerPanel from './components/ServerPanel/ServerPanel';
@@ -118,6 +119,12 @@ export default function App() {
 
   const creatingServerRef = useRef(false);
   const [isCreatingServer, setIsCreatingServer] = useState(false);
+
+  // Delete-confirmation modal state: { id, name } while open (null = closed) + a busy
+  // flag so the dialog can't be double-fired / dismissed mid-delete. The actual
+  // deleteServerFn call lives in performDeleteServer (soft/permanent).
+  const [deleteModal, setDeleteModal] = useState(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   // --- FIREBASE INTEGRATION (AUTH & SYNC) ---
   useEffect(() => {
@@ -557,23 +564,47 @@ export default function App() {
     alert('כל השרתים נמחקו.');
   };
 
-  const deleteServer = async (id) => {
-    if (userRole !== 'admin') return;
+  // Mod-family core → the "mods/modpack stay on the player's PC" note. Fabric/Forge/
+  // NeoForge are pure mod loaders; Mohist/Youer are mod-capable hybrids; a server with
+  // an installed modpack addon (id starts 'mp') also counts.
+  const isModFamilyServer = (server) => {
+    if (!server) return false;
+    const soft = SOFTWARE_TYPES.find(s => s.id === server.software);
+    if (soft && (soft.type === 'mods' || soft.type === 'hybrid')) return true;
+    return Array.isArray(server.installedAddons) && server.installedAddons.some(id => /^mp\d/.test(String(id)));
+  };
 
+  // Opens the delete-confirmation modal (replaces the old window.confirm). The actual
+  // soft/permanent delete runs in performDeleteServer once the user picks an action.
+  const deleteServer = (id) => {
+    if (userRole !== 'admin') return;
     const currentServer = servers.find(s => s.id === id);
     if (!currentServer) {
       alert('לא נמצא שרת למחיקה.');
       return;
     }
+    setDeleteModal({
+      id,
+      name: currentServer.displayName || currentServer.name || id,
+      isMod: isModFamilyServer(currentServer),
+    });
+  };
 
-    const displayName = currentServer.displayName || currentServer.name || id;
+  // Runs the actual delete for the server in deleteModal. `permanent` false → SOFT
+  // delete (30-day VPS backup, restorable via the recycle bin); true → hard delete
+  // (no backup). Optimistically flags the Firestore doc 'deleting'; on VPS failure the
+  // doc is rolled back to 'delete_failed' with the error (never a silent catch).
+  const performDeleteServer = async (permanent) => {
+    if (!deleteModal) return;
+    const id = deleteModal.id;
+    const currentServer = servers.find(s => s.id === id);
+    if (!currentServer) {
+      alert('לא נמצא שרת למחיקה.');
+      setDeleteModal(null);
+      return;
+    }
 
-    const approved = window.confirm(
-      `למחוק את "${displayName}"?\n\nהפעולה תעצור את השרת, תמחק את תיקיית השרת ותסיר את הניתוב. לא ניתן לבטל.`
-    );
-
-    if (!approved) return;
-
+    setDeleteBusy(true);
     try {
       if (!db) {
         throw new Error('אין חיבור תקין ל-Firebase.');
@@ -587,8 +618,10 @@ export default function App() {
       // Pass the server's installedAddons (catalog ids) THROUGH to the soft-delete
       // manifest so a restore (D2) can re-fetch mods/datapacks/resourcepacks faithfully
       // via the same catalog install flow — mod JAR filenames alone aren't enough.
+      // permanent:true skips the archive entirely (no backup).
       const result = await deleteServerFn({
         serverId: id,
+        permanent: permanent === true,
         installedAddons: Array.isArray(currentServer.installedAddons) ? currentServer.installedAddons : []
       });
 
@@ -597,6 +630,7 @@ export default function App() {
       }
 
       await deleteDoc(doc(db, getServersPath(), id));
+      setDeleteModal(null);
       setCurrentView('dashboard');
 
     } catch (error) {
@@ -613,6 +647,8 @@ export default function App() {
       }
 
       alert(`המחיקה נכשלה: ${error.message}`);
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -915,6 +951,7 @@ export default function App() {
             toggleServerStatus={toggleServerStatus}
             onDeleteAll={deleteAllServers}
             onApproveRequest={handleApproveRequest}
+            onServerRestored={() => setCurrentView('dashboard')}
           />
         )}
         
@@ -968,6 +1005,19 @@ export default function App() {
           <HealthTab t={t} isAdmin={isAdmin} />
         )}
       </main>
+
+      {/* Delete-confirmation dialog — soft (30-day backup) vs permanent. Replaces the
+          old plain window.confirm on server delete. performDeleteServer runs the
+          chosen action; the mod note shows for mod-family servers. */}
+      <DeleteServerModal
+        open={!!deleteModal}
+        name={deleteModal?.name}
+        isModServer={!!deleteModal?.isMod}
+        busy={deleteBusy}
+        onConfirm={performDeleteServer}
+        onCancel={() => { if (!deleteBusy) setDeleteModal(null); }}
+        t={t}
+      />
     </div>
   );
 }

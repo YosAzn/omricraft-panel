@@ -49,6 +49,10 @@ export const listServerBackupsFn = httpsCallable(functionsInstance, 'listServerB
 // { serverId } (newest archive) or { backupId } (explicit "<id>-<epoch>.tar.gz").
 // The recycle-bin UI that calls this is D3.
 export const restoreServerFn = httpsCallable(functionsInstance, 'restoreServer');
+// Recycle bin — PERMANENTLY purge ONE soft-delete archive now (D3 per-entry
+// "🔥 מחק לצמיתות"). Accepts { archiveFile } ("<id>-<epoch>.tar.gz"); deletes both
+// the tarball + its manifest on the VPS. Owner-or-admin (derived from the archive id).
+export const purgeBackupFn = httpsCallable(functionsInstance, 'purgeServerBackup');
 // War Room / חמ"ל — health diagnostics (admin-only)
 export const getDiagnosticsFn = httpsCallable(functionsInstance, 'getDiagnostics');
 export const resetServerStatusFn = httpsCallable(functionsInstance, 'resetServerStatus');

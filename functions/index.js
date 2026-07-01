@@ -1734,6 +1734,48 @@ exports.removeDatapack = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// purgeServerBackup (OWNER-OR-ADMIN) — recycle-bin "🔥 מחק לצמיתות": PERMANENTLY
+// delete ONE soft-delete archive (its <stem>.tar.gz + <stem>.manifest.json) via
+// Manager API POST /delete-backup (DESTRUCTIVE, irreversible). The archive basename
+// is "<serverId>-<epoch>.tar.gz"; we derive serverId by stripping the trailing
+// "-<epoch>.tar.gz" and authorize with assertOwnerOrAdmin against THAT id, so a
+// non-admin can only purge archives of a server they strictly own (its Firestore
+// doc may still exist for delete_failed servers; a fully-gone doc → only an admin
+// passes, matching restoreServer's fail-closed stance). The Manager API also
+// enforces strict path-safety (basename-only, realpath inside the backups dir).
+// ---------------------------------------------------------------------------
+exports.purgeServerBackup = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 30 },
+  async (request) => {
+    requireAuth(request);
+    const { archiveFile } = request.data || {};
+    if (!archiveFile || typeof archiveFile !== 'string' ||
+        archiveFile.includes('/') || archiveFile.includes('\\') ||
+        archiveFile.includes('..') || !/\.tar\.gz$/.test(archiveFile)) {
+      return { success: false, error: 'Invalid archiveFile' };
+    }
+    // Derive serverId from "<serverId>-<epoch>.tar.gz" (serverId may itself contain
+    // '-', so strip only the trailing "-<digits>.tar.gz").
+    const mm = archiveFile.match(/^([a-z0-9_-]+)-\d+\.tar\.gz$/);
+    if (!mm) {
+      return { success: false, error: 'Invalid archiveFile format' };
+    }
+    const serverId = mm[1];
+    // Ownership check against the derived serverId. A non-admin whose owned server's
+    // Firestore doc is already gone will be rejected here (fail-closed) — only admins
+    // can purge archives of fully-deleted servers.
+    await assertOwnerOrAdmin(request, serverId);
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      return await callManagerApi(BASE_URL, API_KEY, 'POST', '/delete-backup', { archiveFile });
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // archiveIncompatibleFiles (OWNER-OR-ADMIN) — REVERSIBLE Phase 6b fix for the
 // 'cross-family-files' diagnostic. After a server's TYPE is switched, .jar files
 // from the old core can linger in the dir the new core ignores (plugins/*.jar on a
