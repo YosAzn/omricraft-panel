@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  HardDrive, FileCode, AlertCircle, Save, X, Folder, FileText, Edit3, Trash2
+  HardDrive, FileCode, AlertCircle, Save, X, Folder, FileText, Edit3, Trash2, Upload
 } from 'lucide-react';
-import { listFilesFn, readFileFn, writeFileFn, deleteFileFn } from '../../lib/api';
+import { listFilesFn, readFileFn, writeFileFn, deleteFileFn, uploadServerFileFn } from '../../lib/api';
+
+// Client-side size cap — must match the uploadServerFile callable (15 MB).
+const UPLOAD_MAX_BYTES = 15 * 1024 * 1024;
 
 // --- FILES TAB (real file manager via Manager API → VPS) ---
 export default function FilesTab({ server, t, userRole }) {
@@ -15,6 +18,9 @@ export default function FilesTab({ server, t, userRole }) {
   const [fileNote, setFileNote] = useState(null);
   const [savedMsg, setSavedMsg] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState(null);
+  const fileInputRef = useRef(null);
 
   const pathStr = currentPath.join('/');
 
@@ -77,6 +83,52 @@ export default function FilesTab({ server, t, userRole }) {
     } catch (err) { setFileNote(err.message); }
   };
 
+  // Read a File as raw base64 (strip the "data:...;base64," prefix FileReader adds).
+  const fileToBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const res = reader.result || '';
+      const comma = res.indexOf(',');
+      resolve(comma >= 0 ? res.slice(comma + 1) : res);
+    };
+    reader.onerror = () => reject(reader.error || new Error('קריאת הקובץ נכשלה'));
+    reader.readAsDataURL(file);
+  });
+
+  const handleUploadClick = () => { setUploadMsg(null); fileInputRef.current?.click(); };
+
+  const handleUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    // Reset the input so selecting the same file again re-triggers onChange.
+    e.target.value = '';
+    if (!file) return;
+    setUploadMsg(null);
+
+    const ext = (file.name.slice(file.name.lastIndexOf('.')) || '').toLowerCase();
+    if (ext !== '.jar' && ext !== '.zip') {
+      setUploadMsg('רק קבצי .jar או .zip נתמכים / Only .jar or .zip'); return;
+    }
+    if (file.size > UPLOAD_MAX_BYTES) {
+      const maxMb = Math.floor(UPLOAD_MAX_BYTES / (1024 * 1024));
+      setUploadMsg(`הקובץ גדול מדי — מקסימום ${maxMb}MB / Max ${maxMb}MB`); return;
+    }
+
+    setUploading(true);
+    try {
+      const contentBase64 = await fileToBase64(file);
+      const res = await uploadServerFileFn({ serverId: server.id, dir: pathStr, filename: file.name, contentBase64 });
+      const d = res.data || res;
+      if (!d.success) throw new Error(d.error || 'העלאה נכשלה');
+      setUploadMsg(`✅ ${t('uploadOk')}: ${file.name}`);
+      await loadDir();
+    } catch (err) {
+      console.error('FilesTab upload:', err);
+      setUploadMsg(`${t('uploadFail')}: ${err.message}`);
+      alert(`${t('uploadFail')}: ${err.message}`);
+    }
+    setUploading(false);
+  };
+
   const fmtSize = (n) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
 
   return (
@@ -98,10 +150,40 @@ export default function FilesTab({ server, t, userRole }) {
             <span className="text-green-400 flex items-center gap-1"><FileCode size={16}/> {editingFile}</span>
           </>
         )}
+        {!editingFile && userRole === 'admin' && (
+          <button
+            onClick={handleUploadClick}
+            disabled={uploading}
+            title={t('uploadHint')}
+            className="ml-auto bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors">
+            <Upload size={14}/> {uploading ? '...' : t('uploadFile')}
+          </button>
+        )}
         {!editingFile && (
-          <button onClick={loadDir} className="ml-auto text-zinc-500 hover:text-white transition-colors text-xs">↻ רענן</button>
+          <button onClick={loadDir} className={`${userRole === 'admin' ? '' : 'ml-auto'} text-zinc-500 hover:text-white transition-colors text-xs`}>↻ רענן</button>
         )}
       </div>
+
+      {/* Hidden file input for manual/premium plugin .jar/.zip upload (admin/owner only) */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".jar,.zip"
+        onChange={handleUpload}
+        className="hidden"
+      />
+
+      {!editingFile && userRole === 'admin' && (
+        <div className="text-xs text-zinc-500 mb-3 flex items-center gap-1.5 px-1">
+          <Upload size={12} className="text-green-500"/> {t('uploadHint')}
+        </div>
+      )}
+
+      {uploadMsg && !editingFile && (
+        <div className="bg-zinc-900 border border-zinc-700 text-zinc-200 rounded-lg p-3 mb-4 text-sm flex items-center gap-2">
+          <AlertCircle size={16}/> {uploadMsg}
+        </div>
+      )}
 
       {fileNote && !editingFile && (
         <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 rounded-lg p-3 mb-4 text-sm flex items-center gap-2">

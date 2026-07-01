@@ -34,6 +34,9 @@ export const listFilesFn = httpsCallable(functionsInstance, 'listFiles');
 export const readFileFn = httpsCallable(functionsInstance, 'readFile');
 export const writeFileFn = httpsCallable(functionsInstance, 'writeFile');
 export const deleteFileFn = httpsCallable(functionsInstance, 'deleteFile');
+// Upload a manual/premium plugin .jar/.zip into a server's folder (owner/admin only).
+// Payload: { serverId, dir, filename, contentBase64 }. Size cap enforced client + server.
+export const uploadServerFileFn = httpsCallable(functionsInstance, 'uploadServerFile');
 export const reloadPluginFn = httpsCallable(functionsInstance, 'reloadPlugin');
 export const removePluginJarFn = httpsCallable(functionsInstance, 'removePluginJar');
 export const changeServerVersionFn = httpsCallable(functionsInstance, 'changeServerVersion');

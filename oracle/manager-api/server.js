@@ -982,6 +982,123 @@ app.post('/delete-file', function(req, res) {
   }
 });
 
+// ---------------------------------------------------------------------------
+// /upload-file — write a user-supplied .jar/.zip into a server's own subdir.
+// This is the mechanism for manual/premium plugin jars (ItemsAdder etc.).
+// STRICT safety:
+//   • serverId via validateId (SAFE_ID)
+//   • filename must be a basename — reject /, \, "..", empty, or over-long
+//   • dir is a RELATIVE subpath under the server dir; the RESOLVED parent must
+//     realpath STRICTLY inside SERVERS_DIR/serverId (blocks symlink/.. escape)
+//   • contentBase64 decoded to a Buffer; must begin with the ZIP/JAR magic
+//     "PK\x03\x04" (50 4B 03 04) — anything else is rejected
+//   • size cap: reject decoded Buffer over UPLOAD_MAX_BYTES (25 MB)
+// The route uses its own body parser with a larger limit than the global 10mb,
+// since a 25MB file is ~34MB of base64 JSON payload.
+// ---------------------------------------------------------------------------
+var UPLOAD_MAX_BYTES = 25 * 1024 * 1024; // 25 MB decoded
+var uploadJson = express.json({ limit: '40mb' });
+
+app.post('/upload-file', uploadJson, function(req, res) {
+  var serverId = req.body.serverId;
+  var relDir = req.body.dir || '';
+  var filename = req.body.filename;
+  var contentBase64 = req.body.contentBase64;
+
+  if (!validateId(serverId, res)) return;
+  if (!filename || typeof filename !== 'string') {
+    return res.status(400).json({ success: false, error: 'Missing filename' });
+  }
+  // filename MUST be a plain basename — no path separators, no traversal.
+  if (filename !== path.basename(filename) || filename === '.' || filename === '..' ||
+      /[\/\\]/.test(filename) || filename.indexOf('..') !== -1) {
+    return res.status(400).json({ success: false, error: 'Invalid filename' });
+  }
+  if (filename.length > 200) {
+    return res.status(400).json({ success: false, error: 'Filename too long' });
+  }
+  if (typeof relDir !== 'string') {
+    return res.status(400).json({ success: false, error: 'Invalid dir' });
+  }
+  if (!contentBase64 || typeof contentBase64 !== 'string') {
+    return res.status(400).json({ success: false, error: 'Missing file content' });
+  }
+
+  var ext = path.extname(filename).toLowerCase();
+  if (ext !== '.jar' && ext !== '.zip') {
+    return res.status(400).json({ success: false, error: 'Only .jar or .zip files are allowed' });
+  }
+
+  // Resolve the destination directory and REQUIRE it to stay inside the server dir.
+  var serverBase = path.resolve(SERVERS_DIR, serverId);
+  var destDir = path.resolve(serverBase, relDir);
+  // Prefix check on the resolved (lexical) path first.
+  if (destDir !== serverBase && destDir.indexOf(serverBase + path.sep) !== 0) {
+    return res.status(400).json({ success: false, error: 'Invalid path' });
+  }
+  // Then realpath the directory (must exist) and re-check — defeats symlink escapes.
+  var realServerBase, realDestDir;
+  try {
+    realServerBase = fs.realpathSync(serverBase);
+  } catch (e) {
+    return res.status(404).json({ success: false, error: 'Server not found' });
+  }
+  try {
+    realDestDir = fs.realpathSync(destDir);
+  } catch (e) {
+    return res.status(400).json({ success: false, error: 'Target folder does not exist' });
+  }
+  if (realDestDir !== realServerBase && realDestDir.indexOf(realServerBase + path.sep) !== 0) {
+    return res.status(400).json({ success: false, error: 'Invalid path' });
+  }
+  try {
+    if (!fs.statSync(realDestDir).isDirectory()) {
+      return res.status(400).json({ success: false, error: 'Target is not a directory' });
+    }
+  } catch (e) {
+    return res.status(400).json({ success: false, error: 'Target folder does not exist' });
+  }
+
+  // Decode base64 (strip any data URL prefix) → Buffer, enforce size cap.
+  var b64 = contentBase64.replace(/^data:[^;]*;base64,/, '');
+  var buffer;
+  try {
+    buffer = Buffer.from(b64, 'base64');
+  } catch (e) {
+    return res.status(400).json({ success: false, error: 'Invalid base64 content' });
+  }
+  if (buffer.length === 0) {
+    return res.status(400).json({ success: false, error: 'Empty file' });
+  }
+  if (buffer.length > UPLOAD_MAX_BYTES) {
+    return res.status(413).json({
+      success: false,
+      error: 'File too large, max ' + Math.floor(UPLOAD_MAX_BYTES / (1024 * 1024)) + 'MB'
+    });
+  }
+
+  // Validate ZIP/JAR magic bytes: local file header "PK\x03\x04" (50 4B 03 04).
+  if (buffer.length < 4 ||
+      buffer[0] !== 0x50 || buffer[1] !== 0x4B || buffer[2] !== 0x03 || buffer[3] !== 0x04) {
+    return res.status(400).json({
+      success: false,
+      error: 'Not a valid .jar/.zip file (bad file signature)'
+    });
+  }
+
+  var dest = path.join(realDestDir, filename);
+  try {
+    fs.writeFileSync(dest, buffer);
+  } catch (err) {
+    console.error('upload-file write error:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+  var outPath = path.join(relDir, filename).split(path.sep).join('/');
+  console.log('[' + new Date().toISOString() + '] File uploaded: ' + serverId + '/' + outPath +
+    ' (' + buffer.length + ' bytes)');
+  return res.json({ success: true, path: outPath, sizeBytes: buffer.length });
+});
+
 // --- SSRF guard helpers (shared across initial URL + every redirect hop) ---
 // Defence-in-depth: even though /install-datapack is not exposed via a Cloud
 // Function, prevent using this box as a fetch proxy into the internal network

@@ -910,6 +910,76 @@ exports.writeFile  = fileFn('/write-file');
 exports.deleteFile = fileFn('/delete-file');
 
 // ---------------------------------------------------------------------------
+// uploadServerFile — upload a manual/premium plugin .jar (or .zip) into a
+// server's own subdir (e.g. plugins/). This is the mechanism for jars that
+// can't be auto-fetched (ItemsAdder etc.). Owner-or-admin only.
+//
+// Size cap = 15 MB. Base64 inflates ~33%, so a 15MB file ≈ ~20MB payload —
+// comfortably under the Cloud Functions callable request limit (32MB), with
+// headroom for JSON overhead. The manager-api itself accepts up to 25MB, but
+// we cap LOWER here to stay safely under the callable limit. We reject an
+// oversized payload EARLY (before the network hop) with a friendly message.
+// ---------------------------------------------------------------------------
+const UPLOAD_MAX_BYTES = 15 * 1024 * 1024; // 15 MB decoded (client-friendly cap)
+
+exports.uploadServerFile = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 120 },
+  async (request) => {
+    const { serverId, dir, filename, contentBase64 } = request.data || {};
+
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    await assertOwnerOrAdmin(request, serverId);
+
+    if (!filename || typeof filename !== 'string') {
+      return { success: false, error: 'Missing filename' };
+    }
+    // Basename only — no path separators or traversal (defence-in-depth; VPS re-checks).
+    if (filename !== filename.replace(/^.*[\\/]/, '') || filename.indexOf('..') !== -1) {
+      return { success: false, error: 'Invalid filename' };
+    }
+    const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'));
+    if (ext !== '.jar' && ext !== '.zip') {
+      return { success: false, error: 'רק קבצי .jar או .zip נתמכים / Only .jar or .zip files are supported' };
+    }
+    if (typeof dir !== 'undefined' && typeof dir !== 'string') {
+      return { success: false, error: 'Invalid dir' };
+    }
+    if (!contentBase64 || typeof contentBase64 !== 'string') {
+      return { success: false, error: 'Missing file content' };
+    }
+
+    // Strip any data URL prefix, then estimate decoded size from base64 length
+    // (4 base64 chars → 3 bytes; account for '=' padding). Reject early if too big.
+    const b64 = contentBase64.replace(/^data:[^;]*;base64,/, '');
+    const padding = b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0;
+    const approxBytes = Math.floor((b64.length * 3) / 4) - padding;
+    if (approxBytes > UPLOAD_MAX_BYTES) {
+      const maxMb = Math.floor(UPLOAD_MAX_BYTES / (1024 * 1024));
+      return {
+        success: false,
+        error: `הקובץ גדול מדי — מקסימום ${maxMb}MB / File too large, max ${maxMb}MB`
+      };
+    }
+
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+
+    console.log(`uploadServerFile: id=${serverId} dir=${dir || ''} name=${filename} ~${approxBytes}B`);
+
+    try {
+      return await callManagerApi(BASE_URL, API_KEY, 'POST', '/upload-file', {
+        serverId, dir: dir || '', filename, contentBase64: b64
+      });
+    } catch (error) {
+      console.error('uploadServerFile error:', error);
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // reloadPlugin — sends RCON "reload confirm" to reload all plugins live
 // ---------------------------------------------------------------------------
 exports.reloadPlugin = onCall(
