@@ -1971,6 +1971,80 @@ function parseDatapackFiles(segment) {
   return files;
 }
 
+// --- Client mod-handshake rejection detection (Check 9) ---
+// On Forge/Fabric/NeoForge (+ hybrid mohist/youer) the server validates the
+// connecting client's mods against its own at login. A client missing / with a
+// mismatched mod is DISCONNECTED and the server writes the reason to its log.
+// We can therefore SURFACE (advisory only) that a player was turned away for a
+// client-side mod problem — something a browser can never inspect on the PC.
+//
+// CONSERVATIVE patterns (Forge/NeoForge + Fabric/Quilt). Kept tight to avoid
+// false positives — e.g. we require mod/handshake wording, not any disconnect.
+// These reflect documented log phrasing; confirm against a real rejection when
+// one actually happens (current live servers may have none).
+var MOD_REJECTION_RES = [
+  // Forge / NeoForge
+  /Rejecting connection/i,
+  /missing (?:the )?mods?\b/i,
+  /mismatched mod channels/i,
+  /Connection closed.*\bmod/i,
+  /ModRejections/i,
+  /NetworkRegistry.*reject/i,
+  // Fabric / Quilt
+  /Incompatible mods? found/i,
+  /server requires .*\bmod/i,
+  /mismatched mod set/i,
+  /disconnect.*fabric.*mod/i
+];
+
+// Try to pull a player name out of a rejection line. MC logs a disconnect as
+// e.g. "com.mojang...  Steve lost connection: ..." or "Steve (/ip:port) ...".
+// Best-effort only; returns null when no plausible name is present.
+function parseRejectedPlayer(line) {
+  var m = line.match(/\b([A-Za-z0-9_]{3,16}) (?:lost connection|was disconnected|left the game|com\.mojang)/);
+  if (m) return m[1];
+  m = line.match(/\b([A-Za-z0-9_]{3,16}) \(\/[\d.]+:\d+\)/);
+  if (m) return m[1];
+  return null;
+}
+
+// Try to pull a specific mod id/name from a rejection line (e.g.
+// "missing mods: [create, jei]" or "requires mod 'sodium'"). Best-effort.
+function parseRejectedMods(line) {
+  var out = [];
+  var m = line.match(/mods?:?\s*\[([^\]]+)\]/i);
+  if (m) {
+    m[1].split(/[,\s]+/).forEach(function (t) {
+      var v = t.replace(/['"]/g, '').trim();
+      if (v && out.indexOf(v) === -1) out.push(v);
+    });
+  }
+  var m2 = line.match(/(?:requires|missing)\s+(?:the\s+)?mod\s+['"]?([A-Za-z0-9_.\-]{2,})/i);
+  if (m2) { var v2 = m2[1]; if (out.indexOf(v2) === -1) out.push(v2); }
+  return out;
+}
+
+// Scan a log segment for mod-rejection lines. Returns { players:[], mods:[] }
+// with DISTINCT parsed names (de-duped) — one issue is emitted per server.
+function scanClientModRejections(segment) {
+  var players = [];
+  var mods = [];
+  var hit = false;
+  var lines = segment.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var matched = MOD_REJECTION_RES.some(function (re) { return re.test(line); });
+    if (!matched) continue;
+    hit = true;
+    var p = parseRejectedPlayer(line);
+    if (p && players.indexOf(p) === -1) players.push(p);
+    parseRejectedMods(line).forEach(function (mod) {
+      if (mods.indexOf(mod) === -1) mods.push(mod);
+    });
+  }
+  return hit ? { players: players, mods: mods } : null;
+}
+
 app.get('/diagnostics', function(req, res) {
   var servers;
   try {
@@ -2168,6 +2242,40 @@ app.get('/diagnostics', function(req, res) {
             incompatibleKind: incompatibleKind,
             incompatibleFiles: incompatibleFiles,
             fix: null // dedicated archive button rendered by HealthIssueRow
+          });
+        }
+      }
+
+      // --- Check 9: client-mod-mismatch ---
+      // ONLY for mod-capable cores (fabric/forge/neoforge + hybrid mohist/youer):
+      // a client that joins with missing / mismatched mods is rejected at the login
+      // mod-handshake and the server logs it. Rejections happen ON CONNECT (post-boot),
+      // so we scan the WHOLE tail window (not just the current-boot segment). Advisory
+      // only (fix:null) — the fix is client-side (the player must match loader+version+
+      // modpack). De-duped: ONE issue per server, listing distinct players/mods parsed.
+      var MOD_CAPABLE = PURE_MOD_TYPES.indexOf(type) !== -1 || HYBRID_TYPES.indexOf(type) !== -1;
+      if (MOD_CAPABLE) {
+        var rej = scanClientModRejections(log);
+        if (rej) {
+          var whoHe = rej.players.length
+            ? 'שחקנים שנדחו: ' + rej.players.join(', ') + '. '
+            : '';
+          var modsHe = rej.mods.length
+            ? 'מודים חסרים/לא-תואמים: ' + rej.mods.join(', ') + '. '
+            : '';
+          var whoEn = rej.players.length ? 'Rejected: ' + rej.players.join(', ') + '. ' : '';
+          var modsEn = rej.mods.length ? 'Missing/mismatched mods: ' + rej.mods.join(', ') + '. ' : '';
+          var detailHe9 = whoHe + modsHe +
+            'הלוג מראה שחיבור נדחה בשל אי-התאמת מודים בצד הלקוח (בדיקת ה-mod-handshake בכניסה).';
+          var detailEn9 = whoEn + modsEn +
+            'The log shows a connection rejected due to a client-side mod mismatch (login mod-handshake).';
+          issues.push({
+            serverId: serverId, serverName: serverName, serverSlug: serverSlug,
+            severity: 'warning', category: 'client-mod-mismatch',
+            title: 'חיבור נדחה — אי-התאמת מודים / Connection rejected — client mod mismatch',
+            detail: detailHe9 + ' / ' + detailEn9,
+            suggestion: 'שחקן נדחה כי חסרים לו מודים/גרסה שגויה. ודא שהשחקן התקין את אותו loader+גרסה+מודפאק בדיוק (ראה "איך שחקנים מצטרפים").',
+            fix: null // client-side fix — advisory to the owner, no server-side auto-fix
           });
         }
       }
