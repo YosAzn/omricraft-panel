@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Server, Library, Shield, Sparkles, Boxes, Puzzle,
   Gift, SlidersHorizontal, ArrowRight, Plug, Gamepad2, LogIn, Users,
-  Rocket, BookOpen, Layers3
+  Rocket, BookOpen, Layers3, GraduationCap
 } from 'lucide-react';
 import { getPublicStatsFn } from '../lib/api';
 import { SERVER_TYPE_COUNT, ADDON_CATALOG_COUNT, roundedFloorPlus } from '../lib/constants';
@@ -17,7 +17,7 @@ import LanguageSelector from './LanguageSelector';
 export default function LandingPage({
   t, lang, setLang, isRtl,
   authUser, isAdmin, adminEmail,
-  onCreate, onPlugins, onOpenPanel, onSignIn,
+  onCreate, onPlugins, onGuide, onOpenPanel, onSignIn,
 }) {
   const ArrowCta = isRtl ? ({ size }) => <ArrowRight size={size} className="rotate-180" /> : ArrowRight;
 
@@ -160,6 +160,17 @@ export default function LandingPage({
             >
               <Layers3 size={24} className="text-violet-300 group-hover:text-violet-200 transition-colors" />
               {t('landingCtaPlugins')}
+            </button>
+
+            {/* NEW — full Guide page, distinct sky accent + graduation icon */}
+            <button
+              onClick={onGuide}
+              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2.5 text-sky-50 text-lg font-bold px-8 py-4 rounded-2xl transition-all
+                         border border-sky-500/40 bg-sky-500/15 hover:bg-sky-500/25 hover:border-sky-400/60
+                         shadow-lg shadow-sky-950/40 hover:-translate-y-0.5"
+            >
+              <GraduationCap size={24} className="text-sky-300 group-hover:text-sky-200 transition-colors" />
+              {t('landingCtaGuide')}
             </button>
 
             {/* SECONDARY — how it works, neutral outline + amber-tinted icon */}

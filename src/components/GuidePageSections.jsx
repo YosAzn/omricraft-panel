@@ -12,7 +12,7 @@ import { TYPE_COLORS } from '../lib/constants';
 // ---- shared cell helpers --------------------------------------------------
 const Yes = () => <span className="text-emerald-400 font-bold">✓</span>;
 const No = () => <span className="text-zinc-600 font-bold">—</span>;
-const Maybe = () => <span className="text-amber-400 font-bold" title="חלקי / לא יציב">⚠</span>;
+const Maybe = ({ title }) => <span className="text-amber-400 font-bold" title={title}>⚠</span>;
 
 // family accent (matches the create-form server-type "type" field)
 const FAMILY_ACCENT = {
@@ -31,21 +31,21 @@ const FAMILY_CHIP = {
 //  mods/plugins booleans map to ✓ / ⚠ / —; `live:false` rows are marked.
 // ---------------------------------------------------------------------------
 const CORE_ROWS = [
-  { core: 'Vanilla',  fam: 'plugins', what: 'השרת הרשמי של Mojang, נקי', mods: false, plugins: false, who: 'משחק רגיל (רק Data Packs)' },
-  { core: 'Paper',    fam: 'plugins', what: 'גרסה מואצת — "מלך הפלאגינים"', mods: false, plugins: true,  who: 'הישרדות / מיני-משחקים' },
-  { core: 'Purpur',   fam: 'plugins', what: 'פיצול של Paper, מאות הגדרות', mods: false, plugins: true,  who: 'התאמה-אישית קיצונית' },
-  { core: 'Folia',    fam: 'plugins', what: 'Paper מרובה-ליבות (multi-thread)', mods: false, plugins: 'maybe', who: 'שרתי-ענק 100+ (הרבה פלאגינים קורסים עליו)' },
-  { core: 'Forge',    fam: 'mods', what: 'הוותיק והכבד — מודפאקים ענקיים', mods: true, plugins: false, who: 'RLCraft / SkyFactory (זללן RAM)' },
-  { core: 'NeoForge', fam: 'mods', what: 'פיצול מודרני של Forge (1.20+)', mods: true, plugins: false, who: 'הסטנדרט החדש למודים' },
-  { core: 'Fabric',   fam: 'mods', what: 'קל ומהיר, מתעדכן מיד', mods: true, plugins: false, who: 'מודים קלים / אופטימיזציה' },
-  { core: 'Quilt',    fam: 'mods', what: 'פיצול קהילתי של Fabric', mods: true, plugins: false, who: 'תואם רוב מודי-Fabric', live: false },
-  { core: 'Mohist',   fam: 'hybrid', what: 'מודים של Forge + פלאגינים יחד', mods: true, plugins: true, who: 'רק כשחייבים שילוב — לא יציב, EOL', eol: true },
-  { core: 'Youer',    fam: 'hybrid', what: 'היברידי NeoForge — היורש המתוחזק של Mohist', mods: true, plugins: true, who: 'מודים + פלאגינים יחד (מומלץ על Mohist)' },
+  { core: 'Vanilla',  fam: 'plugins', what: 'guideCoreVanillaWhat', mods: false, plugins: false, who: 'guideCoreVanillaWho' },
+  { core: 'Paper',    fam: 'plugins', what: 'guideCorePaperWhat', mods: false, plugins: true,  who: 'guideCorePaperWho' },
+  { core: 'Purpur',   fam: 'plugins', what: 'guideCorePurpurWhat', mods: false, plugins: true,  who: 'guideCorePurpurWho' },
+  { core: 'Folia',    fam: 'plugins', what: 'guideCoreFoliaWhat', mods: false, plugins: 'maybe', who: 'guideCoreFoliaWho' },
+  { core: 'Forge',    fam: 'mods', what: 'guideCoreForgeWhat', mods: true, plugins: false, who: 'guideCoreForgeWho' },
+  { core: 'NeoForge', fam: 'mods', what: 'guideCoreNeoForgeWhat', mods: true, plugins: false, who: 'guideCoreNeoForgeWho' },
+  { core: 'Fabric',   fam: 'mods', what: 'guideCoreFabricWhat', mods: true, plugins: false, who: 'guideCoreFabricWho' },
+  { core: 'Quilt',    fam: 'mods', what: 'guideCoreQuiltWhat', mods: true, plugins: false, who: 'guideCoreQuiltWho', live: false },
+  { core: 'Mohist',   fam: 'hybrid', what: 'guideCoreMohistWhat', mods: true, plugins: true, who: 'guideCoreMohistWho', eol: true },
+  { core: 'Youer',    fam: 'hybrid', what: 'guideCoreYouerWhat', mods: true, plugins: true, who: 'guideCoreYouerWho' },
 ];
 
-function Bool({ v }) {
+function Bool({ v, maybeTitle }) {
   if (v === true) return <Yes />;
-  if (v === 'maybe') return <Maybe />;
+  if (v === 'maybe') return <Maybe title={maybeTitle} />;
   return <No />;
 }
 
@@ -75,10 +75,10 @@ export function ServerTypesTable({ t, notOfferedLabel }) {
                   <span className="ms-1 inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-700/60 text-zinc-300">{notOfferedLabel}</span>
                 )}
               </td>
-              <td className="p-3 align-top text-zinc-300">{r.what}</td>
-              <td className="p-3 align-top text-center"><Bool v={r.mods} /></td>
-              <td className="p-3 align-top text-center"><Bool v={r.plugins} /></td>
-              <td className="p-3 align-top text-zinc-400">{r.who}</td>
+              <td className="p-3 align-top text-zinc-300">{t(r.what)}</td>
+              <td className="p-3 align-top text-center"><Bool v={r.mods} maybeTitle={t('guideMaybeTitle')} /></td>
+              <td className="p-3 align-top text-center"><Bool v={r.plugins} maybeTitle={t('guideMaybeTitle')} /></td>
+              <td className="p-3 align-top text-zinc-400">{t(r.who)}</td>
             </tr>
           ))}
         </tbody>
@@ -92,13 +92,13 @@ export function ServerTypesTable({ t, notOfferedLabel }) {
 //  `typeKey` maps to the real ADDON_TYPES group so colors stay in sync.
 // ---------------------------------------------------------------------------
 const ADDON_ROWS = [
-  { typeKey: 'mods',         name: 'Mod / Modpack', does: 'בלוקים / חיות / ממדים חדשים (שינוי עמוק)', where: 'שרת + מחשב', servers: 'Forge / NeoForge / Fabric / Quilt' },
-  { typeKey: 'plugins',      name: 'Plugin',        does: 'פקודות, כלכלה, הגנות, הרשאות (בלי בלוקים חדשים)', where: 'שרת בלבד', servers: 'Paper / Purpur / Folia / Mohist / Youer' },
-  { typeKey: 'datapacks',    name: 'Data Pack',     does: 'מתכונים / מבנים / משימות (ונילה רשמי)', where: 'שרת — world/datapacks', servers: 'כל שרת (כולל ונילה)' },
-  { typeKey: 'modpacks',     name: 'Modpack',       does: 'חבילת מודים שלמה — שרת + כל שחקן', where: 'שרת + מחשב כל שחקן', servers: 'Forge / NeoForge / Fabric' },
-  { typeKey: 'textures',     name: 'Resource Pack', does: 'מראה: בלוקים, צלילים, מודלים', where: 'מחשב (או דחיפה מהשרת)', servers: 'כל שרת' },
-  { typeKey: 'shaders',      name: 'Shaders',       does: 'תאורה / צללים ריאליסטיים', where: 'מחשב בלבד', servers: 'דורש Iris (Fabric) / Oculus (Forge)' },
-  { typeKey: 'client-mods',  name: 'Client Mods',   does: 'מיני-מפה, FPS, Sodium', where: 'מחשב בלבד', servers: 'השרת לא יודע מזה' },
+  { typeKey: 'mods',         name: 'guideAddonModsName', does: 'guideAddonModsDoes', where: 'guideAddonModsWhere', servers: 'guideAddonModsServers' },
+  { typeKey: 'plugins',      name: 'Plugin',        does: 'guideAddonPluginsDoes', where: 'guideAddonPluginsWhere', servers: 'guideAddonPluginsServers' },
+  { typeKey: 'datapacks',    name: 'Data Pack',     does: 'guideAddonDataDoes', where: 'guideAddonDataWhere', servers: 'guideAddonDataServers' },
+  { typeKey: 'modpacks',     name: 'Modpack',       does: 'guideAddonModpackDoes', where: 'guideAddonModpackWhere', servers: 'guideAddonModpackServers' },
+  { typeKey: 'textures',     name: 'Resource Pack', does: 'guideAddonRpDoes', where: 'guideAddonRpWhere', servers: 'guideAddonRpServers' },
+  { typeKey: 'shaders',      name: 'Shaders',       does: 'guideAddonShadersDoes', where: 'guideAddonShadersWhere', servers: 'guideAddonShadersServers' },
+  { typeKey: 'client-mods',  name: 'Client Mods',   does: 'guideAddonClientDoes', where: 'guideAddonClientWhere', servers: 'guideAddonClientServers' },
 ];
 
 export function AddonTypesTable({ t }) {
@@ -118,12 +118,12 @@ export function AddonTypesTable({ t }) {
             <tr key={r.name} className="border-b border-zinc-800/60 last:border-0 hover:bg-zinc-800/30 transition-colors">
               <td className="p-3 align-top">
                 <span className={`inline-block px-2 py-1 rounded-md border text-xs font-bold ${TYPE_COLORS[r.typeKey]}`}>
-                  {r.name}
+                  {r.name.startsWith('guide') ? t(r.name) : r.name}
                 </span>
               </td>
-              <td className="p-3 align-top text-zinc-300">{r.does}</td>
-              <td className="p-3 align-top text-zinc-400">{r.where}</td>
-              <td className="p-3 align-top text-zinc-400">{r.servers}</td>
+              <td className="p-3 align-top text-zinc-300">{t(r.does)}</td>
+              <td className="p-3 align-top text-zinc-400">{t(r.where)}</td>
+              <td className="p-3 align-top text-zinc-400">{t(r.servers)}</td>
             </tr>
           ))}
         </tbody>
@@ -136,10 +136,10 @@ export function AddonTypesTable({ t }) {
 //  Install-location cards — server folders vs player PC.
 // ---------------------------------------------------------------------------
 const INSTALL_CARDS = [
-  { icon: '🧩', tone: 'purple', path: 'plugins/', title: 'פלאגינים', body: 'קובצי .jar בתיקיית plugins של השרת. רק על ליבות תומכות-פלאגינים (Paper/Purpur/Folia/Mohist/Youer). ProtocolLib וספריות הן גם .jar כאן — לא datapack.' },
-  { icon: '📜', tone: 'orange', path: 'world/datapacks/', title: 'דאטה-פאקים', body: 'נכנסים לתיקיית world/datapacks. עובדים על כל שרת — כולל ונילה. Worldgen (Terralith/Tectonic) דורש עולם חדש ולא עובד על Paper/Purpur/Folia.' },
-  { icon: '⚙️', tone: 'blue', path: 'mods/', title: 'מודים', body: 'קובצי .jar בתיקיית mods. רק על Forge/NeoForge/Fabric/Quilt. שינוי עמוק — בלוקים/חיות/ממדים. כל שחקן צריך את אותם מודים בדיוק.' },
-  { icon: '💻', tone: 'teal', path: 'PC', title: 'מחשב השחקן', body: 'Shaders, מודי צד-לקוח (Sodium, מיני-מפה) ו-Resource Packs יושבים על מחשב השחקן. השרת לא יודע מהם. Resource Pack אפשר גם לדחוף מהשרת (server-resource-pack).' },
+  { icon: '🧩', tone: 'purple', path: 'plugins/', title: 'guideInstallPluginsTitle', body: 'guideInstallPluginsBody' },
+  { icon: '📜', tone: 'orange', path: 'world/datapacks/', title: 'guideInstallDataTitle', body: 'guideInstallDataBody' },
+  { icon: '⚙️', tone: 'blue', path: 'mods/', title: 'guideInstallModsTitle', body: 'guideInstallModsBody' },
+  { icon: '💻', tone: 'teal', path: 'PC', title: 'guideInstallPcTitle', body: 'guideInstallPcBody' },
 ];
 const INSTALL_TONE = {
   purple: 'border-purple-500/30 bg-purple-500/[0.06]',
@@ -148,7 +148,7 @@ const INSTALL_TONE = {
   teal: 'border-teal-500/30 bg-teal-500/[0.06]',
 };
 
-export function InstallLocationCards() {
+export function InstallLocationCards({ t }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {INSTALL_CARDS.map((c) => (
@@ -156,11 +156,11 @@ export function InstallLocationCards() {
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">{c.icon}</span>
             <div>
-              <h4 className="font-bold text-zinc-100 leading-tight">{c.title}</h4>
+              <h4 className="font-bold text-zinc-100 leading-tight">{t(c.title)}</h4>
               <code className="text-xs text-zinc-400">{c.path}</code>
             </div>
           </div>
-          <p className="text-sm text-zinc-300 leading-relaxed">{c.body}</p>
+          <p className="text-sm text-zinc-300 leading-relaxed">{t(c.body)}</p>
         </div>
       ))}
     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Server, Library, Shield, Users, Activity, BookOpen } from 'lucide-react';
+import { Server, Library, Shield, Users, Activity, BookOpen, Rocket } from 'lucide-react';
 
 import { signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
@@ -898,6 +898,7 @@ export default function App() {
         authUser={authUser} isAdmin={isAdmin} adminEmail={adminEmail}
         onCreate={handleLandingCreate}
         onPlugins={() => setCurrentView('repository')}
+        onGuide={() => openGuide()}
         onOpenPanel={() => setCurrentView('dashboard')}
         onSignIn={signInAsAdmin}
       />
@@ -920,6 +921,15 @@ export default function App() {
             </div>
             <div className="flex items-center gap-2">
               <NavBtn active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} icon={<Server size={18}/>} label={t('dashboard')} />
+              {/* PRIMARY action — create a server, up top next to Dashboard.
+                  Custom emerald button (not a plain NavBtn) so it stands out. */}
+              <button
+                onClick={() => setCurrentView('create')}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-3.5 py-2 rounded-lg transition-all shadow-lg shadow-emerald-900/30 hover:-translate-y-0.5"
+                title={t('landingCtaCreate')}
+              >
+                <Rocket size={18} /> <span className="hidden sm:inline">{t('landingCtaCreate')}</span>
+              </button>
               <NavBtn active={currentView === 'repository'} onClick={() => setCurrentView('repository')} icon={<Library size={18}/>} label={t('repo')} />
               {/* Guide / מדריך — PUBLIC reference center (servers + add-ons). Visible
                   to everyone incl. anonymous visitors; reachable from the main nav. */}
