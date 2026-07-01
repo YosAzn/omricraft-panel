@@ -126,6 +126,12 @@ export const DICT = {
     modpackInstallMr: "התקן ב-Modrinth",
     modpackOfficialPage: "עמוד המודפאק הרשמי",
     modpackGetApp: "אין לך את האפליקציה? הורד:",
+    // --- מאגר תוספים: הערות צד-לקוח בכרטיס/פירוט (FIX #7) ---
+    repoModpackClientNote: "דורש התקנת המודפאק גם במחשב של כל שחקן",
+    repoModClientNote: "דורש התקנה גם במחשב של כל שחקן (מוד תוכן/צד-לקוח)",
+    repoTextureClientNote: "2 אופציות התקנה: אוטומטי בשרת (server-resource-pack) או הורדה למחשב",
+    // --- מאגר תוספים: תיבת מקור ההתקנה בחלון הפירוט (FIX #8) ---
+    repoInstallSource: "📦 מתוך מאגר עולמי (Modrinth/CurseForge) — התקנה בקליק דרך הפאנל",
     // --- Dependency accordion (Phase 2) ---
     requirementsTitle: "דרישות",
     autoInstalledDeps: "דורש (המערכת מתקינה אוטומטית):",
@@ -485,6 +491,12 @@ export const DICT = {
     modpackInstallMr: "Install in Modrinth",
     modpackOfficialPage: "Official modpack page",
     modpackGetApp: "Don't have the app? Get:",
+    // --- Repository: client-side notes on the card/detail (FIX #7) ---
+    repoModpackClientNote: "Requires the modpack installed on every player's PC too",
+    repoModClientNote: "Also needs installing on every player's PC (content/client mod)",
+    repoTextureClientNote: "2 install options: auto server-push (server-resource-pack) or download to PC",
+    // --- Repository: install-source box in the detail modal (FIX #8) ---
+    repoInstallSource: "📦 From a global catalog (Modrinth/CurseForge) — one-click install via the panel",
     // --- Dependency accordion (Phase 2) ---
     requirementsTitle: "Requirements",
     autoInstalledDeps: "Requires (auto-installed by the system):",
