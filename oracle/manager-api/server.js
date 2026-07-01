@@ -242,9 +242,16 @@ app.post('/create-server', async function(req, res) {
 app.post('/delete-server', async function(req, res) {
   const serverId = req.body.serverId;
   if (!validateId(serverId, res)) return;
+  // Soft-delete by default: delete-server.sh archives the server FIRST (reversible
+  // 30-day VPS backup) then removes it. `permanent:true` in the body skips the
+  // archive and does the classic hard delete. MODE is a fixed enum string, never
+  // interpolated user input, so it is injection-safe.
+  const mode = (req.body.permanent === true) ? 'permanent' : 'soft';
+  // Archiving worlds can take a while for large maps → allow up to the backup timeout.
+  const timeout = (mode === 'soft') ? BACKUP_TIMEOUT_MS : 120000;
   try {
-    await runScript('delete-server.sh', [serverId]);
-    return res.json({ success: true, serverId: serverId });
+    await runScript('delete-server.sh', [serverId, mode], timeout);
+    return res.json({ success: true, serverId: serverId, mode: mode });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
@@ -1803,6 +1810,45 @@ app.get('/list-backups/:serverId', function(req, res) {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// GET|POST /list-backups (NO :serverId) -> { success, backups: [ <manifest>, ... ] }
+// Lists the SOFT-DELETE archives (server deletions), read from every
+// backups/*.manifest.json. Distinct from GET /list-backups/:serverId, which lists
+// per-server MANUAL world backups (no manifest). Manifests carry serverId/name/
+// slug/type/version/loader/deletedAt/purgeAt/mods/plugins/sizeBytes/archiveFile.
+// Sorted newest-deleted first. Used by the recycle-bin UI (D3). Malformed manifests
+// are skipped (best-effort) rather than aborting the whole list.
+function listArchiveManifests(req, res) {
+  try {
+    let entries;
+    try {
+      entries = fs.readdirSync(BACKUP_DIR);
+    } catch (e) {
+      return res.json({ success: true, backups: [] });
+    }
+    const manifests = [];
+    entries.forEach(function(name) {
+      if (!name.endsWith('.manifest.json')) return;
+      try {
+        const raw = fs.readFileSync(path.join(BACKUP_DIR, name), 'utf8');
+        const m = JSON.parse(raw);
+        if (m && typeof m === 'object') {
+          if (!m.archiveFile) m.archiveFile = name.replace(/\.manifest\.json$/, '.tar.gz');
+          m.manifestFile = name;
+          manifests.push(m);
+        }
+      } catch (e) {
+        console.error('list-backups: skipping malformed manifest ' + name + ':', e.message);
+      }
+    });
+    manifests.sort(function(a, b) { return (b.deletedAt || 0) - (a.deletedAt || 0); });
+    return res.json({ success: true, backups: manifests });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+app.get('/list-backups', listArchiveManifests);
+app.post('/list-backups', listArchiveManifests);
 
 // POST /restore-backup { serverId, fileName } -> { success, restartNeeded: true }
 // validateId + fileName guard + path-under-BACKUP_DIR + free-space (>= backup size) check,

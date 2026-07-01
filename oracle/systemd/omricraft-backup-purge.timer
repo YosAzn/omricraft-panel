@@ -1,0 +1,10 @@
+[Unit]
+Description=OmriCraft soft-delete backup purge timer (daily)
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+Unit=omricraft-backup-purge.service
+
+[Install]
+WantedBy=timers.target

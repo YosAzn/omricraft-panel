@@ -482,28 +482,34 @@ exports.deleteServer = onCall(
   {
     region: "us-central1",
     secrets: [managerApiUrl, managerApiKey],
-    timeoutSeconds: 120,
+    // 300s: a SOFT delete archives worlds first (can be slow for large maps),
+    // matching backupServer/restoreBackup. Permanent deletes finish fast.
+    timeoutSeconds: 300,
   },
   async (request) => {
     assertAdmin(request);
-    const { serverId } = request.data || {};
+    const { serverId, permanent } = request.data || {};
 
     if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
       return { success: false, error: 'Invalid serverId' };
     }
 
+    // Soft-delete by default (reversible 30-day VPS archive). Only a strict
+    // boolean true triggers a permanent (non-archived) hard delete.
+    const isPermanent = permanent === true;
+
     const BASE_URL = managerApiUrl.value().trim();
     const API_KEY  = managerApiKey.value().trim();
 
-    console.log(`deleteServer: id=${serverId}`);
+    console.log(`deleteServer: id=${serverId} permanent=${isPermanent}`);
 
-    const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/delete-server', { serverId });
+    const result = await callManagerApi(BASE_URL, API_KEY, 'POST', '/delete-server', { serverId, permanent: isPermanent });
 
     if (!result.success) {
       return { success: false, error: result.error || 'Delete failed' };
     }
 
-    return { success: true, serverId };
+    return { success: true, serverId, permanent: isPermanent };
   }
 );
 
@@ -1425,6 +1431,41 @@ exports.restoreBackup = onCall(
     const API_KEY  = managerApiKey.value().trim();
     try {
       return await callManagerApi(BASE_URL, API_KEY, 'POST', '/restore-backup', { serverId, fileName });
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// listServerBackups — recycle bin: lists SOFT-DELETE archives (deleted servers)
+// from the VPS (Manager API GET /list-backups → backups/*.manifest.json). Distinct
+// from listBackups (per-server manual world backups). Auth: any signed-in caller;
+// admins see ALL archives, non-admins see only archives whose serverId is in the
+// set of servers they may access (Firestore ownership via accessibleServerIds).
+// Manifests do not yet carry ownerUid — D3 will wire richer ownership; for now the
+// Firestore doc may already be gone (server was deleted), so a non-admin's set can
+// be empty. That is correct/safe: they simply see nothing to restore.
+// ---------------------------------------------------------------------------
+exports.listServerBackups = onCall(
+  { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 30 },
+  async (request) => {
+    requireAuth(request);
+    const BASE_URL = managerApiUrl.value().trim();
+    const API_KEY  = managerApiKey.value().trim();
+    try {
+      const result = await callManagerApi(BASE_URL, API_KEY, 'GET', '/list-backups', null);
+      if (!result || !result.success) {
+        return { success: false, error: (result && result.error) || 'list-backups failed' };
+      }
+      const all = Array.isArray(result.backups) ? result.backups : [];
+      // Admin (accessibleServerIds → null) sees everything; others are filtered to
+      // the serverIds they may access.
+      const allowed = await accessibleServerIds(request);
+      const backups = (allowed === null)
+        ? all
+        : all.filter((m) => m && allowed.has(m.serverId));
+      return { success: true, backups };
     } catch (error) {
       return { success: false, error: error?.message || String(error) };
     }

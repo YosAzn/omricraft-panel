@@ -1,0 +1,9 @@
+[Unit]
+Description=OmriCraft soft-delete backup purge (deletes archives past their 30-day purgeAt)
+After=network.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/omricraft/manager/scripts
+ExecStart=/usr/bin/env bash /home/ubuntu/omricraft/manager/scripts/purge-old-backups.sh

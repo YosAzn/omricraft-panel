@@ -1,14 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: ./delete-server.sh SERVER_ID
+# Usage: ./delete-server.sh SERVER_ID [MODE]
+#   MODE = soft (default) | permanent
+#
+# soft (default): archive the server FIRST (reversible 30-day VPS backup via
+#   archive-server.sh — must SUCCEED), THEN do the existing hard removal.
+# permanent: skip the archive and do the current hard-delete behaviour.
+# Backward-compatible: an old 1-arg call (no MODE) behaves as soft.
 
 if [ "$#" -lt 1 ]; then
-  echo "Usage: $0 SERVER_ID"
+  echo "Usage: $0 SERVER_ID [soft|permanent]"
   exit 1
 fi
 
 SERVER_ID="$1"
+MODE="${2:-soft}"
+
+if [ "$MODE" != "soft" ] && [ "$MODE" != "permanent" ]; then
+  echo "[$(date)] ERROR: invalid MODE '$MODE' (expected soft|permanent)." >&2
+  exit 1
+fi
 
 BASE="/home/ubuntu/omricraft"
 SERVERS_DIR="$BASE/servers"
@@ -17,7 +29,7 @@ VEL_TOML="$BASE/velocity/velocity.toml"
 SERVERS_JSON="$BASE/manager/servers.json"
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "[$(date)] Deleting server $SERVER_ID..."
+echo "[$(date)] Deleting server $SERVER_ID (mode=$MODE)..."
 
 # === SAFETY CHECKS ===
 
@@ -51,6 +63,23 @@ fi
 # Stop the server if running
 echo "[$(date)] Stopping server $SERVER_ID if running..."
 bash "$SCRIPTS_DIR/stop-server.sh" "$SERVER_ID" 2>/dev/null || true
+
+# SOFT DELETE: archive the (now-stopped) server BEFORE any destructive removal.
+# The archive MUST succeed — if it fails we abort and leave the server intact,
+# so a soft-delete can never silently lose data. Skipped in permanent mode.
+if [ "$MODE" = "soft" ]; then
+  if [ -d "$SERVER_DIR" ]; then
+    echo "[$(date)] Soft delete: archiving $SERVER_ID before removal..."
+    if ! bash "$SCRIPTS_DIR/archive-server.sh" "$SERVER_ID"; then
+      echo "[$(date)] ERROR: archive failed for $SERVER_ID — ABORTING delete (server left intact)." >&2
+      exit 1
+    fi
+  else
+    echo "[$(date)] Soft delete: server dir missing, nothing to archive — continuing metadata cleanup."
+  fi
+else
+  echo "[$(date)] Permanent delete: skipping archive."
+fi
 
 # Remove from velocity.toml
 if [ -f "$VEL_TOML" ]; then

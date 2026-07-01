@@ -42,6 +42,9 @@ export const updateServerMemoryFn = httpsCallable(functionsInstance, 'updateServ
 export const backupServerFn = httpsCallable(functionsInstance, 'backupServer');
 export const listBackupsFn = httpsCallable(functionsInstance, 'listBackups');
 export const restoreBackupFn = httpsCallable(functionsInstance, 'restoreBackup');
+// Recycle bin — lists SOFT-DELETE archives (deleted servers, 30-day VPS backups).
+// Distinct from listBackups (per-server manual world backups). Restore/UI = D2/D3.
+export const listServerBackupsFn = httpsCallable(functionsInstance, 'listServerBackups');
 // War Room / חמ"ל — health diagnostics (admin-only)
 export const getDiagnosticsFn = httpsCallable(functionsInstance, 'getDiagnostics');
 export const resetServerStatusFn = httpsCallable(functionsInstance, 'resetServerStatus');
