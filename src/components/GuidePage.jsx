@@ -249,11 +249,11 @@ export default function GuidePage({ t, isRtl, scrollToAnchor }) {
                       ? <span className="text-[150px] font-black leading-none">{glyph}</span>
                       : <s.icon size={140} strokeWidth={1.2} />}
                   </div>
-                  {/* WHITE enlarged title, nudged a touch up from the bottom, in
-                      front of the glyph — font-black to MATCH the glyph's weight.
-                      A "/" in the title is a LOGICAL line break (e.g. Hebrew line
-                      above the English line), not an inline slash. */}
-                  <h3 className="relative z-10 mb-1.5 text-2xl sm:text-3xl font-black text-white leading-tight">
+                  {/* WHITE enlarged title, CENTERED horizontally, nudged a touch up
+                      from the bottom, in front of the glyph — font-black to MATCH the
+                      glyph's weight. A "/" in the title is a LOGICAL line break (e.g.
+                      Hebrew line above the English line), not an inline slash. */}
+                  <h3 className="relative z-10 w-full mb-1.5 text-center text-2xl sm:text-3xl font-black text-white leading-tight">
                     {displayTitle.includes('/')
                       ? displayTitle.split('/').map((part, i) => <span key={i} className="block">{part.trim()}</span>)
                       : displayTitle}
