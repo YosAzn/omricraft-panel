@@ -67,22 +67,16 @@ function guideNote(t, key) {
   return val === key ? (GUIDE_NOTE_FALLBACK[key] || key) : val;
 }
 
-// A small add-on-type chip. ICON-ONLY: the tinted icon carries the meaning, so
-// there is no visible text label — the add-on's name lives in the hover tooltip
-// + aria-label (per Yosef: if the plugin icons are shown, they don't also need
-// their titles). The AddonTypesTable below is the legend that names each icon.
+// An add-on-type chip = the type's NAME inside its tinted frame — "the framed
+// name" (Yosef): not a lucide icon, and not icon+label together. The coloured
+// frame + name identify the type on their own; the AddonTypesTable is the
+// shared legend that spells each one out in full.
 function AddonChip({ typeId, t }) {
   const meta = ADDON_TYPE_CHIP[typeId];
   if (!meta) return null;
-  const Icon = meta.icon;
-  const label = t(meta.labelKey);
   return (
-    <span
-      title={label}
-      aria-label={label}
-      className={`inline-flex items-center justify-center p-1 rounded border ${TYPE_COLORS[meta.typeKey]}`}
-    >
-      <Icon size={13} strokeWidth={2.5} aria-hidden="true" />
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-bold ${TYPE_COLORS[meta.typeKey]}`}>
+      {t(meta.labelKey)}
     </span>
   );
 }
@@ -333,10 +327,12 @@ export function InstallLocationCards({ t }) {
             <div className="space-y-3">
               {col.items.map((it) => (
                 <div key={it.path} className="rounded-lg bg-zinc-950/40 p-3">
+                  {/* No text title here — the framed-name chip above already names
+                      the type (Yosef: don't show both the framed name and a title).
+                      The row keeps just the emoji + the real folder path. */}
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="text-lg">{it.icon}</span>
-                    <span className="font-bold text-sm text-zinc-100">{t(it.title)}</span>
-                    <code className="text-[11px] text-zinc-500" dir="ltr">{it.path}</code>
+                    <code className="text-[11px] text-zinc-400" dir="ltr">{it.path}</code>
                   </div>
                   <p className="text-xs text-zinc-300 leading-relaxed">{t(it.body)}</p>
                 </div>
