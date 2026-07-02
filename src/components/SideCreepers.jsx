@@ -101,14 +101,15 @@ const FIGURES = [
     key: 'creeper-tnt',
     stroke: '#22c55e',
     face: 'rgba(34,197,94,0.14)',
-    // Tight frame around the creeper body (scaled legs span ~x292..388) plus ONE
-    // BIG TNT crate dropped ALL THE WAY DOWN to the ground line — its bottom
-    // (~y368) sits clearly BELOW the creeper's scaled foot line (~y356), never
-    // floating beside the body. TntBlock local space is x150..270 / y88..208; at
-    // scale 0.85 it's nearly leg-height. translate(262,191): block-bottom lands at
-    // 191+208*0.85≈368 and its left edge tucks just right of the right leg.
-    // viewBox widened + bottom extended so the grounded crate + glow never clip.
-    viewBox: '258 4 248 380',
+    // Creeper (scaled 1.1x: torso ends ~y279, legs y279..356, foot line ~y356)
+    // plus ONE TNT crate sitting AT THE CREEPER'S LEGS: sized so it is exactly
+    // leg-height (scale 0.68 → ~82px, not rising to the torso/head), its BOTTOM
+    // flush with the foot line (~y356), tucked in toward CENTRE against the right
+    // leg. TntBlock local space x150..270 / y88..208. translate(248,215): top
+    // y=215+88*0.68≈275 (leg-top), bottom y=215+208*0.68≈356 (feet); left edge
+    // x=248+150*0.68≈350 overlaps the right leg's base → reads as "at the legs,
+    // toward centre". viewBox reframed tight around creeper+TNT (glow headroom).
+    viewBox: '260 6 212 372',
     render: ({ glowId, tntGlowId }) => (
       <>
         <g filter={`url(#${glowId})`} className="cfloat">
@@ -116,10 +117,15 @@ const FIGURES = [
             <CreeperBody />
           </g>
         </g>
-        {/* ONE BIG TNT crate ON THE GROUND at the very bottom of the frame,
-            bottom (~y368) BELOW the feet (~y356), just right of the right leg. */}
-        <g className="cfloat" transform="translate(262,191) scale(0.85)">
-          <Tnt tntGlowId={tntGlowId} />
+        {/* ONE TNT crate AT THE LEGS — leg-height, bottom on the foot line,
+            tucked toward centre against the right leg. cfloat MUST be on an OUTER
+            <g> and the positioning transform on an INNER <g>: the float animation
+            drives the CSS `transform`, which would otherwise OVERRIDE (wipe) a
+            transform attribute on the same element. */}
+        <g className="cfloat">
+          <g transform="translate(248,215) scale(0.68)">
+            <Tnt tntGlowId={tntGlowId} />
+          </g>
         </g>
       </>
     ),

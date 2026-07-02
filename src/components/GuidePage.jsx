@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { ServerTypesTable, AddonTypesTable, InstallLocationCards } from './GuidePageSections';
 import { CompatRules, RamTable, AltTable, ResourcePackInfo, ModpackInfo } from './GuidePageRules';
+import ServerEnvCards from './GuideEnvCards';
 
 // ============================================================================
 //  GuidePage — public, no-auth reference center (SEO + onboarding).
@@ -30,30 +31,14 @@ const SECTIONS = [
   // language) — Server keeps the two families visually distinct.
   { id: 'guide-server-families', icon: Server, titleKey: 'guideSecFamiliesTitle', subKey: 'guideSecFamiliesSub', bigGlyph: '3' },
   { id: 'guide-server-types', icon: Layers3, titleKey: 'guideSecTypesTitle', subKey: 'guideSecTypesSub' },
-  { id: 'guide-addon-types', icon: Puzzle, titleKey: 'guideSecAddonTitle', subKey: 'guideSecAddonSub' },
+  { id: 'guide-ram', icon: Cpu, titleKey: 'guideSecRamTitle', subKey: 'guideSecRamSub' },
+  { id: 'guide-compatibility', icon: ShieldCheck, titleKey: 'guideSecCompatTitle', subKey: 'guideSecCompatSub' },
   { id: 'guide-install-locations', icon: FolderTree, titleKey: 'guideSecInstallTitle', subKey: 'guideSecInstallSub' },
+  { id: 'guide-addon-types', icon: Puzzle, titleKey: 'guideSecAddonTitle', subKey: 'guideSecAddonSub' },
   { id: 'guide-resource-packs', icon: Image, titleKey: 'guideSecResourceTitle', subKey: null },
   { id: 'guide-modpacks', icon: Package, titleKey: 'guideSecModpackTitle', subKey: null },
-  { id: 'guide-compatibility', icon: ShieldCheck, titleKey: 'guideSecCompatTitle', subKey: 'guideSecCompatSub' },
-  { id: 'guide-ram', icon: Cpu, titleKey: 'guideSecRamTitle', subKey: 'guideSecRamSub' },
   { id: 'guide-alternatives', icon: Repeat, titleKey: 'guideSecAltTitle', subKey: 'guideSecAltSub' },
 ];
-
-// One of the server-core families, rendered as an intro card.
-// `tagline` (optional) — the one-line "what this path means for the player",
-// shown bold above the body (the slide-deck's two-track model).
-function FamilyCard({ accent, chip, title, cores, tagline, body }) {
-  return (
-    <div className={`rounded-2xl border p-5 ${accent}`}>
-      <div className="flex items-center gap-2 mb-2">
-        <span className={`px-2 py-0.5 rounded text-xs font-bold ${chip}`}>{title}</span>
-        <span className="text-xs text-zinc-400">{cores}</span>
-      </div>
-      {tagline && <p className="text-sm font-bold text-zinc-100 mb-1.5">{tagline}</p>}
-      <p className="text-sm text-zinc-300 leading-relaxed">{body}</p>
-    </div>
-  );
-}
 
 // Titles may carry a "/" as a LOGICAL line break for the gallery cards; in
 // one-line contexts (section heading, prev/next buttons) it flattens to a space.
@@ -89,33 +74,10 @@ function renderSection(id, t) {
     case 'guide-server-families':
       return (
         <Section id="guide-server-families" icon={Server} title={t('guideSecFamiliesTitle')} sub={t('guideSecFamiliesSub')} t={t}>
-          {/* Two main tracks (the slide-deck junction): plugins vs mods. */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FamilyCard
-              accent="border-purple-500/30 bg-purple-500/[0.06]"
-              chip="bg-purple-500/15 text-purple-300"
-              title={t('guideFamilyPlugins')}
-              cores="Vanilla · Paper · Purpur · Folia"
-              tagline={t('guideFamPluginsTagline')}
-              body={t('guideFamPluginsBody')}
-            />
-            <FamilyCard
-              accent="border-blue-500/30 bg-blue-500/[0.06]"
-              chip="bg-blue-500/15 text-blue-300"
-              title={t('guideFamilyMods')}
-              cores="Forge · NeoForge · Fabric · (Quilt)"
-              tagline={t('guideFamModsTagline')}
-              body={t('guideFamModsBody')}
-            />
-          </div>
-          {/* Hybrids are NOT a third equal track — a bridge with compat risk. */}
-          <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-4 flex items-start gap-3">
-            <span className="text-amber-400 font-bold text-lg leading-none shrink-0" aria-hidden="true">⚠</span>
-            <p className="text-sm text-zinc-300 leading-relaxed">
-              <span className="font-bold text-amber-300">{t('guideFamilyHybrid')} — Mohist (EOL) · Youer: </span>
-              {t('guideFamHybridWarn')} {t('guideFamHybridBody')}
-            </p>
-          </div>
+          {/* The 4 server environments as 3-D flip cards (front = tagline,
+              back = cores + addon-type chips). Replaces the old two-family
+              cards + hybrid warning strip. */}
+          <ServerEnvCards t={t} />
           <p className="mt-4 text-xs text-zinc-500">{t('guidePluginNote')}</p>
         </Section>
       );

@@ -114,26 +114,39 @@ const ALT_ROWS = [
 export function AltTable({ t }) {
   return (
     <>
-    <p className="mb-3 text-sm text-zinc-400 leading-relaxed">{t('guideAltIntro')}</p>
-    <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900/50">
-      <table className="w-full text-sm min-w-[560px]">
-        <thead>
-          <tr className="border-b border-zinc-800 text-zinc-400 text-xs uppercase tracking-wide">
-            <th className="text-start p-3 font-bold">{t('guideAltHeadRole')}</th>
-            <th className="text-start p-3 font-bold"><span className="text-purple-300">{t('guideAltHeadPlugin')}</span></th>
-            <th className="text-start p-3 font-bold"><span className="text-blue-300">{t('guideAltHeadMod')}</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          {ALT_ROWS.map((r) => (
-            <tr key={r.key} className="border-b border-zinc-800/60 last:border-0 hover:bg-zinc-800/30 transition-colors">
-              <td className="p-3 align-top text-zinc-200 font-medium">{t(r.role)}</td>
-              <td className="p-3 align-top text-zinc-300">{r.plugin}</td>
-              <td className="p-3 align-top text-zinc-300">{r.mod.startsWith('guide') ? t(r.mod) : r.mod}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <p className="mb-4 text-sm text-zinc-400 leading-relaxed">{t('guideAltIntro')}</p>
+
+    {/* Two-column migration matrix (slide-deck): plugins (Paper) on one side,
+        mods (Forge/Fabric) on the other. Each row = a parallel pair with a
+        connector between them + the role as the pair's label. */}
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 sm:p-5">
+      {/* Column headers */}
+      <div className="grid grid-cols-[1fr_auto_1fr] gap-3 sm:gap-4 items-center pb-3 mb-2 border-b border-zinc-800 text-xs uppercase tracking-wide font-bold">
+        <div className="text-center text-purple-300">{t('guideAltHeadPlugin')}</div>
+        <div className="w-8" aria-hidden="true"></div>
+        <div className="text-center text-blue-300">{t('guideAltHeadMod')}</div>
+      </div>
+
+      <div className="space-y-2.5">
+        {ALT_ROWS.map((r) => (
+          <div key={r.key}>
+            {/* role label = what this pair does */}
+            <div className="text-[11px] text-zinc-500 font-medium text-center mb-1">{t(r.role)}</div>
+            <div className="grid grid-cols-[1fr_auto_1fr] gap-3 sm:gap-4 items-stretch">
+              {/* plugin side */}
+              <div className="rounded-xl border border-purple-500/25 bg-purple-500/[0.06] px-3 py-2.5 text-sm text-zinc-200 flex items-center justify-center text-center min-h-[44px]">
+                {r.plugin}
+              </div>
+              {/* connector — bidirectional (RTL-safe: symmetric symbol) */}
+              <div className="flex items-center justify-center text-zinc-500 text-lg font-bold select-none" aria-hidden="true">⇄</div>
+              {/* mod side */}
+              <div className="rounded-xl border border-blue-500/25 bg-blue-500/[0.06] px-3 py-2.5 text-sm text-zinc-200 flex items-center justify-center text-center min-h-[44px]">
+                {r.mod.startsWith('guide') ? t(r.mod) : r.mod}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
     </>
   );
