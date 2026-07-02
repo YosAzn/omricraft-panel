@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import {
-  BookOpen, Server, Layers3, Puzzle, FolderTree, ShieldCheck,
-  Cpu, Repeat, Image, Package, ArrowUp, ArrowLeft, ArrowRight,
+  BookOpen, Server, Puzzle, FolderTree, ShieldCheck,
+  Cpu, Repeat, ArrowUp, ArrowLeft, ArrowRight,
 } from 'lucide-react';
-import { ServerTypesTable, AddonTypesTable, InstallLocationCards } from './GuidePageSections';
-import { CompatRules, RamTable, AltTable, ResourcePackInfo, ModpackInfo } from './GuidePageRules';
+import { AddonTypesTable, InstallLocationCards } from './GuidePageSections';
+import { CompatRules, RamTable, AltTable } from './GuidePageRules';
 import ServerEnvCards from './GuideEnvCards';
 
 // ============================================================================
@@ -13,9 +13,8 @@ import ServerEnvCards from './GuideEnvCards';
 //  app's zinc-950 / emerald glass language (matches LandingPage).
 //
 //  Stable section anchors let other components deep-link "read more →":
-//    guide-server-families · guide-server-types · guide-addon-types
-//    guide-install-locations · guide-compatibility · guide-ram
-//    guide-alternatives · guide-resource-packs · guide-modpacks
+//    guide-server-families · guide-install-locations · guide-ram
+//    guide-compatibility · guide-alternatives · guide-addon-types
 //
 //  `scrollToAnchor` (optional) — when set, the page scrolls to that anchor on
 //  mount (the deep-link entry point). Heavy tables live in GuidePageSections /
@@ -24,20 +23,19 @@ import ServerEnvCards from './GuideEnvCards';
 
 // Section registry — single source of truth for the TOC + anchors.
 // `bigGlyph` (optional) — a literal character drawn as the card's oversized
-// gray glyph instead of the lucide icon (e.g. the "3" for the three families).
-// Cards whose TITLE ends with "?" get a big "?" glyph automatically.
+// gray glyph instead of the lucide icon. When null/absent the section's lucide
+// icon is used. Cards whose TITLE ends with "?" get a big "?" glyph automatically.
 const SECTIONS = [
   // NOTE: the cores icon must NOT look addon-ish (boxes/puzzle are the addon
-  // language) — Server keeps the two families visually distinct.
-  { id: 'guide-server-families', icon: Server, titleKey: 'guideSecFamiliesTitle', subKey: 'guideSecFamiliesSub', bigGlyph: '3' },
-  { id: 'guide-server-types', icon: Layers3, titleKey: 'guideSecTypesTitle', subKey: 'guideSecTypesSub' },
+  // language) — Server keeps the server-vs-addon split visually distinct.
+  // bigGlyph is null so the card shows the Server icon (the title is no longer
+  // "the three families", so a literal "3" would be misleading).
+  { id: 'guide-server-families', icon: Server, titleKey: 'guideSecFamiliesTitle', subKey: 'guideSecFamiliesSub', bigGlyph: null },
+  { id: 'guide-install-locations', icon: FolderTree, titleKey: 'guideSecInstallTitle', subKey: 'guideSecInstallSub' },
   { id: 'guide-ram', icon: Cpu, titleKey: 'guideSecRamTitle', subKey: 'guideSecRamSub' },
   { id: 'guide-compatibility', icon: ShieldCheck, titleKey: 'guideSecCompatTitle', subKey: 'guideSecCompatSub' },
-  { id: 'guide-install-locations', icon: FolderTree, titleKey: 'guideSecInstallTitle', subKey: 'guideSecInstallSub' },
-  { id: 'guide-addon-types', icon: Puzzle, titleKey: 'guideSecAddonTitle', subKey: 'guideSecAddonSub' },
-  { id: 'guide-resource-packs', icon: Image, titleKey: 'guideSecResourceTitle', subKey: null },
-  { id: 'guide-modpacks', icon: Package, titleKey: 'guideSecModpackTitle', subKey: null },
   { id: 'guide-alternatives', icon: Repeat, titleKey: 'guideSecAltTitle', subKey: 'guideSecAltSub' },
+  { id: 'guide-addon-types', icon: Puzzle, titleKey: 'guideSecAddonTitle', subKey: 'guideSecAddonSub' },
 ];
 
 // Titles may carry a "/" as a LOGICAL line break for the gallery cards; in
@@ -81,13 +79,6 @@ function renderSection(id, t) {
           <p className="mt-4 text-xs text-zinc-500">{t('guidePluginNote')}</p>
         </Section>
       );
-    case 'guide-server-types':
-      return (
-        <Section id="guide-server-types" icon={Layers3} title={t('guideSecTypesTitle')} sub={t('guideSecTypesSub')} t={t}>
-          <ServerTypesTable t={t} notOfferedLabel={t('guideNotOfferedBadge')} />
-          <p className="mt-3 text-sm text-zinc-400 leading-relaxed">{t('guideQuiltNote')}</p>
-        </Section>
-      );
     case 'guide-addon-types':
       return (
         <Section id="guide-addon-types" icon={Puzzle} title={t('guideSecAddonTitle')} sub={t('guideSecAddonSub')} t={t}>
@@ -98,22 +89,6 @@ function renderSection(id, t) {
       return (
         <Section id="guide-install-locations" icon={FolderTree} title={t('guideSecInstallTitle')} sub={t('guideSecInstallSub')} t={t}>
           <InstallLocationCards t={t} />
-        </Section>
-      );
-    case 'guide-resource-packs':
-      return (
-        <Section id="guide-resource-packs" icon={Image} title={t('guideSecResourceTitle')} t={t}>
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-            <ResourcePackInfo t={t} />
-          </div>
-        </Section>
-      );
-    case 'guide-modpacks':
-      return (
-        <Section id="guide-modpacks" icon={Package} title={t('guideSecModpackTitle')} t={t}>
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-            <ModpackInfo t={t} />
-          </div>
         </Section>
       );
     case 'guide-compatibility':

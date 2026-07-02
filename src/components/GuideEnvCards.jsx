@@ -1,11 +1,14 @@
 import React from 'react';
-import { Puzzle, Cog, FileCode, Image } from 'lucide-react';
+import { Puzzle, Cog, FileCode, Image, Sparkles, MonitorSmartphone } from 'lucide-react';
 import { TYPE_COLORS } from '../lib/constants';
 
 // ============================================================================
 //  GuideEnvCards — the "3 families / 4 environments" gateway of the guide.
-//  Four 3-D FLIP cards (front = name + tagline, back = cores + addon-type chips)
-//  in the site's zinc-950 / emerald-glass language. Each card carries its
+//  Four 3-D FLIP cards. Front = name + family one-liner (Vanilla also gets a
+//  "classic" tag, no side badge). Back = cores + TWO add-on groups: what you
+//  install ON THE SERVER (per environment) and what each PLAYER installs on
+//  their own PC (universal — same on every card, Vanilla included).
+//  In the site's zinc-950 / emerald-glass language. Each card carries its
 //  environment's accent (Vanilla=white/zinc, Plugins=purple, Mods=blue,
 //  Hybrid=amber). Pure CSS 3-D flip on hover; on touch / small screens the two
 //  faces stack (no rotation); prefers-reduced-motion disables the 3-D anim.
@@ -22,21 +25,35 @@ function AddonChip({ type, icon: Icon, label }) {
   );
 }
 
+// Player-side add-ons are UNIVERSAL — they install on the player's own PC and
+// work on EVERY server type, Vanilla included (texture packs, shaders, client
+// mods like Sodium / a mini-map). Same list on the back of every card, under
+// the "install on the player" group. Kept as one shared const so all four
+// cards read identically.
+const PLAYER_CHIPS = [
+  { type: 'textures', icon: Image, labelKey: 'guideChipResource' },
+  { type: 'shaders', icon: Sparkles, labelKey: 'guideChipShader' },
+  { type: 'client-mods', icon: MonitorSmartphone, labelKey: 'guideChipClientMod' },
+];
+
 // The four environments, in guide order. `accent` sets the card's border/tint;
 // `cores` lists each core's display name + its guideCore<X>Short i18n key;
-// `chips` are the addon-type chips shown on the back (type id + lucide icon +
-// chip-label i18n key). Data mirrors the DATA spec + ADDON-SUPPORT table.
+// `serverChips` are the on-the-SERVER add-on chips for this environment (type id
+// + lucide icon + chip-label i18n key). The player-side chips are shared
+// (PLAYER_CHIPS) since they're identical everywhere. `badgeKey: null` = no side
+// badge (Vanilla installs nothing special on the server). Data mirrors the DATA
+// spec + ADDON-SUPPORT table.
 const ENVIRONMENTS = [
   {
     id: 'vanilla',
     accent: 'border-zinc-300/40 hover:border-zinc-200/70',
     titleKey: 'guideEnvVanillaTitle',
     classicTag: true, // Vanilla shows a white "classic" tag next to the name
-    badgeKey: 'guideEnvBadgeServer',
-    badgeClass: 'bg-zinc-500/15 text-zinc-200 border-zinc-400/30',
+    badgeKey: null, // no side badge — nothing special is installed on the server
+    badgeClass: '',
     lineKey: 'guideEnvVanillaLine',
     cores: [{ name: 'Vanilla', shortKey: 'guideCoreVanillaShort' }],
-    chips: [{ type: 'datapacks', icon: FileCode, labelKey: 'guideChipDatapack' }],
+    serverChips: [{ type: 'datapacks', icon: FileCode, labelKey: 'guideChipDatapack' }],
   },
   {
     id: 'plugins',
@@ -50,10 +67,9 @@ const ENVIRONMENTS = [
       { name: 'Purpur', shortKey: 'guideCorePurpurShort' },
       { name: 'Folia', shortKey: 'guideCoreFoliaShort' },
     ],
-    chips: [
+    serverChips: [
       { type: 'plugins', icon: Puzzle, labelKey: 'guideChipPlugin' },
       { type: 'datapacks', icon: FileCode, labelKey: 'guideChipDatapack' },
-      { type: 'textures', icon: Image, labelKey: 'guideChipResource' },
     ],
   },
   {
@@ -69,7 +85,7 @@ const ENVIRONMENTS = [
       { name: 'Forge', shortKey: 'guideCoreForgeShort' },
       { name: 'NeoForge', shortKey: 'guideCoreNeoForgeShort' },
     ],
-    chips: [
+    serverChips: [
       { type: 'mods', icon: Cog, labelKey: 'guideChipMod' },
       { type: 'datapacks', icon: FileCode, labelKey: 'guideChipDatapack' },
     ],
@@ -85,11 +101,10 @@ const ENVIRONMENTS = [
       { name: 'Mohist', shortKey: 'guideCoreMohistShort' },
       { name: 'Youer', shortKey: 'guideCoreYouerShort' },
     ],
-    chips: [
+    serverChips: [
       { type: 'plugins', icon: Puzzle, labelKey: 'guideChipPlugin' },
       { type: 'mods', icon: Cog, labelKey: 'guideChipMod' },
       { type: 'datapacks', icon: FileCode, labelKey: 'guideChipDatapack' },
-      { type: 'textures', icon: Image, labelKey: 'guideChipResource' },
     ],
   },
 ];
@@ -140,44 +155,36 @@ function EnvCard({ env, t }) {
   return (
     <div className="gec-flip" tabIndex={0}>
       <div className="gec-inner">
-        {/* FRONT — name + side badge + one-liner + flip hint */}
+        {/* FRONT — name, then a badge UNDER it (classic tag for Vanilla, else the
+            side badge) — same placement across all cards — + one-liner + flip hint */}
         <div className={`gec-face gec-front ${faceShell}`}>
-          <div className="flex items-center flex-wrap gap-2 mb-2">
-            <h3 className="text-lg font-black text-zinc-100 leading-tight">{t(env.titleKey)}</h3>
-            {env.classicTag && (
-              <span className="px-2 py-0.5 rounded text-[11px] font-bold border border-white/40 bg-white/10 text-white">
-                {t('guideCoreClassic')}
-              </span>
-            )}
-          </div>
-          <span className={`self-start inline-flex px-2 py-0.5 rounded-md border text-[11px] font-bold mb-3 ${env.badgeClass}`}>
-            {t(env.badgeKey)}
-          </span>
+          <h3 className="text-lg font-black text-zinc-100 leading-tight mb-2">{t(env.titleKey)}</h3>
+          {(env.classicTag || env.badgeKey) && (
+            <span
+              className={`self-start inline-flex px-2 py-0.5 rounded-md border text-[11px] font-bold mb-3 ${
+                env.classicTag ? 'border-white/40 bg-white/10 text-white' : env.badgeClass
+              }`}
+            >
+              {env.classicTag ? t('guideCoreClassic') : t(env.badgeKey)}
+            </span>
+          )}
           <p className="text-sm text-zinc-300 leading-relaxed">{t(env.lineKey)}</p>
           <p className="gec-fliphint mt-auto pt-3 text-[11px] text-zinc-500">{t('guideEnvFlipHint')}</p>
         </div>
 
-        {/* BACK — cores list + addon-type chips */}
-        <div className={`gec-face gec-back ${faceShell} overflow-y-auto`}>
-          <div className="mb-3">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500 mb-1.5">{t('guideEnvCoresLabel')}</p>
-            <ul className="space-y-1">
-              {env.cores.map((c) => (
-                <li key={c.name} className="text-sm text-zinc-300 leading-snug">
-                  <span className="font-bold text-zinc-100">{c.name}</span>
-                  <span className="text-zinc-400"> — {t(c.shortKey)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500 mb-1.5">{t('guideEnvAddonsLabel')}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {env.chips.map((ch) => (
-                <AddonChip key={ch.type} type={ch.type} icon={ch.icon} label={t(ch.labelKey)} />
-              ))}
-            </div>
-          </div>
+        {/* BACK — just the server types in this environment (which addon installs
+            WHERE lives in the "מה על מה" + "תוספים" tables, kept correct there — the
+            card stays clean and never needs a scrollbar). */}
+        <div className={`gec-face gec-back ${faceShell}`}>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500 mb-2">{t('guideEnvCoresLabel')}</p>
+          <ul className="space-y-1.5">
+            {env.cores.map((c) => (
+              <li key={c.name} className="text-sm text-zinc-300 leading-snug">
+                <bdi className="font-bold text-zinc-100">{c.name}</bdi>
+                <span className="text-zinc-400"> — {t(c.shortKey)}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </div>

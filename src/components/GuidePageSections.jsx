@@ -1,5 +1,5 @@
 import React from 'react';
-import { Puzzle, Wrench, ScrollText, Image as ImageIcon } from 'lucide-react';
+import { Puzzle, Cog, FileCode, Image as ImageIcon, Sparkles, MonitorSmartphone, Package } from 'lucide-react';
 import { TYPE_COLORS } from '../lib/constants';
 
 // ============================================================================
@@ -29,10 +29,13 @@ const FAMILY_CHIP = {
 // Each add-on TYPE → its lucide icon + the TYPE_COLORS class used for the chip.
 // `typeKey` maps to the real ADDON_TYPES id so colours stay in sync everywhere.
 const ADDON_TYPE_CHIP = {
-  plugin:   { icon: Puzzle,     typeKey: 'plugins',   labelKey: 'guideChipPlugin' },
-  mod:      { icon: Wrench,     typeKey: 'mods',      labelKey: 'guideChipMod' },
-  datapack: { icon: ScrollText, typeKey: 'datapacks', labelKey: 'guideChipDatapack' },
-  resource: { icon: ImageIcon,  typeKey: 'textures',  labelKey: 'guideChipResource' },
+  plugin:      { icon: Puzzle,             typeKey: 'plugins',      labelKey: 'guideChipPlugin' },
+  mod:         { icon: Cog,                typeKey: 'mods',         labelKey: 'guideChipMod' },
+  datapack:    { icon: FileCode,           typeKey: 'datapacks',    labelKey: 'guideChipDatapack' },
+  modpack:     { icon: Package,            typeKey: 'modpacks',     labelKey: 'guideChipModpack' },
+  resource:    { icon: ImageIcon,          typeKey: 'textures',     labelKey: 'guideChipResource' },
+  shader:      { icon: Sparkles,           typeKey: 'shaders',      labelKey: 'guideChipShader' },
+  'client-mod':{ icon: MonitorSmartphone,  typeKey: 'client-mods',  labelKey: 'guideChipClientMod' },
 };
 
 // Per-core ADDON-SUPPORT — which add-on TYPES each core can install. Single source
@@ -50,15 +53,36 @@ const CORE_ADDON_SUPPORT = {
   Youer:    ['plugin', 'mod', 'datapack', 'resource'],
 };
 
-// A small add-on-type chip (icon + label, tinted by its TYPE_COLORS class).
+// Local Hebrew defaults for the slide-deck notes. i18n owns the real strings;
+// these are the fail-safe when a key hasn't been wired yet (translate() returns
+// the raw key on a miss). Prefer the i18n value whenever it resolves.
+const GUIDE_NOTE_FALLBACK = {
+  guideInstallExcServer: 'יוצא דופן: דאטה-פאק ששולט בעולם (Terralith/Tectonic) דורש עולם חדש — ולא עובד על Paper/Purpur/Folia.',
+  guideInstallExcBoth: 'חייבים להוסיף: אותה גרסת משחק בדיוק, ואותם מודים בדיוק — גם בשרת וגם אצל כל שחקן. חסר אחד? השחקן לא נכנס.',
+  guidePlayerSideNote: '* «צד-שחקן» = מותקן על המחשב של מי שמשחק (client). כל תוספי צד-השחקן — טקסטורות, שיידרים, מודי-צד-שחקן — עובדים על כל סוג שרת, כולל וונילה.',
+};
+// Resolve a note key with a graceful Hebrew fallback (never shows a raw key).
+function guideNote(t, key) {
+  const val = t(key);
+  return val === key ? (GUIDE_NOTE_FALLBACK[key] || key) : val;
+}
+
+// A small add-on-type chip. ICON-ONLY: the tinted icon carries the meaning, so
+// there is no visible text label — the add-on's name lives in the hover tooltip
+// + aria-label (per Yosef: if the plugin icons are shown, they don't also need
+// their titles). The AddonTypesTable below is the legend that names each icon.
 function AddonChip({ typeId, t }) {
   const meta = ADDON_TYPE_CHIP[typeId];
   if (!meta) return null;
   const Icon = meta.icon;
+  const label = t(meta.labelKey);
   return (
-    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-bold ${TYPE_COLORS[meta.typeKey]}`}>
-      <Icon size={11} strokeWidth={2.5} aria-hidden="true" />
-      {t(meta.labelKey)}
+    <span
+      title={label}
+      aria-label={label}
+      className={`inline-flex items-center justify-center p-1 rounded border ${TYPE_COLORS[meta.typeKey]}`}
+    >
+      <Icon size={13} strokeWidth={2.5} aria-hidden="true" />
     </span>
   );
 }
@@ -138,7 +162,7 @@ function FamilyBlock({ fam, rows, t, notOfferedLabel, isRtl }) {
                 {rows.map((r) => (
                   <tr key={r.core} className="border-b border-zinc-800/50 last:border-0 hover:bg-zinc-800/20 transition-colors">
                     <td className="p-2.5 align-top">
-                      <span className={`font-bold ${isVanilla ? 'text-zinc-50' : 'text-zinc-100'}`}>{r.core}</span>
+                      <bdi className={`font-bold ${isVanilla ? 'text-zinc-50' : 'text-zinc-100'}`}>{r.core}</bdi>
                       {r.eol && <span className="ms-1 inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/15 text-red-300">EOL</span>}
                       {r.live === false && (
                         <span className="ms-1 inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-700/60 text-zinc-300">{notOfferedLabel}</span>
@@ -220,9 +244,9 @@ export function AddonTypesTable({ t }) {
           {ADDON_ROWS.map((r) => (
             <tr key={r.name} className="border-b border-zinc-800/60 last:border-0 hover:bg-zinc-800/30 transition-colors">
               <td className="p-3 align-top">
-                <span className={`inline-block px-2 py-1 rounded-md border text-xs font-bold ${TYPE_COLORS[r.typeKey]}`}>
+                <bdi className={`inline-block px-2 py-1 rounded-md border text-xs font-bold ${TYPE_COLORS[r.typeKey]}`}>
                   {r.name.startsWith('guide') ? t(r.name) : r.name}
-                </span>
+                </bdi>
               </td>
               <td className="p-3 align-top text-zinc-300">{t(r.does)}</td>
               <td className="p-3 align-top text-zinc-400">{t(r.where)}</td>
@@ -240,9 +264,12 @@ export function AddonTypesTable({ t }) {
 //  needs the file (server only / both sides / player's PC only). Same info as
 //  the old 4 cards, re-bucketed.
 // ---------------------------------------------------------------------------
+// Each lane also carries a `chips` row (the add-on TYPES that land here — shown as
+// tinted icon-chips, slide-deck style) + an `exc` "must-remember / exception" note.
 const INSTALL_COLUMNS = [
   {
     tone: 'purple', icon: '🖥️', title: 'guideInstallColServer', sub: 'guideInstallColServerSub', badge: 'guideEnvBadgeServer',
+    chips: ['plugin', 'datapack', 'resource'], exc: 'guideInstallExcServer',
     items: [
       { icon: '🧩', path: 'plugins/', title: 'guideInstallPluginsTitle', body: 'guideInstallPluginsBody' },
       { icon: '📜', path: 'world/datapacks/', title: 'guideInstallDataTitle', body: 'guideInstallDataBody' },
@@ -251,12 +278,14 @@ const INSTALL_COLUMNS = [
   },
   {
     tone: 'blue', icon: '🔁', title: 'guideInstallColBoth', sub: 'guideInstallColBothSub', badge: 'guideEnvBadgeBoth',
+    chips: ['mod', 'modpack'], exc: 'guideInstallExcBoth',
     items: [
       { icon: '⚙️', path: 'mods/', title: 'guideInstallModsTitle', body: 'guideInstallModsBody' },
     ],
   },
   {
     tone: 'teal', icon: '💻', title: 'guideInstallColPc', sub: 'guideInstallColPcSub', badge: 'guideEnvBadgeClient',
+    chips: ['resource', 'shader', 'client-mod'],
     items: [
       { icon: '✨', path: 'PC', title: 'guideInstallPcTitle', body: 'guideInstallPcBody' },
     ],
@@ -276,36 +305,54 @@ const INSTALL_BADGE = {
 
 export function InstallLocationCards({ t }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {INSTALL_COLUMNS.map((col) => (
-        <div key={col.title} className={`rounded-2xl border p-5 ${INSTALL_TONE[col.tone]}`}>
-          <div className="mb-3">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <h4 className="font-bold text-zinc-100 leading-tight">
-                <span className="me-1.5">{col.icon}</span>{t(col.title)}
-              </h4>
-              {col.badge && (
-                <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${INSTALL_BADGE[col.tone]}`}>
-                  {t(col.badge)}
-                </span>
+    <div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {INSTALL_COLUMNS.map((col) => (
+          <div key={col.title} className={`rounded-2xl border p-5 ${INSTALL_TONE[col.tone]}`}>
+            <div className="mb-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h4 className="font-bold text-zinc-100 leading-tight">
+                  <span className="me-1.5">{col.icon}</span>{t(col.title)}
+                </h4>
+                {col.badge && (
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${INSTALL_BADGE[col.tone]}`}>
+                    {t(col.badge)}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-zinc-400 mt-0.5">{t(col.sub)}</p>
+              {/* Add-on TYPES that land in this lane — tinted icon-chips (slide-deck style). */}
+              {col.chips && col.chips.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {col.chips.map((typeId) => (
+                    <AddonChip key={typeId} typeId={typeId} t={t} />
+                  ))}
+                </div>
               )}
             </div>
-            <p className="text-xs text-zinc-400 mt-0.5">{t(col.sub)}</p>
-          </div>
-          <div className="space-y-3">
-            {col.items.map((it) => (
-              <div key={it.path} className="rounded-lg bg-zinc-950/40 p-3">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="text-lg">{it.icon}</span>
-                  <span className="font-bold text-sm text-zinc-100">{t(it.title)}</span>
-                  <code className="text-[11px] text-zinc-500" dir="ltr">{it.path}</code>
+            <div className="space-y-3">
+              {col.items.map((it) => (
+                <div key={it.path} className="rounded-lg bg-zinc-950/40 p-3">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-lg">{it.icon}</span>
+                    <span className="font-bold text-sm text-zinc-100">{t(it.title)}</span>
+                    <code className="text-[11px] text-zinc-500" dir="ltr">{it.path}</code>
+                  </div>
+                  <p className="text-xs text-zinc-300 leading-relaxed">{t(it.body)}</p>
                 </div>
-                <p className="text-xs text-zinc-300 leading-relaxed">{t(it.body)}</p>
-              </div>
-            ))}
+              ))}
+            </div>
+            {/* "Must remember / exception" note for this lane. */}
+            {col.exc && (
+              <p className="mt-3 text-[11px] leading-relaxed text-zinc-400 border-t border-zinc-800/60 pt-2">
+                <span className="me-1" aria-hidden="true">⚠️</span>{guideNote(t, col.exc)}
+              </p>
+            )}
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+      {/* Bottom asterisk note — what "player-side" (client) means. */}
+      <p className="mt-3 text-[11px] text-zinc-500 leading-relaxed">{guideNote(t, 'guidePlayerSideNote')}</p>
     </div>
   );
 }
