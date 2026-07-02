@@ -30,25 +30,29 @@ import React, { useEffect, useState } from 'react';
 // Each figure's lines share one stroke colour. `face` fills get a faint tint.
 
 // 1) Creeper (the original green body) — reused standalone and with TNT.
-// Proportions tuned toward classic Minecraft: a SQUARE head (118×118, centred on
-// x≈340), a tall narrow torso beneath it, and two sturdy front legs (front-view
-// creeper). Face = classic creeper mask (two square eyes + T-shaped mouth).
+// CANONICAL Minecraft proportions: head 8×8×8 on a 12-tall × 8-wide body with
+// 6-tall legs → ratio 8:12:6, head ≈ ⅓ of total height. At ~11.5px per
+// game-pixel (total 300, bottom kept at y342 = same floor as before): square
+// head 92×92 centred on x≈340, body 84×138 (slightly NARROWER than the head —
+// not a skinny tall torso), and two stubby WIDE front legs 42×70 right at the
+// bottom, spanning the full body width (front-view creeper). Face = classic
+// mask (two square eyes + T-shaped mouth) laid out on the true 8×8 pixel grid.
 function CreeperBody({ scale = 1, dx = 0 }) {
   return (
     <g transform={`translate(${dx},0) scale(${scale})`}>
-      {/* square head */}
-      <rect className="ln d1" x="281" y="42" width="118" height="118" rx="7" />
-      {/* tall narrow torso */}
-      <rect className="ln d1" x="298" y="170" width="84" height="120" rx="6" />
-      {/* two sturdy front legs, squarely under the torso */}
-      <rect className="ln d2" x="300" y="290" width="36" height="52" rx="4" />
-      <rect className="ln d2" x="344" y="290" width="36" height="52" rx="4" />
-      {/* creeper face mask — two eyes + T-shaped mouth, centred on the square head */}
-      <rect className="ln face d3" x="304" y="74" width="26" height="26" rx="3" />
-      <rect className="ln face d3" x="350" y="74" width="26" height="26" rx="3" />
-      <rect className="ln face d4" x="327" y="100" width="26" height="30" rx="3" />
-      <rect className="ln face d5" x="313" y="114" width="16" height="34" rx="3" />
-      <rect className="ln face d5" x="351" y="114" width="16" height="34" rx="3" />
+      {/* square head — 8×8 game-pixels */}
+      <rect className="ln d1" x="294" y="42" width="92" height="92" rx="7" />
+      {/* body — 12 tall × 8 wide, almost as wide as the head */}
+      <rect className="ln d1" x="298" y="134" width="84" height="138" rx="6" />
+      {/* two stubby WIDE front legs (4×6 each), right at the bottom */}
+      <rect className="ln d2" x="296" y="272" width="42" height="70" rx="4" />
+      <rect className="ln d2" x="342" y="272" width="42" height="70" rx="4" />
+      {/* classic creeper face — eyes at grid (1,3)+(5,3), T-mouth rows 5..8 */}
+      <rect className="ln face d3" x="306" y="76" width="23" height="23" rx="3" />
+      <rect className="ln face d3" x="351" y="76" width="23" height="23" rx="3" />
+      <rect className="ln face d4" x="329" y="98" width="23" height="24" rx="3" />
+      <rect className="ln face d5" x="317" y="109" width="13" height="25" rx="3" />
+      <rect className="ln face d5" x="351" y="109" width="13" height="25" rx="3" />
     </g>
   );
 }
@@ -97,13 +101,14 @@ const FIGURES = [
     key: 'creeper-tnt',
     stroke: '#22c55e',
     face: 'rgba(34,197,94,0.14)',
-    // Tight frame around the creeper body (scaled legs reach ~x384) plus ONE small
-    // TNT crate LOWERED to sit ON THE FLOOR at the creeper's feet (not floating up
-    // beside the body). TntBlock local space is x150..270 / y88..208; at scale 0.55
-    // it's a compact crate. translate(308,242): block-bottom (local y208) lands on
-    // the floor (~y356, level with the scaled leg bottoms) and its left edge tucks
-    // just right of the right leg. Generous top/bottom headroom for float + glow.
-    viewBox: '258 4 240 362',
+    // Tight frame around the creeper body (scaled legs span ~x292..388) plus ONE
+    // BIG TNT crate dropped ALL THE WAY DOWN to the ground line — its bottom
+    // (~y368) sits clearly BELOW the creeper's scaled foot line (~y356), never
+    // floating beside the body. TntBlock local space is x150..270 / y88..208; at
+    // scale 0.85 it's nearly leg-height. translate(262,191): block-bottom lands at
+    // 191+208*0.85≈368 and its left edge tucks just right of the right leg.
+    // viewBox widened + bottom extended so the grounded crate + glow never clip.
+    viewBox: '258 4 248 380',
     render: ({ glowId, tntGlowId }) => (
       <>
         <g filter={`url(#${glowId})`} className="cfloat">
@@ -111,9 +116,9 @@ const FIGURES = [
             <CreeperBody />
           </g>
         </g>
-        {/* ONE small TNT crate LOWERED onto the floor at the creeper's feet,
-            bottom-aligned with the legs (~y356), just right of the right leg. */}
-        <g className="cfloat" transform="translate(308,242) scale(0.55)">
+        {/* ONE BIG TNT crate ON THE GROUND at the very bottom of the frame,
+            bottom (~y368) BELOW the feet (~y356), just right of the right leg. */}
+        <g className="cfloat" transform="translate(262,191) scale(0.85)">
           <Tnt tntGlowId={tntGlowId} />
         </g>
       </>
@@ -139,30 +144,28 @@ const FIGURES = [
     stroke: '#eef2f7',
     face: 'rgba(238,242,247,0.10)',
     walks: true,
-    // BLOCKY Minecraft sheep (side view, like the reference): a big rounded-corner
-    // rectangular WOOL body, a smaller SQUARE head jutting out at the front-lower
-    // left with two ears, and 4 stubby legs (front pair under the head, back pair
-    // under the tail). Frame x116..246 / y124..212 with float+glow headroom.
-    viewBox: '104 84 158 172',
+    // BLOCKY Minecraft sheep (side view, per the game model): a big rectangular
+    // WOOL body with a SQUARE wool head sitting HIGH at the front — the head's
+    // top POPS ABOVE the back line and faces FORWARD (never drooping below the
+    // body). A narrow BARE face plate sticks out at the front of the head, NO
+    // ears, and 4 THIN legs. Frame x~102..246 / y~106..212 with float+glow room.
+    viewBox: '92 84 170 172',
     render: ({ glowId }) => (
       <g filter={`url(#${glowId})`} className="cfloat">
         {/* big fluffy wool body — rounded rectangle */}
         <rect className="ln d1" x="150" y="128" width="96" height="58" rx="14" />
-        {/* square head at the front, dropped below the body line */}
-        <rect className="ln d2" x="118" y="150" width="40" height="42" rx="6" />
-        {/* ears on top of the head */}
-        <rect className="ln d2" x="120" y="142" width="10" height="10" rx="2" />
-        <rect className="ln d2" x="146" y="142" width="10" height="10" rx="2" />
-        {/* eyes */}
-        <rect className="ln face d3" x="125" y="162" width="7" height="7" rx="1" />
-        <rect className="ln face d3" x="143" y="162" width="7" height="7" rx="1" />
-        {/* muzzle / mouth */}
-        <line className="ln d3" x1="126" y1="182" x2="150" y2="182" />
-        {/* 4 stubby legs — front pair (under head), back pair (under tail) */}
-        <rect className="ln d4" x="160" y="186" width="14" height="26" rx="2" />
-        <rect className="ln d4" x="182" y="186" width="14" height="26" rx="2" />
-        <rect className="ln d4" x="216" y="186" width="14" height="26" rx="2" />
-        <rect className="ln d4" x="230" y="186" width="14" height="26" rx="2" />
+        {/* square wool head HIGH at the front — top (y106) above the back (y128) */}
+        <rect className="ln d2" x="114" y="106" width="42" height="42" rx="6" />
+        {/* narrow BARE face plate protruding at the front of the head (no ears) */}
+        <rect className="ln d3" x="102" y="114" width="16" height="30" rx="3" />
+        {/* eye on the bare face + mouth at its bottom */}
+        <rect className="ln face d3" x="106" y="121" width="7" height="7" rx="1" />
+        <line className="ln d4" x1="104" y1="138" x2="116" y2="138" />
+        {/* 4 THIN legs — front pair + back pair */}
+        <rect className="ln d4" x="156" y="186" width="10" height="26" rx="2" />
+        <rect className="ln d4" x="172" y="186" width="10" height="26" rx="2" />
+        <rect className="ln d4" x="220" y="186" width="10" height="26" rx="2" />
+        <rect className="ln d4" x="236" y="186" width="10" height="26" rx="2" />
       </g>
     ),
   },
@@ -171,28 +174,26 @@ const FIGURES = [
     stroke: '#f9a8d4',
     face: 'rgba(249,168,212,0.12)',
     walks: true,
-    // BLOCKY Minecraft pig (side view, like the reference): a chunky rectangular
-    // body, a square head with two pointed ears, a PROMINENT square SNOUT on the
-    // front face (two nostrils — the pig's signature), and 4 legs. Content
-    // x382..548 / y124..212; frame with headroom for the walk + float + glow.
+    // BLOCKY Minecraft pig (per the game model): NO ears (the game pig has
+    // none), a BIG cubic head with a LARGE SQUARE SNOUT centred on the face (two
+    // nostrils — the pig's signature) and the eyes on BOTH SIDES of the snout,
+    // a LONG LOW body, and 4 short legs. Content x388..548 / y128..212; frame
+    // with headroom for the walk + float + glow.
     viewBox: '366 84 200 172',
     render: ({ glowId }) => (
       <g filter={`url(#${glowId})`} className="cfloat">
-        {/* chunky body */}
+        {/* long low body */}
         <rect className="ln d1" x="430" y="130" width="118" height="58" rx="10" />
-        {/* square head */}
-        <rect className="ln d2" x="398" y="138" width="42" height="50" rx="6" />
-        {/* pointed ears on top of the head */}
-        <path className="ln d2" d="M404,138 L410,124 L418,138 Z" />
-        <path className="ln d2" d="M424,138 L432,124 L438,138 Z" />
-        {/* eyes */}
-        <rect className="ln face d3" x="410" y="150" width="7" height="7" rx="1" />
-        <rect className="ln face d3" x="426" y="150" width="7" height="7" rx="1" />
-        {/* prominent square snout on the front face + two nostrils */}
-        <rect className="ln d3" x="382" y="152" width="22" height="28" rx="3" />
-        <rect className="ln face d4" x="387" y="161" width="5" height="9" rx="1" />
-        <rect className="ln face d4" x="395" y="161" width="5" height="9" rx="1" />
-        {/* 4 legs */}
+        {/* BIG cubic head — no ears */}
+        <rect className="ln d2" x="388" y="130" width="54" height="54" rx="6" />
+        {/* LARGE square snout centred on the face + two nostrils */}
+        <rect className="ln d3" x="404" y="154" width="22" height="18" rx="3" />
+        <rect className="ln face d4" x="409" y="158" width="5" height="10" rx="1" />
+        <rect className="ln face d4" x="417" y="158" width="5" height="10" rx="1" />
+        {/* eyes on BOTH SIDES of the snout */}
+        <rect className="ln face d3" x="394" y="146" width="8" height="8" rx="1" />
+        <rect className="ln face d3" x="428" y="146" width="8" height="8" rx="1" />
+        {/* 4 short legs */}
         <rect className="ln d4" x="440" y="188" width="15" height="24" rx="2" />
         <rect className="ln d4" x="464" y="188" width="15" height="24" rx="2" />
         <rect className="ln d4" x="504" y="188" width="15" height="24" rx="2" />
@@ -245,21 +246,23 @@ const FIGURES = [
     key: 'multi-tnt',
     stroke: '#22c55e',
     face: 'rgba(34,197,94,0.14)',
-    // A creeper SURROUNDED by 3 TNT crates at its feet (stays put — no walk).
-    // CreeperBody is scaled 1.1x like the other creepers (legs land at ~x296..384,
-    // floor ~y356). Three TntBlock instances (local x150..270 / y88..208) sit at the
-    // base, all LOWERED so their bottoms rest on the floor: LEFT of the legs, RIGHT
-    // of the legs, and one slightly FORWARD + a touch lower at center. All labelled.
-    // Wide viewBox frames the whole base + glow headroom.
-    viewBox: '156 0 328 392',
+    // A creeper SURROUNDED by 3 BIG TNT crates on the GROUND (stays put — no walk).
+    // CreeperBody is scaled 1.1x like the other creepers (legs span ~x292..388,
+    // scaled foot line ~y356). Three TntBlock instances (local x150..270 /
+    // y88..208) at scale 0.85/0.9 (near leg-height) are dropped ALL THE WAY
+    // DOWN — bottoms (~y372..380) clearly BELOW the creeper's feet: LEFT of the
+    // legs, RIGHT of the legs, and one FORWARD + a touch lower at center. All
+    // labelled. viewBox widened + bottom extended so crates + glow never clip.
+    viewBox: '156 0 356 400',
     render: ({ glowId, tntGlowId }) => (
       <>
-        {/* TNT to the LEFT and RIGHT of the legs, bottoms on the floor (~y356) */}
+        {/* BIG TNT to the LEFT and RIGHT of the legs, on the ground (bottoms
+            ~y372, below the feet at ~y356) */}
         <g filter={`url(#${tntGlowId})`} className="cfloat">
-          <g transform="translate(98,242) scale(0.55)">
+          <g transform="translate(62,195) scale(0.85)">
             <TntBlock showLabel />
           </g>
-          <g transform="translate(311,242) scale(0.55)">
+          <g transform="translate(262,195) scale(0.85)">
             <TntBlock showLabel />
           </g>
         </g>
@@ -269,9 +272,9 @@ const FIGURES = [
             <CreeperBody />
           </g>
         </g>
-        {/* third TNT slightly FORWARD + a touch lower at center, over the legs */}
+        {/* third BIG TNT FORWARD + even lower at center (bottom ~y380) */}
         <g filter={`url(#${tntGlowId})`} className="cfloat">
-          <g transform="translate(210,248) scale(0.6)">
+          <g transform="translate(151,193) scale(0.9)">
             <TntBlock showLabel />
           </g>
         </g>
@@ -387,27 +390,30 @@ export default function SideCreepers() {
         .side-creepers .oc-side {
           position: fixed;
           top: 50%;
-          width: 190px;
+          /* AS BIG AS THE GUTTER ALLOWS, capped at 300px: fills the space between
+             the screen edge and the content column (max-w-6xl = 1152px → half
+             576px, +12px gap + 8px edge margin) so ALL figures render large. */
+          width: min(300px, calc(50vw - 596px));
           height: auto;
           display: flex;
           align-items: center;
           justify-content: center;
         }
-        /* Hug the centered content column (max-w-6xl = 1152px → half 576px): the
-           figure sits in the gutter right next to the text with a ~12px gap — as
-           central as possible — clamped so it never runs off-screen. */
+        /* Hug the centered content column: the figure's INNER edge stays ~12px
+           from the text; the extra width grows OUTWARD toward the screen edge —
+           clamped so it never runs off-screen and never covers the content. */
         .side-creepers .oc-side.left {
-          left: max(8px, calc(50vw - 778px));
+          left: max(8px, calc(50vw - 588px - min(300px, calc(50vw - 596px))));
           transform: translateY(-50%);
         }
         .side-creepers .oc-side.right {
-          right: max(8px, calc(50vw - 778px));
+          right: max(8px, calc(50vw - 588px - min(300px, calc(50vw - 596px))));
           transform: translateY(-50%) scaleX(-1);
         }
         .side-creepers svg {
           width: 100%;
           height: auto;
-          max-height: 60vh;
+          max-height: 72vh;
           display: block;
         }
 

@@ -909,7 +909,7 @@ export default function App() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans" dir={dir}>
       {/* Faint edge decoration behind ALL content (fixed, z-0, pointer-events:none) */}
       <SideCreepers />
-      <nav className="bg-zinc-900 border-b border-zinc-800 p-4 sticky top-0 z-20 shadow-lg">
+      <nav className="bg-zinc-900 border-b border-zinc-800 px-4 py-2 sticky top-0 z-20 shadow-lg">
         {/* NAV BAR is pinned physical LTR (dir="ltr") — regardless of the app's
             RTL/LTR direction the LOGO stays on the visual LEFT, then the nav
             buttons, with the role/lang/auth group on the right. Only THIS row is
@@ -925,21 +925,22 @@ export default function App() {
               </h1>
             </div>
             <div className="flex items-center gap-2">
-              <NavBtn active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} icon={<Server size={18}/>} label={t('dashboard')} />
+              <NavBtn active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} icon={<Server size={16}/>} label={t('dashboard')} />
               {/* PRIMARY action — create a server, up top next to Dashboard.
                   Custom emerald button (not a plain NavBtn) so it stands out.
-                  Slim (py-1, matches NavBtn) + Plus icon + SHORT label ("שרת"). */}
+                  Extra-slim (py-0.5 + text-xs, matches NavBtn) + Plus icon +
+                  SHORT label ("שרת"). */}
               <button
                 onClick={() => setCurrentView('create')}
-                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-3.5 py-1 rounded-lg transition-all shadow-lg shadow-emerald-900/30 hover:-translate-y-0.5"
+                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-0.5 rounded-lg transition-all shadow-lg shadow-emerald-900/30 hover:-translate-y-0.5"
                 title={t('landingCtaCreate')}
               >
-                <Plus size={18} /> <span className="hidden sm:inline">{t('navCreateShort')}</span>
+                <Plus size={16} /> <span className="hidden sm:inline">{t('navCreateShort')}</span>
               </button>
-              <NavBtn active={currentView === 'repository'} onClick={() => setCurrentView('repository')} icon={<Library size={18}/>} label={t('repo')} />
+              <NavBtn active={currentView === 'repository'} onClick={() => setCurrentView('repository')} icon={<Library size={16}/>} label={t('repo')} />
               {/* Guide / מדריך — PUBLIC reference center (servers + add-ons). Visible
                   to everyone incl. anonymous visitors; reachable from the main nav. */}
-              <NavBtn active={currentView === 'guide'} onClick={() => openGuide()} icon={<BookOpen size={18}/>} label={t('guideNav')} />
+              <NavBtn active={currentView === 'guide'} onClick={() => openGuide()} icon={<BookOpen size={16}/>} label={t('guideNav')} />
               {/* War Room / חמ"ל — dedicated health-diagnostics tab is ADMIN-ONLY
                   (it carries the mine/all toggle). Non-admins get the full חמ"ל
                   experience — every issue on their own servers + fix buttons —
@@ -947,14 +948,15 @@ export default function App() {
                   open: getDiagnostics is callable by any authed user (scoped) and
                   the fix callables are owner-or-admin, which powers that panel. */}
               {isAdmin && (
-                <NavBtn active={currentView === 'health'} onClick={() => setCurrentView('health')} icon={<Activity size={18}/>} label={t('healthNav')} />
+                <NavBtn active={currentView === 'health'} onClick={() => setCurrentView('health')} icon={<Activity size={16}/>} label={t('healthNav')} />
               )}
             </div>
           </div>
           
           <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end bg-zinc-950 sm:bg-transparent p-2 sm:p-0 rounded-lg">
-            <div className={`flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-md ${userRole === 'admin' ? 'bg-emerald-600/15 text-emerald-400' : 'bg-zinc-800 text-zinc-400'}`} title={userRole === 'admin' ? t('roleAdmin') : t('roleMember')}>
-              {userRole === 'admin' ? <Shield size={14}/> : <Users size={14}/>}
+            {/* Role badge — half-height: py-0.5 + text-[10px] + 12px icon. */}
+            <div className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-md ${userRole === 'admin' ? 'bg-emerald-600/15 text-emerald-400' : 'bg-zinc-800 text-zinc-400'}`} title={userRole === 'admin' ? t('roleAdmin') : t('roleMember')}>
+              {userRole === 'admin' ? <Shield size={12}/> : <Users size={12}/>}
               <span className="hidden sm:inline">{userRole === 'admin' ? t('roleAdmin') : t('roleMember')}</span>
             </div>
 

@@ -22,24 +22,23 @@ const cmpVerDesc = (a, b) => {
 };
 
 // A single stat card. value === null renders a neutral dash (never a fake 0).
+// COMPACT + refined: no loud colored icon box — the icon is a large ghost
+// (semi-transparent, faint accent tint) tucked behind the number in the corner,
+// so it blends gently into the card instead of dominating it.
 function StatCard({ icon: Icon, label, value, loading, accent = 'emerald' }) {
-  const accents = {
-    emerald: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-    sky: 'text-sky-400 bg-sky-500/10 border-sky-500/20',
-    amber: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-    rose: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
+  const tints = {
+    emerald: 'text-emerald-400',
+    sky: 'text-sky-400',
+    amber: 'text-amber-400',
+    rose: 'text-rose-400',
   };
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex items-center gap-4">
-      <div className={`w-12 h-12 flex-shrink-0 rounded-xl flex items-center justify-center border ${accents[accent] || accents.emerald}`}>
-        <Icon size={22} />
+    <div className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 min-w-[140px]">
+      <Icon size={38} className={`absolute -bottom-1.5 end-2 opacity-[0.08] pointer-events-none ${tints[accent] || tints.emerald}`} aria-hidden="true" />
+      <div className="text-lg font-black tabular-nums leading-tight">
+        {loading ? <RefreshCw size={16} className="animate-spin text-zinc-600" /> : (value === null || value === undefined ? '—' : value)}
       </div>
-      <div className="min-w-0">
-        <div className="text-2xl font-black tabular-nums">
-          {loading ? <RefreshCw size={20} className="animate-spin text-zinc-600" /> : (value === null || value === undefined ? '—' : value)}
-        </div>
-        <div className="text-xs text-zinc-400 truncate">{label}</div>
-      </div>
+      <div className="text-[11px] text-zinc-400 truncate">{label}</div>
     </div>
   );
 }
@@ -109,11 +108,21 @@ export default function Dashboard({
     return info && Number.isFinite(info.count) ? info.count : null;
   };
 
-  // --- Single "Total servers" stat (REAL, scoped to the servers this user sees) ---
-  // The online-now / players-online / open-issues cards were removed (open-issues
-  // duplicated the חמ"ל summary; the others were noise), so their derived values
-  // are gone too. `playerCountFor` above is still used by the server cards.
+  // --- Two stats only: "Total servers" + "Players online" (REAL, scoped to the
+  //     servers this user sees). The online-now / open-issues cards were removed
+  //     (open-issues duplicated the חמ"ל summary; online-now was noise). ---
   const totalServersValue = servers.length;
+  // Sum of live player counts (from the App.jsx poll). If a server is online but
+  // its count isn't known yet → null (dash), never a fake 0.
+  const playersOnlineValue = (() => {
+    let sum = 0, known = false;
+    for (const s of servers) {
+      const c = playerCountFor(s);
+      if (Number.isFinite(c)) { sum += c; known = true; }
+    }
+    if (known) return sum;
+    return servers.some(s => s.status === 'online') ? null : 0;
+  })();
 
   // Servers shown in the at-a-glance grid, filtered by the search box (by name,
   // case-insensitive). Empty query → all visible servers.
@@ -170,37 +179,40 @@ export default function Dashboard({
         <p className="text-zinc-400">{t('manageDesc')}</p>
       </div>
 
-      {/* ===== PRIMARY ACTIONS (top of dashboard) — the dashboard LEADS with
-              actions: prominent emerald "New Server", the server search, and a
-              quieter danger-outline "Delete all" (admin). Search drives the
-              at-a-glance grid below (filteredServers). Moved up here from the old
-              "Servers at a glance" header so actions are the first thing seen. ===== */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+      {/* ===== STATS + ACTIONS row (top of dashboard) — the two remaining compact
+              stat cards (Total servers / Players online) share ONE row with the
+              actions: emerald "New Server", the server search, and a quieter
+              danger-outline "Delete all" (admin). Search drives the at-a-glance
+              grid below (filteredServers). Same handlers as before — only the
+              placement/styling changed. ===== */}
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-stretch gap-3 mb-6">
+        <StatCard icon={Server} label={t('dashStatTotalServers')} value={totalServersValue} accent="emerald" />
+        <StatCard icon={Users} label={t('dashStatPlayersOnline')} value={playersOnlineValue} accent="sky" />
         {/* Create — ALWAYS visible; admins create, non-admins submit a request. */}
         <button
           onClick={onCreateClick}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-900/30 hover:-translate-y-0.5 whitespace-nowrap"
+          className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-900/30 hover:-translate-y-0.5 whitespace-nowrap"
         >
-          <Plus size={18} /> <span>{isAdmin ? t('newServer') : t('requestServerCta')}</span>
+          <Plus size={16} /> <span>{isAdmin ? t('newServer') : t('requestServerCta')}</span>
         </button>
         {servers.length > 0 && (
           <>
             <div className="relative flex-1 sm:max-w-xs">
-              <Search size={16} className="absolute top-1/2 -translate-y-1/2 start-3 text-zinc-500 pointer-events-none" />
+              <Search size={15} className="absolute top-1/2 -translate-y-1/2 start-3 text-zinc-500 pointer-events-none" />
               <input
                 type="text"
                 value={serverSearch}
                 onChange={(e) => setServerSearch(e.target.value)}
                 placeholder={t('dashSearchServer')}
-                className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500/40 focus:outline-none rounded-xl ps-9 pe-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 w-full"
+                className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500/40 focus:outline-none rounded-xl ps-9 pe-3 h-full min-h-[42px] text-sm text-zinc-100 placeholder-zinc-500 w-full"
               />
             </div>
             {userRole === 'admin' && (
               <button
                 onClick={onDeleteAll}
-                className="border border-red-800/50 text-red-400 hover:bg-red-900/30 hover:border-red-700 px-4 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 transition-all whitespace-nowrap sm:ms-auto"
+                className="border border-red-800/50 text-red-400 hover:bg-red-900/30 hover:border-red-700 px-4 py-2 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all whitespace-nowrap sm:ms-auto"
               >
-                <Trash2 size={16} /> <span>{t('dashDeleteAll')}</span>
+                <Trash2 size={15} /> <span>{t('dashDeleteAll')}</span>
               </button>
             )}
           </>
@@ -224,7 +236,7 @@ export default function Dashboard({
           <button
             type="button"
             onClick={() => setHealthOpen(o => !o)}
-            className="w-full flex items-center gap-2 p-4 text-start hover:bg-zinc-800/40 transition-colors"
+            className="w-full flex items-center gap-2 p-4 text-start cursor-pointer bg-zinc-800/20 hover:bg-zinc-800/60 transition-colors"
             aria-expanded={healthOpen}
           >
             <Activity size={16} className={`flex-shrink-0 ${issueCount > 0 ? 'text-rose-400' : 'text-emerald-400'}`} />
@@ -299,14 +311,8 @@ export default function Dashboard({
           `updates` / `updateByServerId` computation above is kept because that
           per-server strip still relies on it. */}
 
-      {/* ===== SINGLE stat card — only "Total servers" is kept. The old 4-card grid
-              (online-now / players-online / open-issues) was removed: open-issues
-              duplicated the חמ"ל summary row above, and online/players were noise.
-              Compact + start-aligned (not a full-width grid) so one card doesn't
-              stretch awkwardly. Sits just above the server grid it counts. ===== */}
-      <div className="mb-6 max-w-xs">
-        <StatCard icon={Server} label={t('dashStatTotalServers')} value={totalServersValue} accent="emerald" />
-      </div>
+      {/* NOTE: the standalone stat-card block that used to sit here moved UP into
+              the combined stats+actions row at the top of the dashboard. */}
 
       {/* ===== Servers at-a-glance (section 2) — existing grid, enhanced with
               real player counts. Keeps onOpenServer / toggleServerStatus.

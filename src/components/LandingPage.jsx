@@ -68,7 +68,9 @@ export default function LandingPage({
 
       <div className="relative z-10">
         {/* ===== TOP BAR ===== */}
-        <header className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between gap-4">
+        {/* Pinned physical LTR (dir="ltr") like the panel nav — the logo stays on
+            the visual LEFT even in RTL languages; lang/auth group on the right. */}
+        <header dir="ltr" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="bg-green-600 p-2 rounded-lg shadow-lg shadow-green-900/30">
               <Server size={22} className="text-white" />

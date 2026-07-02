@@ -90,7 +90,7 @@ export default function PendingRequests({ t, onApproved, collapsible = false, op
         <button
           type="button"
           onClick={() => (typeof onToggle === 'function' ? onToggle() : null)}
-          className="w-full flex items-center gap-2 p-4 text-start hover:bg-zinc-800/40 transition-colors"
+          className="w-full flex items-center gap-2 p-4 text-start cursor-pointer bg-zinc-800/20 hover:bg-zinc-800/60 transition-colors"
           aria-expanded={open}
         >
           <Inbox size={16} className="text-emerald-400 flex-shrink-0" />

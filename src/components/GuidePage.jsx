@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  BookOpen, Boxes, Layers3, Puzzle, FolderTree, ShieldCheck,
+  BookOpen, Server, Layers3, Puzzle, FolderTree, ShieldCheck,
   Cpu, Repeat, Image, Package, ArrowUp, ArrowLeft, ArrowRight,
 } from 'lucide-react';
 import { ServerTypesTable, AddonTypesTable, InstallLocationCards } from './GuidePageSections';
@@ -22,8 +22,13 @@ import { CompatRules, RamTable, AltTable, ResourcePackInfo, ModpackInfo } from '
 // ============================================================================
 
 // Section registry — single source of truth for the TOC + anchors.
+// `bigGlyph` (optional) — a literal character drawn as the card's oversized
+// gray glyph instead of the lucide icon (e.g. the "3" for the three families).
+// Cards whose TITLE ends with "?" get a big "?" glyph automatically.
 const SECTIONS = [
-  { id: 'guide-server-families', icon: Boxes, titleKey: 'guideSecFamiliesTitle', subKey: 'guideSecFamiliesSub' },
+  // NOTE: the cores icon must NOT look addon-ish (boxes/puzzle are the addon
+  // language) — Server keeps the two families visually distinct.
+  { id: 'guide-server-families', icon: Server, titleKey: 'guideSecFamiliesTitle', subKey: 'guideSecFamiliesSub', bigGlyph: '3' },
   { id: 'guide-server-types', icon: Layers3, titleKey: 'guideSecTypesTitle', subKey: 'guideSecTypesSub' },
   { id: 'guide-addon-types', icon: Puzzle, titleKey: 'guideSecAddonTitle', subKey: 'guideSecAddonSub' },
   { id: 'guide-install-locations', icon: FolderTree, titleKey: 'guideSecInstallTitle', subKey: 'guideSecInstallSub' },
@@ -34,14 +39,17 @@ const SECTIONS = [
   { id: 'guide-alternatives', icon: Repeat, titleKey: 'guideSecAltTitle', subKey: 'guideSecAltSub' },
 ];
 
-// One of the three server-core families, rendered as an intro card.
-function FamilyCard({ accent, chip, title, cores, body }) {
+// One of the server-core families, rendered as an intro card.
+// `tagline` (optional) — the one-line "what this path means for the player",
+// shown bold above the body (the slide-deck's two-track model).
+function FamilyCard({ accent, chip, title, cores, tagline, body }) {
   return (
     <div className={`rounded-2xl border p-5 ${accent}`}>
       <div className="flex items-center gap-2 mb-2">
         <span className={`px-2 py-0.5 rounded text-xs font-bold ${chip}`}>{title}</span>
         <span className="text-xs text-zinc-400">{cores}</span>
       </div>
+      {tagline && <p className="text-sm font-bold text-zinc-100 mb-1.5">{tagline}</p>}
       <p className="text-sm text-zinc-300 leading-relaxed">{body}</p>
     </div>
   );
@@ -76,13 +84,15 @@ function renderSection(id, t) {
   switch (id) {
     case 'guide-server-families':
       return (
-        <Section id="guide-server-families" icon={Boxes} title={t('guideSecFamiliesTitle')} sub={t('guideSecFamiliesSub')} t={t}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Section id="guide-server-families" icon={Server} title={t('guideSecFamiliesTitle')} sub={t('guideSecFamiliesSub')} t={t}>
+          {/* Two main tracks (the slide-deck junction): plugins vs mods. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FamilyCard
               accent="border-purple-500/30 bg-purple-500/[0.06]"
               chip="bg-purple-500/15 text-purple-300"
               title={t('guideFamilyPlugins')}
               cores="Vanilla · Paper · Purpur · Folia"
+              tagline={t('guideFamPluginsTagline')}
               body={t('guideFamPluginsBody')}
             />
             <FamilyCard
@@ -90,15 +100,17 @@ function renderSection(id, t) {
               chip="bg-blue-500/15 text-blue-300"
               title={t('guideFamilyMods')}
               cores="Forge · NeoForge · Fabric · (Quilt)"
+              tagline={t('guideFamModsTagline')}
               body={t('guideFamModsBody')}
             />
-            <FamilyCard
-              accent="border-amber-500/30 bg-amber-500/[0.06]"
-              chip="bg-amber-500/15 text-amber-300"
-              title={t('guideFamilyHybrid')}
-              cores="Mohist (EOL) · Youer"
-              body={t('guideFamHybridBody')}
-            />
+          </div>
+          {/* Hybrids are NOT a third equal track — a bridge with compat risk. */}
+          <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-4 flex items-start gap-3">
+            <span className="text-amber-400 font-bold text-lg leading-none shrink-0" aria-hidden="true">⚠</span>
+            <p className="text-sm text-zinc-300 leading-relaxed">
+              <span className="font-bold text-amber-300">{t('guideFamilyHybrid')} — Mohist (EOL) · Youer: </span>
+              {t('guideFamHybridWarn')} {t('guideFamHybridBody')}
+            </p>
           </div>
           <p className="mt-4 text-xs text-zinc-500">{t('guidePluginNote')}</p>
         </Section>
@@ -194,7 +206,9 @@ export default function GuidePage({ t, isRtl, scrollToAnchor }) {
     <div id="guide-top" className="relative scroll-mt-24" dir={isRtl ? 'rtl' : 'ltr'}>
       {/* ===== HEADER ===== */}
       <header className="mb-8">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 text-xs font-bold mb-4">
+        {/* "מדריך" badge — white text + white outline (the page title below it
+            is just "שרתים ותוספים", so the badge carries the word "guide"). */}
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-white/40 bg-white/5 text-white text-xs font-bold mb-4">
           <BookOpen size={14} /> {t('guideNav')}
         </div>
         <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-100 mb-2">{t('guideTitle')}</h1>
@@ -206,21 +220,33 @@ export default function GuidePage({ t, isRtl, scrollToAnchor }) {
         <>
           <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-wide mb-4">{t('guidePickTopic')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {SECTIONS.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => open(s.id)}
-                className="group text-start rounded-2xl border border-zinc-800 bg-zinc-950/60 p-5 transition-all
-                           hover:border-emerald-500/40 hover:bg-zinc-900/70 hover:-translate-y-0.5
-                           hover:shadow-[0_10px_40px_-12px_rgba(16,185,129,0.5)]"
-              >
-                <div className="inline-flex p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 mb-3 group-hover:bg-emerald-500/20 transition-colors">
-                  <s.icon size={22} />
-                </div>
-                <h3 className="font-bold text-zinc-100 leading-tight mb-1 group-hover:text-white transition-colors">{t(s.titleKey)}</h3>
-                {s.subKey && <p className="text-sm text-zinc-400 leading-relaxed">{t(s.subKey)}</p>}
-              </button>
-            ))}
+            {SECTIONS.map((s) => {
+              const title = t(s.titleKey);
+              // Oversized gray glyph, pinned to the PHYSICAL right of the card in
+              // every language: a literal bigGlyph ("3") > a "?" for question
+              // titles > the section's own lucide icon.
+              const glyph = s.bigGlyph || (title.trim().endsWith('?') ? '?' : null);
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => open(s.id)}
+                  className="group relative overflow-hidden text-start rounded-2xl border border-zinc-800 bg-zinc-950/60 p-5 pt-16 min-h-[10rem] flex flex-col justify-end transition-all
+                             hover:border-emerald-500/40 hover:bg-zinc-900/70 hover:-translate-y-0.5
+                             hover:shadow-[0_10px_40px_-12px_rgba(16,185,129,0.5)]"
+                >
+                  {/* HUGE gray glyph pinned bottom-right, BEHIND the title (z-0;
+                      overflow-hidden crops it at the card edge). No subtitle on the
+                      card — the section itself shows it when opened. */}
+                  <div aria-hidden="true" className="absolute z-0 -bottom-3 right-3 text-zinc-700/80 group-hover:text-zinc-500 transition-colors select-none pointer-events-none">
+                    {glyph
+                      ? <span className="text-[110px] font-black leading-none">{glyph}</span>
+                      : <s.icon size={96} strokeWidth={1.4} />}
+                  </div>
+                  {/* WHITE enlarged title at the bottom, in front of the glyph */}
+                  <h3 className="relative z-10 text-2xl sm:text-3xl font-bold text-white leading-tight">{title}</h3>
+                </button>
+              );
+            })}
           </div>
         </>
       ) : (

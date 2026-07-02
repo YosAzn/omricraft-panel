@@ -32,14 +32,36 @@ const RULE_TONE = {
 
 export function CompatRules({ t }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-      {COMPAT_RULES.map((r) => (
-        <div key={r.title} className={`rounded-xl border p-4 ${RULE_TONE[r.tone]}`}>
-          <h4 className="font-bold text-zinc-100 mb-1">{t(r.title)}</h4>
-          <p className="text-sm text-zinc-300 leading-relaxed">{t(r.body)}</p>
+    <>
+      {/* The strict handshake sequence (slide-deck): 3 locks that MUST match
+          on a mod server, + the easy way out (modpack launchers sync all 3). */}
+      <div className="rounded-2xl border border-pink-500/30 bg-pink-500/[0.05] p-5 mb-6">
+        <h3 className="font-bold text-zinc-100 mb-3">🔒 {t('guideSyncTitle')}</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="rounded-xl bg-zinc-950/40 p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-6 h-6 rounded-full bg-pink-500/20 text-pink-300 text-xs font-bold inline-flex items-center justify-center shrink-0">{n}</span>
+                <h4 className="font-bold text-sm text-zinc-100 leading-tight">{t(`guideSync${n}Title`)}</h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">{t(`guideSync${n}Body`)}</p>
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
+        <p className="mt-3 text-sm text-emerald-300 font-medium">💡 {t('guideSyncEasyWay')}</p>
+      </div>
+
+      {/* The rest of the rules (dependencies, core-locks, exceptions). */}
+      <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wide mb-3">{t('guideSyncMoreRules')}</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        {COMPAT_RULES.map((r) => (
+          <div key={r.title} className={`rounded-xl border p-4 ${RULE_TONE[r.tone]}`}>
+            <h4 className="font-bold text-zinc-100 mb-1">{t(r.title)}</h4>
+            <p className="text-sm text-zinc-300 leading-relaxed">{t(r.body)}</p>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -84,13 +106,15 @@ const ALT_ROWS = [
   { key: 'alt3', role: 'guideAlt3Role', plugin: 'Dynmap / Pl3xMap', mod: 'BlueMap / JourneyMap' },
   { key: 'alt4', role: 'guideAlt4Role', plugin: 'WorldEdit', mod: 'WorldEdit (mod) / Axiom' },
   { key: 'alt5', role: 'guideAlt5Role', plugin: 'McMMO / Aurelium', mod: 'Project MMO' },
-  { key: 'alt6', role: 'guideAlt6Role', plugin: 'ItemsAdder / Oraxen', mod: 'guideAltCosmeticMod' },
+  { key: 'alt6', role: 'guideAlt6Role', plugin: 'ItemsAdder / Oraxen', mod: 'PolyMc' },
   { key: 'alt7', role: 'guideAlt7Role', plugin: 'ClearLag / Spark', mod: 'Lithium / FerriteCore' },
   { key: 'alt8', role: 'guideAlt8Role', plugin: 'Skoice', mod: 'Simple Voice Chat' },
 ];
 
 export function AltTable({ t }) {
   return (
+    <>
+    <p className="mb-3 text-sm text-zinc-400 leading-relaxed">{t('guideAltIntro')}</p>
     <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900/50">
       <table className="w-full text-sm min-w-[560px]">
         <thead>
@@ -111,6 +135,7 @@ export function AltTable({ t }) {
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 
@@ -121,6 +146,8 @@ export function ResourcePackInfo({ t }) {
       <p>{t('guideRpP1')}</p>
       <p>{t('guideRpP2')}</p>
       <p>{t('guideRpP3')}</p>
+      {/* Server-side holography (slide-deck): look like mods with no mods. */}
+      <p>{t('guideRpP4')}</p>
     </div>
   );
 }
