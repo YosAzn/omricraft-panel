@@ -226,6 +226,9 @@ export default function GuidePage({ t, isRtl, scrollToAnchor }) {
               // every language: a literal bigGlyph ("3") > a "?" for question
               // titles > the section's own lucide icon.
               const glyph = s.bigGlyph || (title.trim().endsWith('?') ? '?' : null);
+              // The card shows the "?" as the big glyph, so the TITLE drops it
+              // (section view keeps the full question form).
+              const displayTitle = glyph === '?' ? title.trim().replace(/\?$/, '') : title;
               return (
                 <button
                   key={s.id}
@@ -242,13 +245,14 @@ export default function GuidePage({ t, isRtl, scrollToAnchor }) {
                       ? <span className="text-[150px] font-black leading-none">{glyph}</span>
                       : <s.icon size={140} strokeWidth={1.2} />}
                   </div>
-                  {/* WHITE enlarged title at the bottom, in front of the glyph.
+                  {/* WHITE enlarged title, nudged a touch up from the bottom, in
+                      front of the glyph — font-black to MATCH the glyph's weight.
                       A "/" in the title is a LOGICAL line break (e.g. Hebrew line
                       above the English line), not an inline slash. */}
-                  <h3 className="relative z-10 text-2xl sm:text-3xl font-bold text-white leading-tight">
-                    {title.includes('/')
-                      ? title.split('/').map((part, i) => <span key={i} className="block">{part.trim()}</span>)
-                      : title}
+                  <h3 className="relative z-10 mb-1.5 text-2xl sm:text-3xl font-black text-white leading-tight">
+                    {displayTitle.includes('/')
+                      ? displayTitle.split('/').map((part, i) => <span key={i} className="block">{part.trim()}</span>)
+                      : displayTitle}
                   </h3>
                 </button>
               );
