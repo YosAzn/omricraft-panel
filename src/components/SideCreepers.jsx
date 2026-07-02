@@ -177,9 +177,10 @@ const FIGURES = [
     // BLOCKY Minecraft pig (per the game model): NO ears (the game pig has
     // none), a BIG cubic head with a LARGE SQUARE SNOUT centred on the face (two
     // nostrils — the pig's signature) and the eyes on BOTH SIDES of the snout,
-    // a LONG LOW body, and 4 short legs. Content x388..548 / y128..212; frame
-    // with headroom for the walk + float + glow.
-    viewBox: '366 84 200 172',
+    // a LONG LOW body, and 4 canonical legs (~6/8 of body height). Content
+    // x388..548 / y130..228; viewBox cropped TIGHT so the pig renders BIG
+    // (fills the frame width), with just enough float + glow headroom.
+    viewBox: '378 108 180 132',
     render: ({ glowId }) => (
       <g filter={`url(#${glowId})`} className="cfloat">
         {/* long low body */}
@@ -193,11 +194,11 @@ const FIGURES = [
         {/* eyes on BOTH SIDES of the snout */}
         <rect className="ln face d3" x="394" y="146" width="8" height="8" rx="1" />
         <rect className="ln face d3" x="428" y="146" width="8" height="8" rx="1" />
-        {/* 4 short legs */}
-        <rect className="ln d4" x="440" y="188" width="15" height="24" rx="2" />
-        <rect className="ln d4" x="464" y="188" width="15" height="24" rx="2" />
-        <rect className="ln d4" x="504" y="188" width="15" height="24" rx="2" />
-        <rect className="ln d4" x="526" y="188" width="15" height="24" rx="2" />
+        {/* 4 legs — canonical length (~6/8 of the body height) */}
+        <rect className="ln d4" x="440" y="188" width="15" height="40" rx="2" />
+        <rect className="ln d4" x="464" y="188" width="15" height="40" rx="2" />
+        <rect className="ln d4" x="504" y="188" width="15" height="40" rx="2" />
+        <rect className="ln d4" x="526" y="188" width="15" height="40" rx="2" />
       </g>
     ),
   },

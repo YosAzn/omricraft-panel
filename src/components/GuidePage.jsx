@@ -234,16 +234,22 @@ export default function GuidePage({ t, isRtl, scrollToAnchor }) {
                              hover:border-emerald-500/40 hover:bg-zinc-900/70 hover:-translate-y-0.5
                              hover:shadow-[0_10px_40px_-12px_rgba(16,185,129,0.5)]"
                 >
-                  {/* HUGE gray glyph pinned bottom-right, BEHIND the title (z-0;
-                      overflow-hidden crops it at the card edge). No subtitle on the
-                      card — the section itself shows it when opened. */}
-                  <div aria-hidden="true" className="absolute z-0 -bottom-3 right-3 text-zinc-700/80 group-hover:text-zinc-500 transition-colors select-none pointer-events-none">
+                  {/* HUGE gray glyph spanning the FULL CARD HEIGHT on the right,
+                      BEHIND the title (z-0; overflow-hidden crops it at the card
+                      edge). No subtitle on the card — the section shows it. */}
+                  <div aria-hidden="true" className="absolute z-0 inset-y-0 right-2 flex items-center text-zinc-700/80 group-hover:text-zinc-500 transition-colors select-none pointer-events-none">
                     {glyph
-                      ? <span className="text-[110px] font-black leading-none">{glyph}</span>
-                      : <s.icon size={96} strokeWidth={1.4} />}
+                      ? <span className="text-[150px] font-black leading-none">{glyph}</span>
+                      : <s.icon size={140} strokeWidth={1.2} />}
                   </div>
-                  {/* WHITE enlarged title at the bottom, in front of the glyph */}
-                  <h3 className="relative z-10 text-2xl sm:text-3xl font-bold text-white leading-tight">{title}</h3>
+                  {/* WHITE enlarged title at the bottom, in front of the glyph.
+                      A "/" in the title is a LOGICAL line break (e.g. Hebrew line
+                      above the English line), not an inline slash. */}
+                  <h3 className="relative z-10 text-2xl sm:text-3xl font-bold text-white leading-tight">
+                    {title.includes('/')
+                      ? title.split('/').map((part, i) => <span key={i} className="block">{part.trim()}</span>)
+                      : title}
+                  </h3>
                 </button>
               );
             })}
