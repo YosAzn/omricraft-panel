@@ -413,7 +413,7 @@ export const DICT = {
     guideSecAltTitle: "כשמוד חופף לפלאגין",
     guideSecAltSub: "אותה פעולה, ליבה אחרת.",
     guideSecResourceTitle: "טקסטורות/Resource Packs",
-    guideSecModpackTitle: "מודפאק — רב משתתפים",
+    guideSecModpackTitle: "מודפאק -/רב-משתתפים",
     guideColCore: "ליבה",
     guideColWhat: "מה זה",
     guideColMods: "מודים?",

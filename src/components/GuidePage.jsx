@@ -55,6 +55,10 @@ function FamilyCard({ accent, chip, title, cores, tagline, body }) {
   );
 }
 
+// Titles may carry a "/" as a LOGICAL line break for the gallery cards; in
+// one-line contexts (section heading, prev/next buttons) it flattens to a space.
+const flatTitle = (s) => (typeof s === 'string' ? s.split('/').map((p) => p.trim()).join(' ') : s);
+
 // A guide section shell: anchored heading + optional "back to top" + body.
 function Section({ id, icon: Icon, title, sub, t, children }) {
   return (
@@ -65,7 +69,7 @@ function Section({ id, icon: Icon, title, sub, t, children }) {
             <Icon size={20} />
           </div>
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-zinc-100 leading-tight">{title}</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-zinc-100 leading-tight">{flatTitle(title)}</h2>
             {sub && <p className="text-sm text-zinc-400 mt-0.5">{sub}</p>}
           </div>
         </div>
@@ -281,7 +285,7 @@ export default function GuidePage({ t, isRtl, scrollToAnchor }) {
                   className="group flex-1 flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 text-start hover:border-emerald-500/40 hover:bg-zinc-900/70 transition-all"
                 >
                   <BackIcon size={18} className="text-emerald-400 shrink-0" />
-                  <span className="font-bold text-zinc-200 group-hover:text-white transition-colors leading-tight">{t(prevSection.titleKey)}</span>
+                  <span className="font-bold text-zinc-200 group-hover:text-white transition-colors leading-tight">{flatTitle(t(prevSection.titleKey))}</span>
                 </button>
               ) : <span className="flex-1" />}
               {nextSection ? (
@@ -289,7 +293,7 @@ export default function GuidePage({ t, isRtl, scrollToAnchor }) {
                   onClick={() => open(nextSection.id)}
                   className="group flex-1 flex items-center justify-end gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 text-end hover:border-emerald-500/40 hover:bg-zinc-900/70 transition-all"
                 >
-                  <span className="font-bold text-zinc-200 group-hover:text-white transition-colors leading-tight">{t(nextSection.titleKey)}</span>
+                  <span className="font-bold text-zinc-200 group-hover:text-white transition-colors leading-tight">{flatTitle(t(nextSection.titleKey))}</span>
                   <FwdIcon size={18} className="text-emerald-400 shrink-0" />
                 </button>
               ) : <span className="flex-1" />}
