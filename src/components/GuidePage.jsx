@@ -3,9 +3,8 @@ import {
   BookOpen, Server, Puzzle, FolderTree, ShieldCheck,
   Cpu, Repeat, ArrowUp, ArrowLeft, ArrowRight,
 } from 'lucide-react';
-import { AddonTypesTable, InstallLocationCards } from './GuidePageSections';
+import { AddonTypesTable, InstallLocationCards, ServerTypesTable } from './GuidePageSections';
 import { CompatRules, RamTable, AltTable } from './GuidePageRules';
-import ServerEnvCards from './GuideEnvCards';
 
 // ============================================================================
 //  GuidePage — public, no-auth reference center (SEO + onboarding).
@@ -72,10 +71,10 @@ function renderSection(id, t) {
     case 'guide-server-families':
       return (
         <Section id="guide-server-families" icon={Server} title={t('guideSecFamiliesTitle')} sub={t('guideSecFamiliesSub')} t={t}>
-          {/* The 4 server environments as 3-D flip cards (front = tagline,
-              back = cores + addon-type chips). Replaces the old two-family
-              cards + hybrid warning strip. */}
-          <ServerEnvCards t={t} />
+          {/* One no-scroll table: every core grouped by family, with its
+              add-on-type chips ("which add-ons") + a one-line explanation per
+              core — so the add-ons are visible here without a scrolling card. */}
+          <ServerTypesTable t={t} notOfferedLabel={t('guideNotOfferedBadge')} />
           <p className="mt-4 text-xs text-zinc-500">{t('guidePluginNote')}</p>
         </Section>
       );

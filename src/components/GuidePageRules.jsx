@@ -135,7 +135,7 @@ export function AltTable({ t }) {
         connector between them + the role as the pair's label. */}
     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 sm:p-5">
       {/* Column headers */}
-      <div className="grid grid-cols-[1fr_auto_1fr] gap-3 sm:gap-4 items-center pb-3 mb-2 border-b border-zinc-800 text-xs uppercase tracking-wide font-bold">
+      <div className="grid grid-cols-[1fr_auto_1fr] gap-3 sm:gap-4 items-center pb-3 mb-2 border-b border-zinc-800 text-base sm:text-lg uppercase tracking-wide font-black">
         <div className="text-center text-purple-300"><bdi>{t('guideAltHeadPlugin')}</bdi></div>
         <div className="w-8" aria-hidden="true"></div>
         <div className="text-center text-blue-300"><bdi>{t('guideAltHeadMod')}</bdi></div>
@@ -145,16 +145,16 @@ export function AltTable({ t }) {
         {ALT_ROWS.map((r) => (
           <div key={r.key}>
             {/* role label = what this pair does */}
-            <div className="text-[11px] text-zinc-500 font-medium text-center mb-1">{t(r.role)}</div>
+            <div className="text-sm sm:text-base text-zinc-200 font-bold text-center mb-1.5">{t(r.role)}</div>
             <div className="grid grid-cols-[1fr_auto_1fr] gap-3 sm:gap-4 items-stretch">
               {/* plugin side */}
-              <div dir="ltr" className="rounded-xl border border-purple-500/25 bg-purple-500/[0.06] px-3 py-2.5 text-sm text-zinc-200 flex items-center justify-center text-center min-h-[44px]">
+              <div dir="ltr" className="rounded-xl border border-purple-500/25 bg-purple-500/[0.06] px-3 py-3 text-base sm:text-lg font-bold text-zinc-100 flex items-center justify-center text-center min-h-[44px]">
                 {r.plugin}
               </div>
               {/* connector — bidirectional (RTL-safe: symmetric symbol) */}
               <div className="flex items-center justify-center text-zinc-500 text-lg font-bold select-none" aria-hidden="true">⇄</div>
               {/* mod side */}
-              <div dir="ltr" className="rounded-xl border border-blue-500/25 bg-blue-500/[0.06] px-3 py-2.5 text-sm text-zinc-200 flex items-center justify-center text-center min-h-[44px]">
+              <div dir="ltr" className="rounded-xl border border-blue-500/25 bg-blue-500/[0.06] px-3 py-3 text-base sm:text-lg font-bold text-zinc-100 flex items-center justify-center text-center min-h-[44px]">
                 {r.mod.startsWith('guide') ? t(r.mod) : r.mod}
               </div>
             </div>
