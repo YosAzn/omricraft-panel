@@ -1,4 +1,5 @@
 import React from 'react';
+import { Lock, Lightbulb } from 'lucide-react';
 
 // ============================================================================
 //  GuidePageRules — the compatibility rules, RAM formula, overlapping
@@ -38,7 +39,7 @@ export function CompatRules({ t }) {
       {/* The strict handshake sequence (slide-deck): 3 locks that MUST match
           on a mod server, + the easy way out (modpack launchers sync all 3). */}
       <div className="rounded-2xl border border-pink-500/30 bg-pink-500/[0.05] p-5 mb-6">
-        <h3 className="font-bold text-zinc-100 mb-3">🔒 {t('guideSyncTitle')}</h3>
+        <h3 className="font-bold text-zinc-100 mb-3 inline-flex items-center gap-1.5"><Lock size={15} className="text-pink-300 shrink-0" aria-hidden="true" />{t('guideSyncTitle')}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[1, 2, 3].map((n) => (
             <div key={n} className="rounded-xl bg-zinc-950/40 p-4">
@@ -50,7 +51,7 @@ export function CompatRules({ t }) {
             </div>
           ))}
         </div>
-        <p className="mt-3 text-sm text-emerald-300 font-medium">💡 {t('guideSyncEasyWay')}</p>
+        <p className="mt-3 text-sm text-emerald-300 font-medium flex items-start gap-1.5"><Lightbulb size={15} className="shrink-0 mt-0.5" aria-hidden="true" />{t('guideSyncEasyWay')}</p>
       </div>
 
       {/* The rest of the rules (dependencies, core-locks, exceptions). */}
