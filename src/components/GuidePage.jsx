@@ -3,8 +3,9 @@ import {
   BookOpen, Server, Puzzle, FolderTree, ShieldCheck,
   Cpu, Repeat, ArrowUp, ArrowLeft, ArrowRight,
 } from 'lucide-react';
-import { AddonTypesTable, InstallLocationCards, ServerTypeCards } from './GuidePageSections';
+import { AddonTypesTable, InstallLocationCards } from './GuidePageSections';
 import { CompatRules, RamTable, AltTable } from './GuidePageRules';
+import ServerEnvCards from './GuideEnvCards';
 
 // ============================================================================
 //  GuidePage — public, no-auth reference center (SEO + onboarding).
@@ -71,12 +72,11 @@ function renderSection(id, t) {
     case 'guide-server-families':
       return (
         <Section id="guide-server-families" icon={Server} title={t('guideSecFamiliesTitle')} sub={t('guideSecFamiliesSub')} t={t}>
-          {/* Big glass cards (per core, grouped by family): core · what it is ·
-              which add-ons · who it's for — same arrangement as the table, no
-              scroll. Player-side add-ons are universal (note below). */}
-          <ServerTypeCards t={t} notOfferedLabel={t('guideNotOfferedBadge')} />
-          <p className="mt-4 text-[11px] text-zinc-500 leading-relaxed">{t('guidePlayerSideNote')}</p>
-          <p className="mt-2 text-xs text-zinc-500">{t('guidePluginNote')}</p>
+          {/* Flip card per environment — rotates to reveal its server types with a
+              tiny explanation each. The add-on chips are arranged in the small
+              table + player-side note that live inside ServerEnvCards. */}
+          <ServerEnvCards t={t} />
+          <p className="mt-4 text-xs text-zinc-500">{t('guidePluginNote')}</p>
         </Section>
       );
     case 'guide-addon-types':
