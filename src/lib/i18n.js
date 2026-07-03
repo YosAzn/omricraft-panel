@@ -530,8 +530,8 @@ export const DICT = {
     guideInstallModsBody: "קובצי .jar שנכנסים לתיקיית mods. רק על שרתי-מודים. הם משנים את המשחק לעומק (בלוקים, חיות, ממדים) — ולכן כל שחקן חייב בדיוק את אותם מודים במחשב שלו.",
     guideInstallPcTitle: "שיידרים, טקסטורות ומודי צד-שחקן",
     guideInstallPcBody: "שיידרים, מודי צד-שחקן (כמו Sodium או מיני-מפה) וטקסטורות — יושבים על המחשב של השחקן בלבד. השרת לא יודע עליהם.",
-    guideInstallPcModsBody: "מודי צד-שחקן — מיני-מפה, שיפור ביצועים ותצוגה. מותקנים רק במחשב של השחקן.",
-    guideInstallPcShadersBody: "שיידרים — אור, צל ומים יפים יותר. מותקנים רק במחשב של השחקן.",
+    guideInstallPcModsBody: "מודי צד-שחקן — מיני-מפה, שיפור ביצועים ותצוגה. דורשים Fabric או Forge מותקן במחשב של השחקן.",
+    guideInstallPcShadersBody: "שיידרים — אור, צל ומים יפים יותר. צריך גם מוד-שיידרים: Iris ל-Fabric, או Oculus ל-Forge.",
     guideInstallPcTexturesBody: "טקסטורות — משנות את המראה של בלוקים ופריטים. במחשב של השחקן, או שהשרת שולח אותן אוטומטית.",
     // --- Guide: compatibility rules — title / body per rule ---
     guideCompatCoreLockTitle: "אי אפשר לערבב מודים ופלאגינים",
@@ -1273,8 +1273,8 @@ export const DICT = {
     guideInstallModsBody: ".jar files in the mods folder. Only on Forge/NeoForge/Fabric/Quilt. A deep change — blocks/mobs/dimensions. Every player needs the exact same mods.",
     guideInstallPcTitle: "The player's PC",
     guideInstallPcBody: "Shaders, player-side mods (Sodium, minimap) and Resource Packs live on the player's PC. The server has no idea about them. A Resource Pack can also be pushed from the server (server-resource-pack).",
-    guideInstallPcModsBody: "Client mods — mini-map, performance, better visuals. Installed only on the player's PC.",
-    guideInstallPcShadersBody: "Shaders — nicer light, shadows and water. Installed only on the player's PC.",
+    guideInstallPcModsBody: "Client mods — mini-map, performance, better visuals. Need Fabric or Forge installed on the player's PC.",
+    guideInstallPcShadersBody: "Shaders — nicer light, shadows and water. Also need a shader mod: Iris for Fabric, or Oculus for Forge.",
     guideInstallPcTexturesBody: "Textures — change how blocks and items look. On the player's PC, or the server sends them automatically.",
     // --- Guide: compatibility rules — title / body per rule ---
     guideCompatCoreLockTitle: "You can't mix mods and plugins",

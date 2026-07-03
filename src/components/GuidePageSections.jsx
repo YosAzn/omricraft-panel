@@ -1,5 +1,5 @@
 import React from 'react';
-import { Puzzle, Cog, FileCode, Image as ImageIcon, Sparkles, MonitorSmartphone, Package } from 'lucide-react';
+import { Puzzle, Cog, FileCode, Image as ImageIcon, Sparkles, MonitorSmartphone, Package, Server, ArrowLeftRight, Laptop, AlertTriangle } from 'lucide-react';
 import { TYPE_COLORS } from '../lib/constants';
 
 // ============================================================================
@@ -316,28 +316,28 @@ export function AddonTypesTable({ t }) {
 // tinted icon-chips, slide-deck style) + an `exc` "must-remember / exception" note.
 const INSTALL_COLUMNS = [
   {
-    tone: 'purple', icon: '🖥️', title: 'guideInstallColServer', sub: 'guideInstallColServerSub', badge: 'guideEnvBadgeServer',
+    tone: 'purple', Icon: Server, title: 'guideInstallColServer', sub: 'guideInstallColServerSub', badge: 'guideEnvBadgeServer',
     chips: ['plugin', 'datapack', 'resource'], exc: 'guideInstallExcServer',
     items: [
-      { icon: '🧩', path: 'plugins/', title: 'guideInstallPluginsTitle', body: 'guideInstallPluginsBody' },
-      { icon: '📜', path: 'world/datapacks/', title: 'guideInstallDataTitle', body: 'guideInstallDataBody' },
-      { icon: '🖼️', path: 'server-resource-pack', title: 'guideInstallServerRpTitle', body: 'guideInstallServerRp' },
+      { path: 'plugins/', body: 'guideInstallPluginsBody' },
+      { path: 'world/datapacks/', body: 'guideInstallDataBody' },
+      { path: 'server-resource-pack', body: 'guideInstallServerRp' },
     ],
   },
   {
-    tone: 'blue', icon: '🔁', title: 'guideInstallColBoth', sub: 'guideInstallColBothSub', badge: 'guideEnvBadgeBoth',
+    tone: 'blue', Icon: ArrowLeftRight, title: 'guideInstallColBoth', sub: 'guideInstallColBothSub', badge: 'guideEnvBadgeBoth',
     chips: ['mod', 'modpack'], exc: 'guideInstallExcBoth',
     items: [
-      { icon: '⚙️', path: 'mods/', title: 'guideInstallModsTitle', body: 'guideInstallModsBody' },
+      { path: 'mods/', body: 'guideInstallModsBody' },
     ],
   },
   {
-    tone: 'teal', icon: '💻', title: 'guideInstallColPc', sub: 'guideInstallColPcSub', badge: 'guideEnvBadgeClient',
+    tone: 'teal', Icon: Laptop, title: 'guideInstallColPc', sub: 'guideInstallColPcSub', badge: 'guideEnvBadgeClient',
     chips: ['client-mod', 'shader', 'resource'],
     items: [
-      { key: 'pc-clientmod', icon: '🧭', body: 'guideInstallPcModsBody' },
-      { key: 'pc-shader', icon: '✨', body: 'guideInstallPcShadersBody' },
-      { key: 'pc-texture', icon: '🖼️', body: 'guideInstallPcTexturesBody' },
+      { key: 'pc-clientmod', body: 'guideInstallPcModsBody' },
+      { key: 'pc-shader', body: 'guideInstallPcShadersBody' },
+      { key: 'pc-texture', body: 'guideInstallPcTexturesBody' },
     ],
   },
 ];
@@ -361,8 +361,9 @@ export function InstallLocationCards({ t }) {
           <div key={col.title} className={`rounded-2xl border p-5 ${INSTALL_TONE[col.tone]}`}>
             <div className="mb-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <h4 className="font-bold text-zinc-100 leading-tight">
-                  <span className="me-1.5">{col.icon}</span>{t(col.title)}
+                <h4 className="font-bold text-zinc-100 leading-tight inline-flex items-center gap-1.5">
+                  <col.Icon size={16} className="text-zinc-300 shrink-0" aria-hidden="true" />
+                  {t(col.title)}
                 </h4>
                 {col.badge && (
                   <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${INSTALL_BADGE[col.tone]}`}>
@@ -383,21 +384,19 @@ export function InstallLocationCards({ t }) {
             <div className="space-y-3">
               {col.items.map((it) => (
                 <div key={it.key || it.path} className="rounded-lg bg-zinc-950/40 p-3">
-                  {/* No text title — the framed-name chip above already names the
-                      type. Emoji + (for real folders) the path, then the short kid
-                      explanation. Player-side items have no folder path. */}
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-lg">{it.icon}</span>
-                    {it.path && <code className="text-[11px] text-zinc-400" dir="ltr">{it.path}</code>}
-                  </div>
+                  {/* Site style — the framed-name chips above identify the type; here
+                      just the folder path (for real folders) + the short kid
+                      explanation. No emoji. Player-side items have no folder path. */}
+                  {it.path && <code className="text-[11px] text-zinc-400 block mb-1" dir="ltr">{it.path}</code>}
                   <p className="text-xs text-zinc-300 leading-relaxed">{t(it.body)}</p>
                 </div>
               ))}
             </div>
             {/* "Must remember / exception" note for this lane. */}
             {col.exc && (
-              <p className="mt-3 text-[11px] leading-relaxed text-zinc-400 border-t border-zinc-800/60 pt-2">
-                <span className="me-1" aria-hidden="true">⚠️</span>{guideNote(t, col.exc)}
+              <p className="mt-3 text-[11px] leading-relaxed text-zinc-400 border-t border-zinc-800/60 pt-2 flex gap-1.5">
+                <AlertTriangle size={13} className="text-amber-400/80 shrink-0 mt-0.5" aria-hidden="true" />
+                <span>{guideNote(t, col.exc)}</span>
               </p>
             )}
           </div>
