@@ -15,12 +15,13 @@ import { TYPE_COLORS } from '../lib/constants';
 //  No external libraries — one scoped <style> block (unique class `gec-*`).
 // ============================================================================
 
-// Addon-type chip: lucide icon + label, tinted with the type's own TYPE_COLORS.
-// `type` is the catalog type id so the colour matches the rest of the app.
-function AddonChip({ type, icon: Icon, label }) {
+// Addon-type chip: the type's NAME inside its tinted frame (the canonical
+// "framed name" style — no lucide icon). `type` is the catalog type id so the
+// colour matches the rest of the app.
+function AddonChip({ type, label }) {
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-bold ${TYPE_COLORS[type]}`}>
-      <Icon size={12} /> {label}
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] font-bold ${TYPE_COLORS[type]}`}>
+      {label}
     </span>
   );
 }
@@ -202,6 +203,36 @@ export default function ServerEnvCards({ t }) {
           <EnvCard key={env.id} env={env} t={t} />
         ))}
       </div>
+
+      {/* Compact, no-scroll add-on table — which add-ons each environment installs
+          ON THE SERVER (framed-name chips). Player-side add-ons (textures / shaders
+          / client mods) are universal (every environment incl. Vanilla) — said once
+          in the note below instead of repeating them on every row. */}
+      <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-zinc-800 text-zinc-400 text-[11px] uppercase tracking-wide">
+              <th className="text-start p-2.5 font-bold">{t('guideEnvTableEnv')}</th>
+              <th className="text-start p-2.5 font-bold">{t('guideEnvTableServer')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ENVIRONMENTS.map((env) => (
+              <tr key={env.id} className="border-b border-zinc-800/50 last:border-0 hover:bg-zinc-800/20 transition-colors">
+                <td className="p-2.5 align-top font-bold text-zinc-100 whitespace-nowrap">{t(env.titleKey)}</td>
+                <td className="p-2.5 align-top">
+                  <div className="flex flex-wrap gap-1">
+                    {env.serverChips.map((ch) => (
+                      <AddonChip key={ch.type} type={ch.type} label={t(ch.labelKey)} />
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-[11px] text-zinc-500 leading-relaxed">{t('guidePlayerSideNote')}</p>
     </>
   );
 }
