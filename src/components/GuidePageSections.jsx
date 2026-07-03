@@ -333,9 +333,11 @@ const INSTALL_COLUMNS = [
   },
   {
     tone: 'teal', icon: '💻', title: 'guideInstallColPc', sub: 'guideInstallColPcSub', badge: 'guideEnvBadgeClient',
-    chips: ['resource', 'shader', 'client-mod'],
+    chips: ['client-mod', 'shader', 'resource'],
     items: [
-      { icon: '✨', path: 'PC', title: 'guideInstallPcTitle', body: 'guideInstallPcBody' },
+      { key: 'pc-clientmod', icon: '🧭', body: 'guideInstallPcModsBody' },
+      { key: 'pc-shader', icon: '✨', body: 'guideInstallPcShadersBody' },
+      { key: 'pc-texture', icon: '🖼️', body: 'guideInstallPcTexturesBody' },
     ],
   },
 ];
@@ -380,13 +382,13 @@ export function InstallLocationCards({ t }) {
             </div>
             <div className="space-y-3">
               {col.items.map((it) => (
-                <div key={it.path} className="rounded-lg bg-zinc-950/40 p-3">
-                  {/* No text title here — the framed-name chip above already names
-                      the type (Yosef: don't show both the framed name and a title).
-                      The row keeps just the emoji + the real folder path. */}
+                <div key={it.key || it.path} className="rounded-lg bg-zinc-950/40 p-3">
+                  {/* No text title — the framed-name chip above already names the
+                      type. Emoji + (for real folders) the path, then the short kid
+                      explanation. Player-side items have no folder path. */}
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="text-lg">{it.icon}</span>
-                    <code className="text-[11px] text-zinc-400" dir="ltr">{it.path}</code>
+                    {it.path && <code className="text-[11px] text-zinc-400" dir="ltr">{it.path}</code>}
                   </div>
                   <p className="text-xs text-zinc-300 leading-relaxed">{t(it.body)}</p>
                 </div>

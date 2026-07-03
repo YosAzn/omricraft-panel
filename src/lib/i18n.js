@@ -530,6 +530,9 @@ export const DICT = {
     guideInstallModsBody: "קובצי .jar שנכנסים לתיקיית mods. רק על שרתי-מודים. הם משנים את המשחק לעומק (בלוקים, חיות, ממדים) — ולכן כל שחקן חייב בדיוק את אותם מודים במחשב שלו.",
     guideInstallPcTitle: "שיידרים, טקסטורות ומודי צד-שחקן",
     guideInstallPcBody: "שיידרים, מודי צד-שחקן (כמו Sodium או מיני-מפה) וטקסטורות — יושבים על המחשב של השחקן בלבד. השרת לא יודע עליהם.",
+    guideInstallPcModsBody: "מודי צד-שחקן — מיני-מפה, שיפור ביצועים ותצוגה. מותקנים רק במחשב של השחקן.",
+    guideInstallPcShadersBody: "שיידרים — אור, צל ומים יפים יותר. מותקנים רק במחשב של השחקן.",
+    guideInstallPcTexturesBody: "טקסטורות — משנות את המראה של בלוקים ופריטים. במחשב של השחקן, או שהשרת שולח אותן אוטומטית.",
     // --- Guide: compatibility rules — title / body per rule ---
     guideCompatCoreLockTitle: "אי אפשר לערבב מודים ופלאגינים",
     guideCompatCoreLockBody: "שרת פלאגינים לא מריץ מודים, ושרת מודים לא מריץ פלאגינים. רוצים את שניהם יחד? צריך שרת היברידי (Mohist/Youer) — פחות יציב.",
@@ -1270,6 +1273,9 @@ export const DICT = {
     guideInstallModsBody: ".jar files in the mods folder. Only on Forge/NeoForge/Fabric/Quilt. A deep change — blocks/mobs/dimensions. Every player needs the exact same mods.",
     guideInstallPcTitle: "The player's PC",
     guideInstallPcBody: "Shaders, player-side mods (Sodium, minimap) and Resource Packs live on the player's PC. The server has no idea about them. A Resource Pack can also be pushed from the server (server-resource-pack).",
+    guideInstallPcModsBody: "Client mods — mini-map, performance, better visuals. Installed only on the player's PC.",
+    guideInstallPcShadersBody: "Shaders — nicer light, shadows and water. Installed only on the player's PC.",
+    guideInstallPcTexturesBody: "Textures — change how blocks and items look. On the player's PC, or the server sends them automatically.",
     // --- Guide: compatibility rules — title / body per rule ---
     guideCompatCoreLockTitle: "You can't mix mods and plugins",
     guideCompatCoreLockBody: "A plugin server won't run mods, and a mod server won't run plugins. Want both together? You need a hybrid server (Mohist/Youer) — less stable.",
