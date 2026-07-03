@@ -209,6 +209,60 @@ export function ServerTypesTable({ t, notOfferedLabel, isRtl }) {
 }
 
 // ---------------------------------------------------------------------------
+//  Server-type CARDS — the SAME data + arrangement as ServerTypesTable
+//  (core · what it is · which add-ons · who it's for, grouped by family), but
+//  rendered as big glass cards (like the environment cards) instead of a table.
+//  No scroll. Each family gets a coloured header; each core gets its own card.
+// ---------------------------------------------------------------------------
+export function ServerTypeCards({ t, notOfferedLabel }) {
+  return (
+    <div className="space-y-6">
+      {CORE_FAMILIES.map((fam) => {
+        const rows = CORE_ROWS.filter((r) => r.fam === fam);
+        if (rows.length === 0) return null;
+        const meta = CORE_GROUP_META[fam];
+        const isVanilla = fam === 'vanilla';
+        return (
+          <div key={fam}>
+            {/* Family header — colour chip + one-line "what this family means". */}
+            <div className="mb-2.5 flex items-baseline gap-2 flex-wrap">
+              <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-black ${FAMILY_CHIP[fam]}`}>{t(meta.titleKey)}</span>
+              <span className="text-[11px] text-zinc-500">{t(meta.descKey)}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {rows.map((r) => (
+                <div key={r.core} className={`rounded-2xl border p-4 sm:p-5 ${FAMILY_ACCENT[fam]}`}>
+                  {/* ליבה + status badges */}
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <bdi className={`text-lg sm:text-xl font-black ${isVanilla ? 'text-zinc-50' : 'text-zinc-100'}`}>{r.core}</bdi>
+                    {r.eol && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/15 text-red-300">EOL</span>}
+                    {r.live === false && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-700/60 text-zinc-300">{notOfferedLabel}</span>
+                    )}
+                  </div>
+                  {/* מה זה */}
+                  <p className={`text-sm leading-relaxed mb-3 ${isVanilla ? 'text-zinc-200' : 'text-zinc-300'}`}>{t(r.what)}</p>
+                  {/* אילו תוספים — framed-name chips */}
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {(CORE_ADDON_SUPPORT[r.core] || []).map((typeId) => (
+                      <AddonChip key={typeId} typeId={typeId} t={t} />
+                    ))}
+                  </div>
+                  {/* למי מתאים */}
+                  <p className="text-xs text-zinc-400">
+                    <span className="text-zinc-500">{t('guideColFor')}: </span>{t(r.who)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 //  (ב) Add-on types table — the 6+1 live taxonomy, colored by TYPE_COLORS.
 //  `typeKey` maps to the real ADDON_TYPES group so colors stay in sync.
 // ---------------------------------------------------------------------------
