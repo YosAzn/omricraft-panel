@@ -70,12 +70,7 @@ export default function HealthTab({ t = (k) => k, isAdmin = false, isRtl = false
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <img src={warroomLogo} alt="" aria-hidden="true" className="h-11 sm:h-12 w-auto shrink-0" style={{ filter: 'drop-shadow(0 0 16px rgba(244,63,94,0.4))' }} />
-          <div>
-            <h2 className="text-3xl font-bold leading-tight">{t('healthTitle')}</h2>
-            <p className="text-xs text-zinc-500">
-              {isAdmin && scope === 'all' ? t('healthSubtitleAll') : t('healthSubtitleMine')}
-            </p>
-          </div>
+          <h2 className="text-3xl font-bold leading-tight">{t('healthTitle')}</h2>
         </div>
         <div className="flex items-center gap-2">
           {/* Admin-only: flip the getDiagnostics scope between own servers and all. */}

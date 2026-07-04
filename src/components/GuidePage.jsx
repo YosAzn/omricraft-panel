@@ -159,7 +159,7 @@ export default function GuidePage({ t, isRtl, scrollToAnchor }) {
     <div id="guide-top" className="relative scroll-mt-24" dir={isRtl ? 'rtl' : 'ltr'}>
       {/* ===== HEADER — the guide emblem + "מדריך" title, in the SAME page-title
               style as every other page (the add-ons page etc.). ===== */}
-      <PageHeader logo={guideLogo} title={t('guideNav')} flip={isRtl} glow="rgba(45,212,191,0.4)" />
+      <PageHeader logo={guideLogo} title={t('guideNav')} flip={isRtl} logoClass="h-14 sm:h-16" glow="rgba(45,212,191,0.4)" />
 
       {openSection === null ? (
         /* ===== OVERVIEW — clickable card gallery (one card per topic) ===== */

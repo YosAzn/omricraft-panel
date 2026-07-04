@@ -192,13 +192,11 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
 
   return (
     <div className="animate-in fade-in duration-300">
-       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
+       <div className="mb-8">
+        <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <div className="flex items-center gap-3">
           <img src={addonsLogo} alt="" aria-hidden="true" className="h-11 sm:h-12 w-auto shrink-0" style={{ filter: 'drop-shadow(0 0 16px rgba(168,85,247,0.35))' }} />
-          <div className="min-w-0">
-            <h2 className="text-3xl font-bold leading-tight">{t('repo')}</h2>
-            <p className="text-zinc-400 text-sm mt-0.5 max-w-lg">{t('globalRepoDesc')}</p>
-          </div>
+          <h2 className="text-3xl font-bold leading-tight">{t('repo')}</h2>
         </div>
         {userRole === 'admin' && (
           /* Unified admin tool row. Every button is black when closed and lit in
@@ -231,6 +229,8 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
             </button>
           </div>
         )}
+        </div>
+        <p className="text-zinc-400 text-sm mt-1.5 max-w-lg">{t('globalRepoDesc')}</p>
       </div>
 
       {/* AI Texture Generator — controlled by the row's Texture button. */}

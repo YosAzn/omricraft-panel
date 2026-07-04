@@ -264,7 +264,7 @@ export default function LandingPage({
         <footer className="border-t border-zinc-900">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
             <div className="flex items-center gap-2.5">
-              <img src={omricraftLogo} alt="" className="h-8 w-auto brightness-[1.25] contrast-[1.08]" />
+              <img src={omricraftLogo} alt="" className="h-8 w-auto brightness-[1.55] contrast-[1.28]" />
               <span className="font-black tracking-tight bg-[linear-gradient(180deg,#eafff6_0%,#74cea1_26%,#2f9165_46%,#a8ead0_58%,#2c8a61_70%,#12583e_100%)] bg-clip-text text-transparent">
                 {t('appTitle')}
               </span>

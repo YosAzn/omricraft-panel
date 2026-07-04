@@ -91,11 +91,9 @@ function ActionCard({ label, onClick }) {
       className={`relative overflow-hidden text-start rounded-2xl border border-emerald-500/40 bg-emerald-500/[0.08] px-4 py-3 min-w-[150px] transition-all cursor-pointer hover:shadow-2xl hover:bg-emerald-500/[0.14] ${a.hover}`}
     >
       <Plus size={72} strokeWidth={1.5} className="pointer-events-none absolute -bottom-3 -end-2 text-emerald-500/[0.16] select-none" aria-hidden="true" />
-      <div className="relative flex items-center gap-1.5 text-emerald-300">
-        <Plus size={18} className="shrink-0" />
-        <span className="text-base font-bold">{label}</span>
-      </div>
-      <div className="relative mt-1 text-[11px] text-zinc-500 truncate">&nbsp;</div>
+      {/* "+" on top (its place), the label ("שרת חדש"/"בקש שרת") on the bottom row. */}
+      <div className="relative flex items-center"><Plus size={24} className="text-emerald-300" /></div>
+      <div className="relative mt-1 text-[13px] font-bold text-emerald-300 truncate">{label}</div>
     </button>
   );
 }
@@ -228,9 +226,9 @@ export default function Dashboard({
               badge was dropped — the total is already shown in the stat card below. ===== */}
       <PageHeader
         logo={dashboardLogo}
-        eyebrow={userRole === 'admin' ? t('dashGreetingAdmin') : t('dashGreeting')}
+        eyebrow={t('dashGreeting')}
         title={t('dashboard')}
-        desc={t('manageDesc')}
+        desc={userRole === 'admin' ? t('dashGreetingAdmin') : t('manageDesc')}
         glow="rgba(59,130,246,0.35)"
       />
 
@@ -264,28 +262,19 @@ export default function Dashboard({
             onClick={() => setRequestsOpen(o => !o)}
           />
         )}
-        {/* Search — BETWEEN the stat-buttons and the actions (large screens). */}
-        {servers.length > 0 && (
-          <div className="relative hidden lg:block flex-1 min-w-[180px] max-w-sm">
-            <Search size={15} className="absolute top-1/2 -translate-y-1/2 start-3 text-zinc-500 pointer-events-none" />
-            <input
-              type="text"
-              value={serverSearch}
-              onChange={(e) => setServerSearch(e.target.value)}
-              placeholder={t('dashSearchServer')}
-              className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500/40 focus:outline-none rounded-xl ps-9 pe-3 h-full min-h-[42px] text-sm text-zinc-100 placeholder-zinc-500 w-full"
-            />
-          </div>
-        )}
         {/* Actions — DOM order [Delete][Create] so in RTL "Create" is the far-left
-            button and "Delete all" sits to its right. Pushed to the row's end. */}
-        <div className="flex items-center gap-3 ms-auto">
+            card and "Delete all" (a slim rose card) sits to its right. Same height
+            as the stat cards; the server search moved DOWN to the glance row. */}
+        <div className="flex items-stretch gap-3 ms-auto">
           {userRole === 'admin' && servers.length > 0 && (
             <button
               onClick={onDeleteAll}
-              className="border border-red-800/50 text-red-400 hover:bg-red-900/30 hover:border-red-700 px-4 py-2 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all whitespace-nowrap"
+              title={t('dashDeleteAll')}
+              className="relative overflow-hidden text-start rounded-2xl border border-red-500/40 bg-red-500/[0.08] px-3 py-3 min-w-[88px] transition-all cursor-pointer hover:shadow-2xl hover:bg-red-500/[0.14] hover:border-red-500/50 hover:shadow-red-900/20"
             >
-              <Trash2 size={15} /> <span>{t('dashDeleteAll')}</span>
+              <Trash2 size={64} strokeWidth={1.5} className="pointer-events-none absolute -bottom-3 -end-2 text-red-500/[0.16] select-none" aria-hidden="true" />
+              <div className="relative flex items-center"><Trash2 size={22} className="text-red-400" /></div>
+              <div className="relative mt-1 text-[13px] font-bold text-red-300 truncate">{t('dashDeleteAll')}</div>
             </button>
           )}
           <ActionCard label={isAdmin ? t('newServer') : t('requestServerCta')} onClick={onCreateClick} />
@@ -369,26 +358,22 @@ export default function Dashboard({
       {/* NOTE: the standalone stat-card block that used to sit here moved UP into
               the combined stats+actions row at the top of the dashboard. */}
 
-      {/* Slim server-search — shows only where the top-row search is hidden (no
-          room): a half-height bar right above the server grid. Same state. */}
-      {servers.length > 0 && (
-        <div className="relative lg:hidden mb-3">
-          <Search size={14} className="absolute top-1/2 -translate-y-1/2 start-3 text-zinc-500 pointer-events-none" />
-          <input
-            type="text"
-            value={serverSearch}
-            onChange={(e) => setServerSearch(e.target.value)}
-            placeholder={t('dashSearchServer')}
-            className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500/40 focus:outline-none rounded-lg ps-9 pe-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 w-full"
-          />
-        </div>
-      )}
-      {/* ===== Servers at-a-glance (section 2) — existing grid, enhanced with
-              real player counts. Keeps onOpenServer / toggleServerStatus.
-              The search / delete-all / create actions moved UP to the primary
-              actions row at the top of the dashboard, so this header is title-only. ===== */}
-      <div className="mb-3">
-        <h3 className="text-sm font-bold text-zinc-400">{t('dashServersGlance')}</h3>
+      {/* ===== Servers at-a-glance — the heading on one side, and a SLIM server
+              search (half height, like the add-ons page) on the OTHER side. ===== */}
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h3 className="text-base sm:text-lg font-bold text-zinc-200 whitespace-nowrap">{t('dashServersGlance')}</h3>
+        {servers.length > 0 && (
+          <div className="relative w-full max-w-[240px]">
+            <Search size={14} className="absolute top-1/2 -translate-y-1/2 start-3 text-zinc-500 pointer-events-none" />
+            <input
+              type="text"
+              value={serverSearch}
+              onChange={(e) => setServerSearch(e.target.value)}
+              placeholder={t('dashSearchServer')}
+              className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500/40 focus:outline-none rounded-lg ps-9 pe-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 w-full"
+            />
+          </div>
+        )}
       </div>
       {servers.length === 0 ? (
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-12 text-center">

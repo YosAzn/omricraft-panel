@@ -921,7 +921,7 @@ export default function App() {
 
           <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-start">
             <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setCurrentView('landing')} title={t('appTitle')}>
-              <img src={omricraftLogo} alt={t('appTitle')} className="h-10 w-auto brightness-[1.3] contrast-[1.08] drop-shadow-[0_0_6px_rgba(148,163,184,0.4)]" />
+              <img src={omricraftLogo} alt={t('appTitle')} className="h-10 w-auto brightness-[1.55] contrast-[1.28] drop-shadow-[0_0_7px_rgba(203,213,225,0.5)]" />
               <h1 className="text-2xl font-black tracking-tight bg-[linear-gradient(180deg,#eafff6_0%,#74cea1_26%,#2f9165_46%,#a8ead0_58%,#2c8a61_70%,#12583e_100%)] bg-clip-text text-transparent hidden sm:block">
                 {t('appTitle')}
               </h1>
