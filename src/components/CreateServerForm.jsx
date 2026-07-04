@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Play, Search, Check, Shield, Lock, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Play, Search, Check, Shield, Lock, ChevronDown, Plus } from 'lucide-react';
 
 import { TYPE_COLORS, SOFTWARE_TYPES, getInstallMethod, limitVersionsForType, isBukkitBased, isWorldgenDatapack, getClientLoader, isCoreIncompatible, collectRequiredIds, getRecommendedRamMb, isEolCore, forgeNeoForgeHint, modpackRamRecommendationMb, isPluginBoundBlocked, isModpackIncompatible, modpackRequirementLabel } from '../lib/constants';
 import { addonDesc } from '../lib/addonI18n';
@@ -7,8 +7,10 @@ import { isViaVersion } from '../lib/utils';
 import ImageUploader from './ImageUploader';
 import { ClientDownloadLink, RequirementsAccordion, CoreIncompatibleNote, ResourcePackInstallChoice, PluginBoundTag, ModpackPlayerRequirements, PremiumPluginGuide } from './AddonClientExtras';
 import ClientRequirements from './ClientRequirements';
+import { PageHeader } from './ui';
+import buildLogo from '../assets/build-logo.png';
 
-export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lang, userRole, isAdmin = false, mcVersions, versionMatrix = {}, isCreatingServer = false }) {
+export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lang, userRole, isAdmin = false, mcVersions, versionMatrix = {}, isCreatingServer = false, isRtl = false }) {
   const [name, setName] = useState('');
   const [icon, setIcon] = useState(null);
   const [software, setSoftware] = useState('paper');
@@ -220,15 +222,11 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
 
   return (
     <div className="max-w-3xl mx-auto animate-in fade-in duration-300 pb-10">
-      <button onClick={onCancel} className="flex items-center gap-2 text-zinc-400 hover:text-white mb-6 transition-colors">
-        <ArrowLeft size={20} className="rtl:rotate-180" /> <span>{t('back')}</span>
-      </button>
+      {/* Page title — sticky under the nav, ABOVE the scrolling form panel (same
+          header style as every other page). */}
+      <PageHeader logo={buildLogo} title={t('create')} sticky glow="rgba(16,185,129,0.4)" />
 
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 md:p-8 shadow-xl">
-        <h2 className="text-2xl font-bold mb-8 flex items-center gap-2 pb-4 border-b border-zinc-800">
-           <Play size={24} className="text-green-500"/> {t('create')}
-        </h2>
-
         <form onSubmit={handleSubmit} className="space-y-8">
 
           <div className="flex flex-col sm:flex-row gap-6 items-start">
@@ -261,7 +259,8 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                   )}
                   <div className="font-bold">{sw.name}</div>
                   <div className="text-[10px] uppercase opacity-70">{sw.type}</div>
-                  {sw.desc && <div className="text-[9px] opacity-50 leading-tight mt-0.5">{sw.desc}</div>}
+                  {/* Localized blurb (falls back to the Hebrew `desc` if the key misses). */}
+                  {(sw.descKey || sw.desc) && <div className="text-[9px] opacity-50 leading-tight mt-0.5">{sw.descKey ? t(sw.descKey) : sw.desc}</div>}
                 </div>
               ))}
             </div>
@@ -591,8 +590,16 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
             <button type="button" onClick={onCancel} className="px-6 py-3 rounded-xl font-bold text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors">
               {t('cancel')}
             </button>
-            <button type="submit" disabled={isCreatingServer || !eulaAccepted} className="bg-green-600 hover:bg-green-500 text-white px-10 py-3 rounded-xl font-bold transition-all shadow-lg shadow-green-900/20 text-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-              <Play size={20} fill="currentColor"/> {submitLabel}
+            <button
+              type="submit"
+              disabled={isCreatingServer || !eulaAccepted}
+              className="relative overflow-hidden inline-flex items-center rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-6 py-2.5 transition-all hover:bg-emerald-500/20 hover:border-emerald-400/60 hover:shadow-lg hover:shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-500/10 disabled:hover:border-emerald-500/40"
+            >
+              <Plus size={48} strokeWidth={1.5} className="pointer-events-none absolute -bottom-2 -end-2 text-emerald-500/[0.16] select-none" aria-hidden="true" />
+              <span className="relative flex items-center gap-1.5 text-sm font-bold text-emerald-300">
+                <Plus size={16} className="shrink-0" />
+                {submitLabel}
+              </span>
             </button>
           </div>
         </form>

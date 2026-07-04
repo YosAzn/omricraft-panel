@@ -2,12 +2,17 @@ import React, { useState, useEffect } from 'react';
 import {
   Server, Library, Shield, Sparkles, Boxes, Puzzle,
   Gift, SlidersHorizontal, ArrowRight, Plug, Gamepad2, LogIn, Users,
-  Rocket, BookOpen, Layers3, GraduationCap
+  Rocket, BookOpen, Layers3, GraduationCap, Plus
 } from 'lucide-react';
 import { getPublicStatsFn } from '../lib/api';
 import { SERVER_TYPE_COUNT, ADDON_CATALOG_COUNT, roundedFloorPlus } from '../lib/constants';
 import SideCreepers from './SideCreepers';
 import LanguageSelector from './LanguageSelector';
+import omricraftLogo from '../assets/omricraft-logo.png';
+import ocGuide from '../assets/oc-guide.png';
+import ocGuideIcon from '../assets/oc-guide-icon.png';
+import addonsLogo from '../assets/addons-logo.png';
+import guideLogo from '../assets/guide-logo.png';
 
 // Public, no-auth-required landing page. The first thing a visitor sees.
 // Matches (and elevates) the app's zinc-950 / emerald glass language.
@@ -71,11 +76,9 @@ export default function LandingPage({
         {/* Pinned physical LTR (dir="ltr") like the panel nav — the logo stays on
             the visual LEFT even in RTL languages; lang/auth group on the right. */}
         <header dir="ltr" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-green-600 p-2 rounded-lg shadow-lg shadow-green-900/30">
-              <Server size={22} className="text-white" />
-            </div>
-            <span className="text-xl font-black tracking-tight bg-gradient-to-l from-green-400 to-emerald-600 bg-clip-text text-transparent">
+          <div className="flex items-center gap-2.5">
+            <img src={omricraftLogo} alt={t('appTitle')} className="h-10 w-auto rounded-lg" />
+            <span className="text-xl font-black tracking-tight bg-[linear-gradient(180deg,#eafff6_0%,#74cea1_26%,#2f9165_46%,#a8ead0_58%,#2c8a61_70%,#12583e_100%)] bg-clip-text text-transparent">
               {t('appTitle')}
             </span>
           </div>
@@ -115,14 +118,18 @@ export default function LandingPage({
         </header>
 
         {/* ===== HERO ===== */}
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16 sm:pt-20 sm:pb-24 text-center">
-          <div className="oc-rise inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 text-xs font-bold mb-8">
-            <Sparkles size={14} /> {t('landingHeroBadge')}
-          </div>
-
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16 sm:pt-16 sm:pb-24 text-center">
+          {/* Big FRAMELESS brand emblem (background removed) — the head floats on the
+              page's black; "OmriCraft" is written beneath it. */}
+          <img
+            src={omricraftLogo}
+            alt=""
+            aria-hidden="true"
+            className="oc-rise mx-auto mb-4 h-40 sm:h-52 lg:h-64 w-auto drop-shadow-[0_0_60px_rgba(16,185,129,0.4)]"
+          />
           <h1 className="oc-rise text-6xl sm:text-7xl lg:text-8xl font-black tracking-tighter leading-[0.95] mb-6"
               style={{ animationDelay: '60ms' }}>
-            <span className="bg-gradient-to-b from-white via-emerald-100 to-emerald-400 bg-clip-text text-transparent drop-shadow-[0_0_40px_rgba(16,185,129,0.25)]">
+            <span className="bg-[linear-gradient(180deg,#eafff6_0%,#74cea1_24%,#2f9165_44%,#bff0d8_57%,#2c8a61_70%,#0f5236_100%)] bg-clip-text text-transparent drop-shadow-[0_0_40px_rgba(16,185,129,0.3)]">
               {t('appTitle')}
             </span>
           </h1>
@@ -136,53 +143,53 @@ export default function LandingPage({
             {t('landingSubtitle')}
           </p>
 
-          <div className="oc-rise flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3.5"
+          {/* All four CTAs share ONE size/shape — accent-tinted outline buttons.
+              `items-stretch` keeps them the SAME HEIGHT even when a label wraps to
+              two lines at a given width; `sm:min-w` keeps them the same width. Create
+              is just the emerald-accented one (no loud gradient). */}
+          <div className="oc-rise flex flex-col sm:flex-row flex-wrap items-stretch justify-center gap-3.5"
                style={{ animationDelay: '240ms' }}>
-            {/* PRIMARY — special: emerald gradient + glow + shine sweep, slightly larger */}
+            {/* Create — emerald accent (primary by colour, same footprint as the rest) */}
             <button
               onClick={onCreate}
-              className="group relative w-full sm:w-auto inline-flex items-center justify-center gap-3 overflow-hidden text-white text-xl font-black px-10 py-5 rounded-2xl transition-all
-                         bg-gradient-to-br from-emerald-400 via-green-500 to-emerald-600 ring-1 ring-emerald-300/40
-                         shadow-[0_10px_40px_-8px_rgba(16,185,129,0.7)] hover:shadow-[0_16px_50px_-6px_rgba(16,185,129,0.85)]
-                         hover:-translate-y-1 hover:brightness-110 active:translate-y-0 sm:scale-[1.04]"
+              className="group w-full sm:w-auto sm:min-w-[190px] inline-flex items-center justify-center gap-2.5 text-emerald-50 text-lg font-bold px-7 py-4 rounded-2xl transition-all
+                         border border-emerald-400/50 bg-emerald-500/20 hover:bg-emerald-500/30 hover:border-emerald-300/70
+                         shadow-lg shadow-emerald-950/40 hover:-translate-y-0.5"
             >
-              {/* shine sweep on hover */}
-              <span aria-hidden className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 transition-transform duration-700 group-hover:translate-x-full" />
-              <Rocket size={26} className="relative drop-shadow" />
-              <span className="relative">{t('landingCtaCreate')}</span>
-              <ArrowCta size={22} />
+              <Plus size={24} className="text-emerald-300 group-hover:text-emerald-200 transition-colors shrink-0" />
+              <span>{t('landingCtaCreate')}</span>
             </button>
 
-            {/* NEW — plugins / add-ons, distinct violet accent */}
+            {/* Add-ons ("תוספים") — violet accent */}
             <button
               onClick={onPlugins}
-              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2.5 text-violet-50 text-lg font-bold px-8 py-4 rounded-2xl transition-all
+              className="group w-full sm:w-auto sm:min-w-[190px] inline-flex items-center justify-center gap-2.5 text-violet-50 text-lg font-bold px-7 py-4 rounded-2xl transition-all
                          border border-violet-500/40 bg-violet-500/15 hover:bg-violet-500/25 hover:border-violet-400/60
                          shadow-lg shadow-violet-950/40 hover:-translate-y-0.5"
             >
-              <Layers3 size={24} className="text-violet-300 group-hover:text-violet-200 transition-colors" />
-              {t('landingCtaPlugins')}
+              <img src={addonsLogo} alt="" className="h-8 w-auto object-contain shrink-0" />
+              <span>{t('repo')}</span>
             </button>
 
-            {/* NEW — full Guide page, distinct sky accent + graduation icon */}
+            {/* Guide — sky accent + the oc-guide sage icon */}
             <button
               onClick={onGuide}
-              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2.5 text-sky-50 text-lg font-bold px-8 py-4 rounded-2xl transition-all
+              className="group w-full sm:w-auto sm:min-w-[190px] inline-flex items-center justify-center gap-2.5 text-sky-50 text-lg font-bold px-7 py-4 rounded-2xl transition-all
                          border border-sky-500/40 bg-sky-500/15 hover:bg-sky-500/25 hover:border-sky-400/60
                          shadow-lg shadow-sky-950/40 hover:-translate-y-0.5"
             >
-              <GraduationCap size={24} className="text-sky-300 group-hover:text-sky-200 transition-colors" />
-              {t('landingCtaGuide')}
+              <img src={guideLogo} alt="" className={`h-8 w-auto object-contain shrink-0 opacity-95 group-hover:opacity-100 transition-opacity ${isRtl ? '-scale-x-100' : ''}`} />
+              <span>{t('landingCtaGuide')}</span>
             </button>
 
-            {/* SECONDARY — how it works, neutral outline + amber-tinted icon */}
+            {/* How it works — neutral outline + amber-tinted icon */}
             <a
               href="#how-it-works"
-              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2.5 text-zinc-200 hover:text-white text-lg font-bold px-8 py-4 rounded-2xl transition-all
+              className="group w-full sm:w-auto sm:min-w-[190px] inline-flex items-center justify-center gap-2.5 text-zinc-200 hover:text-white text-lg font-bold px-7 py-4 rounded-2xl transition-all
                          border border-zinc-700/80 bg-zinc-900/60 hover:bg-zinc-800/80 hover:border-amber-500/40"
             >
-              <BookOpen size={24} className="text-amber-300/90 group-hover:text-amber-200 transition-colors" />
-              {t('landingHowItWorks')}
+              <BookOpen size={24} className="text-amber-300/90 group-hover:text-amber-200 transition-colors shrink-0" />
+              <span>{t('landingHowItWorks')}</span>
             </a>
           </div>
         </section>
@@ -244,10 +251,11 @@ export default function LandingPage({
           <div className="mt-12 text-center">
             <button
               onClick={onCreate}
-              className="inline-flex items-center justify-center gap-2.5 bg-green-600 hover:bg-green-500 text-white text-lg font-bold px-8 py-4 rounded-2xl transition-all shadow-xl shadow-green-900/40 hover:-translate-y-0.5"
+              className="group inline-flex items-center justify-center gap-2.5 text-emerald-50 text-lg font-bold px-8 py-4 rounded-2xl transition-all
+                         border border-emerald-400/50 bg-emerald-500/20 hover:bg-emerald-500/30 hover:border-emerald-300/70 shadow-lg shadow-emerald-950/40 hover:-translate-y-0.5"
             >
-              {t('landingGetStarted')}
-              <ArrowCta size={20} />
+              <Plus size={22} className="text-emerald-300 group-hover:text-emerald-200 transition-colors shrink-0" />
+              <span>{t('landingGetStarted')}</span>
             </button>
           </div>
         </section>
@@ -256,8 +264,8 @@ export default function LandingPage({
         <footer className="border-t border-zinc-900">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
             <div className="flex items-center gap-2.5">
-              <div className="bg-green-600/90 p-1.5 rounded-md"><Server size={16} className="text-white" /></div>
-              <span className="font-black tracking-tight bg-gradient-to-l from-green-400 to-emerald-600 bg-clip-text text-transparent">
+              <img src={omricraftLogo} alt="" className="h-8 w-auto brightness-[1.25] contrast-[1.08]" />
+              <span className="font-black tracking-tight bg-[linear-gradient(180deg,#eafff6_0%,#74cea1_26%,#2f9165_46%,#a8ead0_58%,#2c8a61_70%,#12583e_100%)] bg-clip-text text-transparent">
                 {t('appTitle')}
               </span>
             </div>

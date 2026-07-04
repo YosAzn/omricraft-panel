@@ -9,6 +9,7 @@ import { addonDesc } from '../lib/addonI18n';
 import { suggestModpackFn } from '../lib/api';
 import AiTextureGenerator from './AiTextureGenerator';
 import DatapackBuilder from './DatapackBuilder';
+import addonsLogo from '../assets/addons-logo.png';
 
 // FIX #7 — concise player-PC note for a catalog entry, derived from the SAME per-addon
 // fields the create-form uses (no blanket-noting). Returns an i18n string or null:
@@ -43,7 +44,7 @@ function ClientInstallNote({ text, className = '' }) {
   );
 }
 
-export default function GlobalRepository({ allAddons, customAddons, onAdd, onDelete, t, lang, userRole }) {
+export default function GlobalRepository({ allAddons, customAddons, onAdd, onDelete, t, lang, userRole, isRtl = false }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showModpackForm, setShowModpackForm] = useState(false);
   const [showTexture, setShowTexture] = useState(false);
@@ -191,10 +192,13 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
 
   return (
     <div className="animate-in fade-in duration-300">
-       <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 mb-8">
-        <div>
-          <h2 className="text-3xl font-bold mb-2">{t('repo')}</h2>
-          <p className="text-zinc-400 max-w-lg">{t('globalRepoDesc')}</p>
+       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
+        <div className="flex items-center gap-3">
+          <img src={addonsLogo} alt="" aria-hidden="true" className="h-11 sm:h-12 w-auto shrink-0" style={{ filter: 'drop-shadow(0 0 16px rgba(168,85,247,0.35))' }} />
+          <div className="min-w-0">
+            <h2 className="text-3xl font-bold leading-tight">{t('repo')}</h2>
+            <p className="text-zinc-400 text-sm mt-0.5 max-w-lg">{t('globalRepoDesc')}</p>
+          </div>
         </div>
         {userRole === 'admin' && (
           /* Unified admin tool row. Every button is black when closed and lit in
@@ -441,12 +445,12 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
           labels (e.g. Spanish "Paquetes de recursos"): the row grows in height a little
           rather than sideways, and the search box is capped narrower + never shrinks. */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-6">
-        <div className="flex flex-wrap gap-1 bg-zinc-950 p-1 rounded-lg border border-zinc-800 min-w-0 flex-1">
+        <div className="flex flex-wrap gap-1 bg-zinc-950 p-1.5 rounded-lg border border-zinc-800 min-w-0 flex-1">
           {['all', ...ADDON_TYPES].map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all whitespace-nowrap ${filter === f ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
+              className={`px-3 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${filter === f ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               {t(f) || f}
             </button>

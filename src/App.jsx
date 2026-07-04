@@ -13,6 +13,8 @@ import {
 import { DICT, translate, dirForLang } from './lib/i18n';
 import { DEFAULT_ADDONS, getInstallMethod, collectRequiredIds, isCoreIncompatible, isWorldgenDatapack, isBukkitBased, SOFTWARE_TYPES } from './lib/constants';
 import { NavBtn } from './components/ui';
+import omricraftLogo from './assets/omricraft-logo.png';
+import ocGuideIcon from './assets/oc-guide-icon.png';
 import Dashboard from './components/Dashboard';
 import DeleteServerModal from './components/DeleteServerModal';
 import CreateServerForm from './components/CreateServerForm';
@@ -918,21 +920,20 @@ export default function App() {
         <div dir="ltr" className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
 
           <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-start">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')} title={t('appTitle')}>
-              <div className="bg-green-600 p-2 rounded-lg"><Server size={24} className="text-white" /></div>
-              <h1 className="text-2xl font-black tracking-tight bg-gradient-to-l from-green-400 to-emerald-600 bg-clip-text text-transparent hidden sm:block">
+            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setCurrentView('landing')} title={t('appTitle')}>
+              <img src={omricraftLogo} alt={t('appTitle')} className="h-10 w-auto brightness-[1.3] contrast-[1.08] drop-shadow-[0_0_6px_rgba(148,163,184,0.4)]" />
+              <h1 className="text-2xl font-black tracking-tight bg-[linear-gradient(180deg,#eafff6_0%,#74cea1_26%,#2f9165_46%,#a8ead0_58%,#2c8a61_70%,#12583e_100%)] bg-clip-text text-transparent hidden sm:block">
                 {t('appTitle')}
               </h1>
             </div>
             <div className="flex items-center gap-2">
               <NavBtn active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} icon={<Server size={16}/>} label={t('dashboard')} />
-              {/* PRIMARY action — create a server, up top next to Dashboard.
-                  Custom emerald button (not a plain NavBtn) so it stands out.
-                  Extra-slim (py-0.5 + text-xs, matches NavBtn) + Plus icon +
-                  SHORT label ("שרת"). */}
+              {/* Create — same shape/size as the sibling NavBtns, but with a GREEN
+                  outline + green text/icon so it reads as the primary action without
+                  being a loud solid button. */}
               <button
                 onClick={() => setCurrentView('create')}
-                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-0.5 rounded-lg transition-all shadow-lg shadow-emerald-900/30 hover:-translate-y-0.5"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-400 hover:text-emerald-300"
                 title={t('landingCtaCreate')}
               >
                 <Plus size={16} /> <span className="hidden sm:inline">{t('navCreateShort')}</span>
@@ -940,7 +941,7 @@ export default function App() {
               <NavBtn active={currentView === 'repository'} onClick={() => setCurrentView('repository')} icon={<Library size={16}/>} label={t('repo')} />
               {/* Guide / מדריך — PUBLIC reference center (servers + add-ons). Visible
                   to everyone incl. anonymous visitors; reachable from the main nav. */}
-              <NavBtn active={currentView === 'guide'} onClick={() => openGuide()} icon={<BookOpen size={16}/>} label={t('guideNav')} />
+              <NavBtn active={currentView === 'guide'} onClick={() => openGuide()} icon={<img src={ocGuideIcon} alt="" className={`h-5 w-5 object-contain ${dir === 'rtl' ? '-scale-x-100' : ''}`} />} label={t('guideNav')} />
               {/* War Room / חמ"ל — dedicated health-diagnostics tab is ADMIN-ONLY
                   (it carries the mine/all toggle). Non-admins get the full חמ"ל
                   experience — every issue on their own servers + fix buttons —
@@ -981,7 +982,7 @@ export default function App() {
       <main className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 relative z-10">
         {currentView === 'dashboard' && (
           <Dashboard
-            servers={visibleServers} t={t} userRole={userRole}
+            servers={visibleServers} t={t} userRole={userRole} isRtl={isRtl}
             isAdmin={isAdmin} playersData={playersData}
             onOpenServer={(id) => { setActiveServerId(id); setCurrentView('server'); }}
             onCreateClick={() => setCurrentView('create')}
@@ -998,6 +999,7 @@ export default function App() {
           <CreateServerForm
             t={t}
             lang={lang}
+            isRtl={isRtl}
             allAddons={allAddons}
             userRole={userRole}
             isAdmin={isAdmin}
@@ -1025,7 +1027,7 @@ export default function App() {
 
         {currentView === 'repository' && (
           <GlobalRepository
-            t={t} lang={lang} allAddons={allAddons} customAddons={customAddons} userRole={userRole}
+            t={t} lang={lang} isRtl={isRtl} allAddons={allAddons} customAddons={customAddons} userRole={userRole}
             onAdd={handleAddCustomAddon}
             onDelete={handleDeleteCustomAddon}
           />
@@ -1041,7 +1043,7 @@ export default function App() {
             redirect effect below bounces non-admins back to the dashboard if they
             ever land on this view; their חמ"ל lives in the Dashboard panel. */}
         {currentView === 'health' && isAdmin && (
-          <HealthTab t={t} isAdmin={isAdmin} />
+          <HealthTab t={t} isAdmin={isAdmin} isRtl={isRtl} />
         )}
       </main>
 

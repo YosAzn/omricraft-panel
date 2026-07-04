@@ -317,27 +317,27 @@ export function AddonTypesTable({ t }) {
 const INSTALL_COLUMNS = [
   {
     tone: 'purple', Icon: Server, title: 'guideInstallColServer', sub: 'guideInstallColServerSub', badge: 'guideEnvBadgeServer',
-    chips: ['plugin', 'datapack', 'resource'], exc: 'guideInstallExcServer',
+    exc: 'guideInstallExcServer',
+    // Each item's `chips` (add-on-type framed names) become that paragraph's heading.
     items: [
-      { path: 'plugins/', body: 'guideInstallPluginsBody' },
-      { path: 'world/datapacks/', body: 'guideInstallDataBody' },
-      { path: 'server-resource-pack', body: 'guideInstallServerRp' },
+      { chips: ['plugin'], path: 'plugins/', body: 'guideInstallPluginsBody' },
+      { chips: ['datapack'], path: 'world/datapacks/', body: 'guideInstallDataBody' },
+      { chips: ['resource'], path: 'server-resource-pack', body: 'guideInstallServerRp' },
     ],
   },
   {
     tone: 'blue', Icon: ArrowLeftRight, title: 'guideInstallColBoth', sub: 'guideInstallColBothSub', badge: 'guideEnvBadgeBoth',
-    chips: ['mod', 'modpack'], exc: 'guideInstallExcBoth',
+    exc: 'guideInstallExcBoth',
     items: [
-      { path: 'mods/', body: 'guideInstallModsBody' },
+      { chips: ['mod', 'modpack'], path: 'mods/', body: 'guideInstallModsBody' },
     ],
   },
   {
     tone: 'teal', Icon: Laptop, title: 'guideInstallColPc', sub: 'guideInstallColPcSub', badge: 'guideEnvBadgeClient',
-    chips: ['client-mod', 'shader', 'resource'],
     items: [
-      { key: 'pc-clientmod', body: 'guideInstallPcModsBody' },
-      { key: 'pc-shader', body: 'guideInstallPcShadersBody' },
-      { key: 'pc-texture', body: 'guideInstallPcTexturesBody' },
+      { chips: ['client-mod'], key: 'pc-clientmod', body: 'guideInstallPcModsBody' },
+      { chips: ['shader'], key: 'pc-shader', body: 'guideInstallPcShadersBody' },
+      { chips: ['resource'], key: 'pc-texture', body: 'guideInstallPcTexturesBody' },
     ],
   },
 ];
@@ -359,35 +359,33 @@ export function InstallLocationCards({ t }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {INSTALL_COLUMNS.map((col) => (
           <div key={col.title} className={`rounded-2xl border p-5 ${INSTALL_TONE[col.tone]}`}>
+            {/* Header — title, then the badge UNDER it (uniform across all three
+                lanes, matching the player's-computer lane), then the sub-line. */}
             <div className="mb-3">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <h4 className="font-bold text-zinc-100 leading-tight inline-flex items-center gap-1.5">
-                  <col.Icon size={16} className="text-zinc-300 shrink-0" aria-hidden="true" />
-                  {t(col.title)}
-                </h4>
-                {col.badge && (
-                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${INSTALL_BADGE[col.tone]}`}>
+              <h4 className="font-bold text-zinc-100 leading-tight inline-flex items-center gap-1.5">
+                <col.Icon size={16} className="text-zinc-300 shrink-0" aria-hidden="true" />
+                {t(col.title)}
+              </h4>
+              {col.badge && (
+                <div className="mt-1.5">
+                  <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${INSTALL_BADGE[col.tone]}`}>
                     {t(col.badge)}
                   </span>
-                )}
-              </div>
-              <p className="text-xs text-zinc-400 mt-0.5">{t(col.sub)}</p>
-              {/* Add-on TYPES that land in this lane — tinted icon-chips (slide-deck style). */}
-              {col.chips && col.chips.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {col.chips.map((typeId) => (
-                    <AddonChip key={typeId} typeId={typeId} t={t} />
-                  ))}
                 </div>
               )}
+              <p className="text-xs text-zinc-400 mt-1.5">{t(col.sub)}</p>
             </div>
             <div className="space-y-3">
               {col.items.map((it) => (
                 <div key={it.key || it.path} className="rounded-lg bg-zinc-950/40 p-3">
-                  {/* Site style — the framed-name chips above identify the type; here
-                      just the folder path (for real folders) + the short kid
-                      explanation. No emoji. Player-side items have no folder path. */}
-                  {it.path && <code className="text-[11px] text-zinc-400 block mb-1" dir="ltr">{it.path}</code>}
+                  {/* The add-on-type framed name(s) ARE this paragraph's heading —
+                      the real folder path (when one exists) sits beside them. */}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1.5">
+                    {(it.chips || []).map((typeId) => (
+                      <AddonChip key={typeId} typeId={typeId} t={t} />
+                    ))}
+                    {it.path && <code className="text-[11px] text-zinc-400" dir="ltr">{it.path}</code>}
+                  </div>
                   <p className="text-xs text-zinc-300 leading-relaxed">{t(it.body)}</p>
                 </div>
               ))}

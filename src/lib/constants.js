@@ -229,16 +229,21 @@ export const curseforgeInstallUri = (id) =>
 // even more (6-8GB+) — surfaced as a note, not a per-core value (modpacks are addons).
 // `eol:true` flags an End-Of-Life / unmaintained core (Mohist) for a UX warning; it
 // stays fully selectable — existing Mohist servers must keep working.
+// `descKey` — i18n key for the localized one-line blurb shown in the create form.
+// `desc` (Hebrew) is kept as the fail-safe when a translation key hasn't resolved.
+// Folia is tuned for BIG player counts (multi-threaded), so it recommends more RAM
+// than the lean Vanilla/Paper/Purpur tier — the create form re-snaps the pre-selected
+// RAM to this value whenever the core changes (until the user picks one manually).
 export const SOFTWARE_TYPES = [
-  { id: 'vanilla',   name: 'Vanilla',   type: 'official', desc: 'שרת Mojang רשמי — קשה, נקי',                          recommendedRamMb: 2048 },
-  { id: 'paper',     name: 'Paper',     type: 'plugins',  desc: 'הכי נפוץ — ביצועים + plugins',                        recommendedRamMb: 2048 },
-  { id: 'purpur',    name: 'Purpur',    type: 'plugins',  desc: 'Paper משופר — תומך plugins, מהיר + עוד הגדרות. מומלץ!', recommendedRamMb: 2048 },
-  { id: 'folia',     name: 'Folia',     type: 'plugins',  desc: 'Paper עם multi-threading לשרתים גדולים',              recommendedRamMb: 2048 },
-  { id: 'fabric',    name: 'Fabric',    type: 'mods',     desc: 'Mods קלים — עדכניים',                                 recommendedRamMb: 3072 },
-  { id: 'forge',     name: 'Forge',     type: 'mods',     desc: 'Mods קלאסיים — ספריית ה-mods הגדולה',                 recommendedRamMb: 6144 },
-  { id: 'neoforge',  name: 'NeoForge',  type: 'mods',     desc: 'Forge המודרני — מתחזק יותר',                          recommendedRamMb: 6144 },
-  { id: 'mohist',    name: 'Mohist',    type: 'hybrid',   desc: 'Forge + Bukkit plugins יחד',                         recommendedRamMb: 6144, eol: true },
-  { id: 'youer',     name: 'Youer',     type: 'hybrid',   desc: 'שרת היברידי NeoForge (היורש המתוחזק של Mohist) — מריץ מודים + פלאגינים יחד', recommendedRamMb: 6144, eol: false },
+  { id: 'vanilla',   name: 'Vanilla',   type: 'official', descKey: 'swDescVanilla',  desc: 'שרת Mojang רשמי — קשה, נקי',                          recommendedRamMb: 2048 },
+  { id: 'paper',     name: 'Paper',     type: 'plugins',  descKey: 'swDescPaper',    desc: 'הכי נפוץ — ביצועים + plugins',                        recommendedRamMb: 2048 },
+  { id: 'purpur',    name: 'Purpur',    type: 'plugins',  descKey: 'swDescPurpur',   desc: 'Paper משופר — תומך plugins, מהיר + עוד הגדרות. מומלץ!', recommendedRamMb: 2048 },
+  { id: 'folia',     name: 'Folia',     type: 'plugins',  descKey: 'swDescFolia',    desc: 'Paper עם multi-threading לשרתים גדולים',              recommendedRamMb: 4096 },
+  { id: 'fabric',    name: 'Fabric',    type: 'mods',     descKey: 'swDescFabric',   desc: 'Mods קלים — עדכניים',                                 recommendedRamMb: 3072 },
+  { id: 'forge',     name: 'Forge',     type: 'mods',     descKey: 'swDescForge',    desc: 'Mods קלאסיים — ספריית ה-mods הגדולה',                 recommendedRamMb: 6144 },
+  { id: 'neoforge',  name: 'NeoForge',  type: 'mods',     descKey: 'swDescNeoforge', desc: 'Forge המודרני — מתחזק יותר',                          recommendedRamMb: 6144 },
+  { id: 'mohist',    name: 'Mohist',    type: 'hybrid',   descKey: 'swDescMohist',   desc: 'Forge + Bukkit plugins יחד',                         recommendedRamMb: 6144, eol: true },
+  { id: 'youer',     name: 'Youer',     type: 'hybrid',   descKey: 'swDescYouer',    desc: 'שרת היברידי NeoForge (היורש המתוחזק של Mohist) — מריץ מודים + פלאגינים יחד', recommendedRamMb: 6144, eol: false },
 ];
 
 // Recommended RAM (MB) for a core; falls back to 2GB for unknown ids.

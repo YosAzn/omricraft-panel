@@ -55,7 +55,7 @@ export function CompatRules({ t }) {
       </div>
 
       {/* The rest of the rules (dependencies, core-locks, exceptions). */}
-      <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wide mb-3">{t('guideSyncMoreRules')}</h3>
+      <h3 className="text-lg sm:text-xl font-bold text-zinc-200 mb-3">{t('guideSyncMoreRules')}</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         {COMPAT_RULES.map((r) => (
           <div key={r.title} className={`rounded-xl border p-4 ${RULE_TONE[r.tone]}`}>
@@ -126,6 +126,20 @@ const ALT_ROWS = [
   { key: 'alt8', role: 'guideAlt8Role', plugin: 'Skoice', mod: 'Simple Voice Chat' },
 ];
 
+// Alt-table column header — the leading word (פלאגין / מוד) is ENLARGED; the core
+// list in parentheses (Paper / Purpur · Forge / Fabric) stays small beneath it.
+function AltHead({ text, className }) {
+  const m = typeof text === 'string' ? text.match(/^(.*?)\s*(\([^)]*\))\s*$/) : null;
+  const word = m ? m[1] : text;
+  const cores = m ? m[2] : '';
+  return (
+    <div className={`text-center leading-tight ${className}`}>
+      <bdi className="block text-lg sm:text-2xl font-black">{word}</bdi>
+      {cores && <bdi className="block mt-0.5 text-[11px] sm:text-xs font-bold text-zinc-400 normal-case tracking-normal">{cores}</bdi>}
+    </div>
+  );
+}
+
 export function AltTable({ t }) {
   return (
     <>
@@ -134,28 +148,28 @@ export function AltTable({ t }) {
     {/* Two-column migration matrix (slide-deck): plugins (Paper) on one side,
         mods (Forge/Fabric) on the other. Each row = a parallel pair with a
         connector between them + the role as the pair's label. */}
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 sm:p-5">
-      {/* Column headers */}
-      <div className="grid grid-cols-[1fr_auto_1fr] gap-3 sm:gap-4 items-center pb-3 mb-2 border-b border-zinc-800 text-base sm:text-lg uppercase tracking-wide font-black">
-        <div className="text-center text-purple-300"><bdi>{t('guideAltHeadPlugin')}</bdi></div>
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4">
+      {/* Column headers — the "titles", kept bold. */}
+      <div className="grid grid-cols-[1fr_auto_1fr] gap-3 sm:gap-4 items-center pb-2.5 mb-2 border-b border-zinc-800 uppercase tracking-wide">
+        <AltHead text={t('guideAltHeadPlugin')} className="text-purple-300" />
         <div className="w-8" aria-hidden="true"></div>
-        <div className="text-center text-blue-300"><bdi>{t('guideAltHeadMod')}</bdi></div>
+        <AltHead text={t('guideAltHeadMod')} className="text-blue-300" />
       </div>
 
       <div className="space-y-2.5">
         {ALT_ROWS.map((r) => (
           <div key={r.key}>
-            {/* role label = what this pair does */}
-            <div className="text-sm sm:text-base text-zinc-200 font-bold text-center mb-1.5">{t(r.role)}</div>
+            {/* role label = what this pair DOES — kept bold (a "title"). */}
+            <div className="text-sm text-zinc-200 font-bold text-center mb-1.5">{t(r.role)}</div>
             <div className="grid grid-cols-[1fr_auto_1fr] gap-3 sm:gap-4 items-stretch">
-              {/* plugin side */}
-              <div dir="ltr" className="rounded-xl border border-purple-500/25 bg-purple-500/[0.06] px-3 py-3 text-base sm:text-lg font-bold text-zinc-100 flex items-center justify-center text-center min-h-[44px]">
+              {/* plugin side — the add-on NAME is NOT bold (only titles/roles are). */}
+              <div dir="ltr" className="rounded-xl border border-purple-500/25 bg-purple-500/[0.06] px-3 py-2.5 text-sm sm:text-base font-normal text-zinc-200 flex items-center justify-center text-center min-h-[40px]">
                 {r.plugin}
               </div>
               {/* connector — bidirectional (RTL-safe: symmetric symbol) */}
-              <div className="flex items-center justify-center text-zinc-500 text-lg font-bold select-none" aria-hidden="true">⇄</div>
-              {/* mod side */}
-              <div dir="ltr" className="rounded-xl border border-blue-500/25 bg-blue-500/[0.06] px-3 py-3 text-base sm:text-lg font-bold text-zinc-100 flex items-center justify-center text-center min-h-[44px]">
+              <div className="flex items-center justify-center text-zinc-500 text-base font-bold select-none" aria-hidden="true">⇄</div>
+              {/* mod side — name not bold */}
+              <div dir="ltr" className="rounded-xl border border-blue-500/25 bg-blue-500/[0.06] px-3 py-2.5 text-sm sm:text-base font-normal text-zinc-200 flex items-center justify-center text-center min-h-[40px]">
                 {r.mod.startsWith('guide') ? t(r.mod) : r.mod}
               </div>
             </div>

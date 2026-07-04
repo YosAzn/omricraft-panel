@@ -88,6 +88,7 @@ const ENVIRONMENTS = [
     ],
     serverChips: [
       { type: 'mods', icon: Cog, labelKey: 'guideChipMod' },
+      { type: 'modpacks', labelKey: 'guideChipModpack' },
       { type: 'datapacks', icon: FileCode, labelKey: 'guideChipDatapack' },
     ],
   },
@@ -105,6 +106,7 @@ const ENVIRONMENTS = [
     serverChips: [
       { type: 'plugins', icon: Puzzle, labelKey: 'guideChipPlugin' },
       { type: 'mods', icon: Cog, labelKey: 'guideChipMod' },
+      { type: 'modpacks', labelKey: 'guideChipModpack' },
       { type: 'datapacks', icon: FileCode, labelKey: 'guideChipDatapack' },
     ],
   },
@@ -117,13 +119,14 @@ const ENVIRONMENTS = [
 //     (front on top, back below) so everything stays readable without a flip.
 //   • prefers-reduced-motion → the 3-D transform is disabled (same stacked view).
 const FLIP_CSS = `
-.gec-flip { perspective: 1200px; }
+.gec-flip { perspective: 1500px; }
 .gec-inner {
   position: relative;
   width: 100%;
-  min-height: 13rem;
+  min-height: 19rem;
   transition: transform 0.5s ease;
   transform-style: preserve-3d;
+  will-change: transform;
 }
 .gec-flip:hover .gec-inner,
 .gec-flip:focus-within .gec-inner { transform: rotateY(180deg); }
@@ -152,14 +155,16 @@ const FLIP_CSS = `
 
 // One flip card for an environment.
 function EnvCard({ env, t }) {
-  const faceShell = `rounded-2xl border bg-zinc-950/70 p-5 h-full ${env.accent} transition-colors`;
+  // Opaque card face (was bg-zinc-950/70) — the semi-transparent version let the
+  // background decoration bleed through, which read as a blurry/murky card.
+  const faceShell = `rounded-2xl border bg-zinc-900 p-5 h-full ${env.accent} transition-colors`;
   return (
     <div className="gec-flip" tabIndex={0}>
       <div className="gec-inner">
         {/* FRONT — name, then a badge UNDER it (classic tag for Vanilla, else the
             side badge) — same placement across all cards — + one-liner + flip hint */}
         <div className={`gec-face gec-front ${faceShell}`}>
-          <h3 className="text-lg font-black text-zinc-100 leading-tight mb-2">{t(env.titleKey)}</h3>
+          <h3 className="text-lg font-bold text-zinc-100 leading-tight mb-2">{t(env.titleKey)}</h3>
           {(env.classicTag || env.badgeKey) && (
             <span
               className={`self-start inline-flex px-2 py-0.5 rounded-md border text-[11px] font-bold mb-3 ${
@@ -173,19 +178,32 @@ function EnvCard({ env, t }) {
           <p className="gec-fliphint mt-auto pt-3 text-[11px] text-zinc-500">{t('guideEnvFlipHint')}</p>
         </div>
 
-        {/* BACK — just the server types in this environment (which addon installs
-            WHERE lives in the "מה על מה" + "תוספים" tables, kept correct there — the
-            card stays clean and never needs a scrollbar). */}
-        <div className={`gec-face gec-back ${faceShell}`}>
-          <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500 mb-2">{t('guideEnvCoresLabel')}</p>
-          <ul className="space-y-1.5">
+        {/* BACK — the server types in this environment + EVERY add-on type it can
+            use: what installs ON THE SERVER, and the universal player-side add-ons
+            (textures / shaders / client mods) that work on every environment,
+            Vanilla included. (Replaces the old summary table below the grid.) */}
+        <div className={`gec-face gec-back ${faceShell} overflow-hidden`}>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500 mb-1.5">{t('guideEnvCoresLabel')}</p>
+          <ul className="space-y-1 mb-3">
             {env.cores.map((c) => (
-              <li key={c.name} className="text-sm text-zinc-300 leading-snug">
+              <li key={c.name} className="text-[13px] text-zinc-300 leading-snug">
                 <bdi className="font-bold text-zinc-100">{c.name}</bdi>
                 <span className="text-zinc-400"> — {t(c.shortKey)}</span>
               </li>
             ))}
           </ul>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500 mb-1">{t('guideEnvTableServer')}</p>
+          <div className="flex flex-wrap gap-1.5 mb-2.5">
+            {env.serverChips.map((ch) => (
+              <AddonChip key={ch.type} type={ch.type} label={t(ch.labelKey)} />
+            ))}
+          </div>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500 mb-1">{t('guideInstallColPc')}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {PLAYER_CHIPS.map((ch) => (
+              <AddonChip key={ch.type} type={ch.type} label={t(ch.labelKey)} />
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -204,35 +222,10 @@ export default function ServerEnvCards({ t }) {
         ))}
       </div>
 
-      {/* Compact, no-scroll add-on table — which add-ons each environment installs
-          ON THE SERVER (framed-name chips). Player-side add-ons (textures / shaders
-          / client mods) are universal (every environment incl. Vanilla) — said once
-          in the note below instead of repeating them on every row. */}
-      <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-zinc-800 text-zinc-400 text-[11px] uppercase tracking-wide">
-              <th className="text-start p-2.5 font-bold">{t('guideEnvTableEnv')}</th>
-              <th className="text-start p-2.5 font-bold">{t('guideEnvTableServer')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ENVIRONMENTS.map((env) => (
-              <tr key={env.id} className="border-b border-zinc-800/50 last:border-0 hover:bg-zinc-800/20 transition-colors">
-                <td className="p-2.5 align-top font-bold text-zinc-100 whitespace-nowrap">{t(env.titleKey)}</td>
-                <td className="p-2.5 align-top">
-                  <div className="flex flex-wrap gap-1">
-                    {env.serverChips.map((ch) => (
-                      <AddonChip key={ch.type} type={ch.type} label={t(ch.labelKey)} />
-                    ))}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-2 text-[11px] text-zinc-500 leading-relaxed">{t('guidePlayerSideNote')}</p>
+      {/* The old summary table was dropped — each card's back now lists what
+          installs on the server AND the universal player-side add-ons. This note
+          stays as the one-line reminder of what "player-side" means. */}
+      <p className="mt-4 text-[11px] text-zinc-500 leading-relaxed">{t('guidePlayerSideNote')}</p>
     </>
   );
 }

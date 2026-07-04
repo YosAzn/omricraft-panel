@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Activity, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { getDiagnosticsFn } from '../lib/api';
 import HealthIssueRow from './HealthIssueRow';
+import warroomLogo from '../assets/warroom-logo.png';
 
 // --- War Room / חמ"ל — health diagnostics (available to ALL signed-in users) ---
 // Flow: A (this component) → B getDiagnostics Cloud Function (auth-required,
@@ -17,7 +18,7 @@ import HealthIssueRow from './HealthIssueRow';
 // The single-issue row + fix-button wiring lives in the shared <HealthIssueRow>,
 // reused by the Dashboard summary panel so both stay identical.
 
-export default function HealthTab({ t = (k) => k, isAdmin = false }) {
+export default function HealthTab({ t = (k) => k, isAdmin = false, isRtl = false }) {
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(false);
   const [scanError, setScanError] = useState(null);
@@ -68,11 +69,9 @@ export default function HealthTab({ t = (k) => k, isAdmin = false }) {
     <div className="max-w-4xl mx-auto" dir="rtl">
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <div className="bg-rose-600/15 p-2 rounded-lg">
-            <Activity size={22} className="text-rose-400" />
-          </div>
+          <img src={warroomLogo} alt="" aria-hidden="true" className="h-11 sm:h-12 w-auto shrink-0" style={{ filter: 'drop-shadow(0 0 16px rgba(244,63,94,0.4))' }} />
           <div>
-            <h2 className="text-xl font-black tracking-tight">{t('healthTitle')}</h2>
+            <h2 className="text-3xl font-bold leading-tight">{t('healthTitle')}</h2>
             <p className="text-xs text-zinc-500">
               {isAdmin && scope === 'all' ? t('healthSubtitleAll') : t('healthSubtitleMine')}
             </p>

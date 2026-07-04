@@ -2,12 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Server, Trash2, Plus, Package, HardDrive, RefreshCw, Square, Play, Shield,
   Users, Activity, ArrowUpCircle,
-  ChevronRight, ChevronDown, CheckCircle2, Search
+  ChevronRight, ChevronDown, CheckCircle2, Search, Inbox
 } from 'lucide-react';
 import { getDiagnosticsFn, getVersionMatrixFn } from '../lib/api';
 import PendingRequests from './PendingRequests';
 import HealthIssueRow from './HealthIssueRow';
 import RecycleBin from './RecycleBin';
+import { PageHeader } from './ui';
+import dashboardLogo from '../assets/dashboard-logo.png';
 
 // Numeric MC-version compare (newest-first): "1.21.11" must rank above "1.21.9".
 // String compare gets this wrong, so we tuple-compare integer segments.
@@ -21,31 +23,86 @@ const cmpVerDesc = (a, b) => {
   return 0;
 };
 
-// A single stat card. value === null renders a neutral dash (never a fake 0).
-// COMPACT + refined: no loud colored icon box — the icon is a large ghost
-// (semi-transparent, faint accent tint) tucked behind the number in the corner,
-// so it blends gently into the card instead of dominating it.
+// Per-accent class sets — full literal class names (Tailwind keeps them at build).
+// Mirrors the LANDING page's stat-card language: an accent-tinted corner watermark
+// of the icon, a white→accent gradient value, and an accent hover glow.
+const DASH_ACCENTS = {
+  emerald: { text: 'text-emerald-400', hover: 'hover:border-emerald-500/40 hover:shadow-emerald-900/20', value: 'from-white to-emerald-300', watermark: 'text-emerald-500/[0.13]' },
+  sky:     { text: 'text-sky-400',     hover: 'hover:border-sky-500/40 hover:shadow-sky-900/20',         value: 'from-white to-sky-300',     watermark: 'text-sky-500/[0.13]' },
+  amber:   { text: 'text-amber-400',   hover: 'hover:border-amber-500/40 hover:shadow-amber-900/20',     value: 'from-white to-amber-300',   watermark: 'text-amber-500/[0.13]' },
+  rose:    { text: 'text-rose-400',    hover: 'hover:border-rose-500/40 hover:shadow-rose-900/20',       value: 'from-white to-rose-300',    watermark: 'text-rose-500/[0.13]' },
+};
+
+// A single stat card — LANDING-page style: rounded-2xl glass, an accent corner
+// watermark of the stat's icon, and a white→accent gradient value. Compact (same
+// footprint as before). value === null renders a neutral dash (never a fake 0).
 function StatCard({ icon: Icon, label, value, loading, accent = 'emerald' }) {
-  const tints = {
-    emerald: 'text-emerald-400',
-    sky: 'text-sky-400',
-    amber: 'text-amber-400',
-    rose: 'text-rose-400',
-  };
+  const a = DASH_ACCENTS[accent] || DASH_ACCENTS.emerald;
   return (
-    <div className="relative overflow-hidden bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2 min-w-[140px]">
-      <Icon size={38} className={`absolute -bottom-1.5 end-2 opacity-[0.08] pointer-events-none ${tints[accent] || tints.emerald}`} aria-hidden="true" />
-      <div className="text-lg font-black tabular-nums leading-tight">
-        {loading ? <RefreshCw size={16} className="animate-spin text-zinc-600" /> : (value === null || value === undefined ? '—' : value)}
+    <div className={`relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 min-w-[150px] transition-all hover:shadow-2xl ${a.hover}`}>
+      <Icon size={72} strokeWidth={1.5} className={`pointer-events-none absolute -bottom-3 -end-2 ${a.watermark} select-none`} aria-hidden="true" />
+      <div className="relative text-2xl font-black tabular-nums tracking-tighter leading-none">
+        {loading
+          ? <RefreshCw size={16} className="animate-spin text-zinc-600" />
+          : <span className={`bg-gradient-to-b ${a.value} bg-clip-text text-transparent`}>{value === null || value === undefined ? '—' : value}</span>}
       </div>
-      <div className="text-[11px] text-zinc-400 truncate">{label}</div>
+      <div className="relative mt-1 text-[11px] text-zinc-400 truncate">{label}</div>
     </div>
+  );
+}
+
+// A CLICKABLE stat "button" (חמ"ל / pending) — the SAME landing-style card as
+// StatCard, plus an ENLARGED accent watermark icon + a chevron affordance so the
+// open/close is obvious. `active` reflects the open panel (neutral-highlighted).
+function StatButton({ icon: Icon, label, value, loading, accent = 'emerald', active = false, onClick }) {
+  const a = DASH_ACCENTS[accent] || DASH_ACCENTS.emerald;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={active}
+      className={`relative overflow-hidden text-start rounded-2xl border px-4 py-3 min-w-[150px] transition-all cursor-pointer hover:shadow-2xl
+        ${active ? 'border-zinc-600 bg-zinc-800/70' : `border-zinc-800 bg-zinc-900/60 ${a.hover}`}`}
+    >
+      {/* Enlarged accent watermark of the חמ"ל / requests glyph (landing style). */}
+      <Icon size={72} strokeWidth={1.5} className={`pointer-events-none absolute -bottom-3.5 -end-2.5 ${a.watermark} select-none`} aria-hidden="true" />
+      <div className="relative flex items-center gap-1">
+        <span className="text-2xl font-black tabular-nums tracking-tighter leading-none">
+          {loading
+            ? <RefreshCw size={16} className="animate-spin text-zinc-600" />
+            : <span className={`bg-gradient-to-b ${a.value} bg-clip-text text-transparent`}>{value === null || value === undefined ? '—' : value}</span>}
+        </span>
+        <ChevronDown size={15} className={`${a.text} transition-transform ${active ? 'rotate-180' : ''}`} />
+      </div>
+      <div className="relative mt-1 text-[11px] text-zinc-400 truncate">{label}</div>
+    </button>
+  );
+}
+
+// The create/request action — SAME size/footprint as the stat cards (emerald-glass,
+// a "+" corner watermark, a subtle green hover glow), but the label uses the NORMAL
+// site font (bold emerald text, not a gradient wordmark).
+function ActionCard({ label, onClick }) {
+  const a = DASH_ACCENTS.emerald;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative overflow-hidden text-start rounded-2xl border border-emerald-500/40 bg-emerald-500/[0.08] px-4 py-3 min-w-[150px] transition-all cursor-pointer hover:shadow-2xl hover:bg-emerald-500/[0.14] ${a.hover}`}
+    >
+      <Plus size={72} strokeWidth={1.5} className="pointer-events-none absolute -bottom-3 -end-2 text-emerald-500/[0.16] select-none" aria-hidden="true" />
+      <div className="relative flex items-center gap-1.5 text-emerald-300">
+        <Plus size={18} className="shrink-0" />
+        <span className="text-base font-bold">{label}</span>
+      </div>
+      <div className="relative mt-1 text-[11px] text-zinc-500 truncate">&nbsp;</div>
+    </button>
   );
 }
 
 export default function Dashboard({
   servers, onOpenServer, onCreateClick, toggleServerStatus, onDeleteAll, t, userRole,
-  playersData = {}, isAdmin = false, onOpenHealth, onApproveRequest, onServerRestored,
+  playersData = {}, isAdmin = false, onOpenHealth, onApproveRequest, onServerRestored, isRtl = false,
 }) {
   // Client-side server search (filters the visible servers grid by name).
   const [serverSearch, setServerSearch] = useState('');
@@ -56,6 +113,9 @@ export default function Dashboard({
   // demand. Each header (title + count badge + chevron) toggles its own panel.
   const [healthOpen, setHealthOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
+  // Pending-requests count, lifted from <PendingRequests onCount> so the top
+  // stat-button shows it while the panel stays collapsed.
+  const [pendingCount, setPendingCount] = useState(null);
 
   // --- חמ"ל diagnostics — fetched ONCE for EVERY signed-in user, reused by both
   //     the stat card and the summary card below (no double-call). The function
@@ -164,92 +224,86 @@ export default function Dashboard({
 
   return (
     <div className="animate-in fade-in duration-300">
-      {/* ===== Greeting + header (keeps the role-aware heading + count) ===== */}
-      <div className="mb-6">
-        <p className="text-sm text-emerald-400 font-bold mb-1">
-          {userRole === 'admin' ? t('dashGreetingAdmin') : t('dashGreeting')}
-        </p>
-        <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
-          {/* heading is dynamic by role: admin sees all, client sees only their own */}
-          {userRole === 'admin' ? t('allServers') : t('yourServers')}
-          <span className="text-base font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-0.5">
-            {servers.length}
-          </span>
-        </h2>
-        <p className="text-zinc-400">{t('manageDesc')}</p>
-      </div>
+      {/* ===== Greeting + page header (emblem + "דשבורד" title). The server COUNT
+              badge was dropped — the total is already shown in the stat card below. ===== */}
+      <PageHeader
+        logo={dashboardLogo}
+        eyebrow={userRole === 'admin' ? t('dashGreetingAdmin') : t('dashGreeting')}
+        title={t('dashboard')}
+        desc={t('manageDesc')}
+        glow="rgba(59,130,246,0.35)"
+      />
 
-      {/* ===== STATS + ACTIONS row (top of dashboard) — the two remaining compact
-              stat cards (Total servers / Players online) share ONE row with the
-              actions: emerald "New Server", the server search, and a quieter
-              danger-outline "Delete all" (admin). Search drives the at-a-glance
-              grid below (filteredServers). Same handlers as before — only the
-              placement/styling changed. ===== */}
-      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-stretch gap-3 mb-6">
+      {/* ===== STATS + ACTIONS row — the stat-buttons (servers · players · חמ"ל
+              issues · pending requests) sit together; the server search goes BETWEEN
+              them and the actions; the actions (Create on the far left, Delete just to
+              its right — RTL) sit at the row's end. חמ"ל + pending are now CLICKABLE
+              stat-buttons that open their panel below (eduUI-style). On narrow screens
+              the search drops to a slim bar above the server grid (see below). ===== */}
+      <div className="flex flex-wrap items-stretch gap-3 mb-6">
         <StatCard icon={Server} label={t('dashStatTotalServers')} value={totalServersValue} accent="emerald" />
         <StatCard icon={Users} label={t('dashStatPlayersOnline')} value={playersOnlineValue} accent="sky" />
-        {/* Create — ALWAYS visible; admins create, non-admins submit a request. */}
-        <button
-          onClick={onCreateClick}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-900/30 hover:-translate-y-0.5 whitespace-nowrap"
-        >
-          <Plus size={16} /> <span>{isAdmin ? t('newServer') : t('requestServerCta')}</span>
-        </button>
-        {servers.length > 0 && (
-          <>
-            <div className="relative flex-1 sm:max-w-xs">
-              <Search size={15} className="absolute top-1/2 -translate-y-1/2 start-3 text-zinc-500 pointer-events-none" />
-              <input
-                type="text"
-                value={serverSearch}
-                onChange={(e) => setServerSearch(e.target.value)}
-                placeholder={t('dashSearchServer')}
-                className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500/40 focus:outline-none rounded-xl ps-9 pe-3 h-full min-h-[42px] text-sm text-zinc-100 placeholder-zinc-500 w-full"
-              />
-            </div>
-            {userRole === 'admin' && (
-              <button
-                onClick={onDeleteAll}
-                className="border border-red-800/50 text-red-400 hover:bg-red-900/30 hover:border-red-700 px-4 py-2 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all whitespace-nowrap sm:ms-auto"
-              >
-                <Trash2 size={15} /> <span>{t('dashDeleteAll')}</span>
-              </button>
-            )}
-          </>
+        {/* חמ"ל — "X issues"; click opens the health panel below (all users). */}
+        <StatButton
+          icon={Activity}
+          label={t('issuesUnit')}
+          value={issueCount}
+          loading={diagLoading && diagnostics === null}
+          accent="rose"
+          active={healthOpen}
+          onClick={() => setHealthOpen(o => !o)}
+        />
+        {/* Pending requests — "X requests"; click opens the panel below (admin). */}
+        {isAdmin && (
+          <StatButton
+            icon={Inbox}
+            label={t('requestsUnit')}
+            value={pendingCount}
+            accent="emerald"
+            active={requestsOpen}
+            onClick={() => setRequestsOpen(o => !o)}
+          />
         )}
+        {/* Search — BETWEEN the stat-buttons and the actions (large screens). */}
+        {servers.length > 0 && (
+          <div className="relative hidden lg:block flex-1 min-w-[180px] max-w-sm">
+            <Search size={15} className="absolute top-1/2 -translate-y-1/2 start-3 text-zinc-500 pointer-events-none" />
+            <input
+              type="text"
+              value={serverSearch}
+              onChange={(e) => setServerSearch(e.target.value)}
+              placeholder={t('dashSearchServer')}
+              className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500/40 focus:outline-none rounded-xl ps-9 pe-3 h-full min-h-[42px] text-sm text-zinc-100 placeholder-zinc-500 w-full"
+            />
+          </div>
+        )}
+        {/* Actions — DOM order [Delete][Create] so in RTL "Create" is the far-left
+            button and "Delete all" sits to its right. Pushed to the row's end. */}
+        <div className="flex items-center gap-3 ms-auto">
+          {userRole === 'admin' && servers.length > 0 && (
+            <button
+              onClick={onDeleteAll}
+              className="border border-red-800/50 text-red-400 hover:bg-red-900/30 hover:border-red-700 px-4 py-2 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all whitespace-nowrap"
+            >
+              <Trash2 size={15} /> <span>{t('dashDeleteAll')}</span>
+            </button>
+          )}
+          <ActionCard label={isAdmin ? t('newServer') : t('requestServerCta')} onClick={onCreateClick} />
+        </div>
       </div>
 
-      {/* ===== Collapsible panels — STACKED (Health above Requests), both
-              COLLAPSED BY DEFAULT so the server list stays the focus. ===== */}
+      {/* ===== Panels that OPEN from the top stat-buttons (חמ"ל issues / pending
+              requests) — each renders below only when its button is active, like a
+              card opening. Collapsed by default so the server list stays the focus. ===== */}
       <div className="mb-8 space-y-3">
-        {/* --- חמ"ל / Health summary accordion (ALL users). This is the FULL חמ"ל
-                experience for non-admins: every issue on THEIR servers (scoped by
-                getDiagnostics({scope:'mine'})), each row carrying the SAME fix
-                button as the dedicated tab (via <HealthIssueRow>). The 'open full'
-                link is ADMIN-only. Collapsed = header only; expand = issue list. --- */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-          {/* DECLUTTERED header — ONE leading icon (state-coloured) + title + count
-              badge, and a single trailing chevron as the expand affordance. The
-              whole row is one button with a clear hover state so it's obviously
-              clickable-to-expand (dropped the extra 🩺 emoji + "·" dot + the second
-              chevron). Admin "open full" moves inside the expanded panel below. */}
-          <button
-            type="button"
-            onClick={() => setHealthOpen(o => !o)}
-            className="w-full flex items-center gap-2 p-4 text-start cursor-pointer bg-zinc-800/20 hover:bg-zinc-800/60 transition-colors"
-            aria-expanded={healthOpen}
-          >
-            <Activity size={16} className={`flex-shrink-0 ${issueCount > 0 ? 'text-rose-400' : 'text-emerald-400'}`} />
-            <span className="text-sm font-bold text-zinc-300">{t('dashHamalSummary')}</span>
-            <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 flex-shrink-0 whitespace-nowrap ${issueCount > 0 ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20' : 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'}`}>
-              {issueCount === null ? '…' : `${issueCount} ${t('issuesUnit')}`}
-            </span>
-            <ChevronDown size={18} className={`text-zinc-400 flex-shrink-0 ms-auto transition-transform ${healthOpen ? 'rotate-180' : ''}`} />
-          </button>
-          {healthOpen && (
-            <div className="px-4 pb-4">
-              {/* Admin-only "open full חמ"ל" — moved out of the header into the
-                  expanded panel so the collapsed row stays clean. */}
+        {/* --- חמ"ל / Health panel (ALL users) — opens from the "issues" stat-button.
+                The FULL חמ"ל experience for non-admins: every issue on THEIR servers
+                (getDiagnostics({scope:'mine'})), each row carrying the SAME fix button
+                as the dedicated tab (via <HealthIssueRow>); 'open full' is admin-only. --- */}
+        {healthOpen && (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="p-4">
+              {/* Admin-only "open full חמ"ל". */}
               {isAdmin && (
                 <div className="flex justify-end mb-2">
                   <button onClick={onOpenHealth} className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors">
@@ -265,8 +319,7 @@ export default function Dashboard({
                 </div>
               ) : (
                 /* Scrollable panel — same look as the create-server addon-picker /
-                   HealthTab list. The flat list isn't grouped by server, so each
-                   row shows its server name. */
+                   HealthTab list. Each row shows its server name. */
                 <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 max-h-[40vh] overflow-y-auto space-y-2">
                   {sortedIssues.map((iss, idx) => (
                     <HealthIssueRow
@@ -280,8 +333,8 @@ export default function Dashboard({
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* --- Pending server requests accordion (ADMIN only) — non-admins submit
                 create requests; admins approve/deny here. Data via admin-SDK
@@ -291,8 +344,10 @@ export default function Dashboard({
             t={t}
             onApproved={onApproveRequest}
             collapsible
+            headerless
             open={requestsOpen}
             onToggle={() => setRequestsOpen(o => !o)}
+            onCount={setPendingCount}
           />
         )}
 
@@ -314,6 +369,20 @@ export default function Dashboard({
       {/* NOTE: the standalone stat-card block that used to sit here moved UP into
               the combined stats+actions row at the top of the dashboard. */}
 
+      {/* Slim server-search — shows only where the top-row search is hidden (no
+          room): a half-height bar right above the server grid. Same state. */}
+      {servers.length > 0 && (
+        <div className="relative lg:hidden mb-3">
+          <Search size={14} className="absolute top-1/2 -translate-y-1/2 start-3 text-zinc-500 pointer-events-none" />
+          <input
+            type="text"
+            value={serverSearch}
+            onChange={(e) => setServerSearch(e.target.value)}
+            placeholder={t('dashSearchServer')}
+            className="bg-zinc-900 border border-zinc-800 focus:border-emerald-500/40 focus:outline-none rounded-lg ps-9 pe-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 w-full"
+          />
+        </div>
+      )}
       {/* ===== Servers at-a-glance (section 2) — existing grid, enhanced with
               real player counts. Keeps onOpenServer / toggleServerStatus.
               The search / delete-all / create actions moved UP to the primary

@@ -14,7 +14,7 @@ import { getPendingRequestsFn, approveServerRequestFn, denyServerRequestFn } fro
 // header row (title + count badge + chevron) that toggles `open` via `onToggle`;
 // the request list/body only renders when `open`. Without `collapsible` it keeps
 // the original always-expanded layout (backward compatible).
-export default function PendingRequests({ t, onApproved, collapsible = false, open = true, onToggle }) {
+export default function PendingRequests({ t, onApproved, collapsible = false, open = true, onToggle, headerless = false, onCount }) {
   const [requests, setRequests] = useState(null); // null = not loaded yet
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState(null);      // request currently being approved/denied
@@ -80,9 +80,17 @@ export default function PendingRequests({ t, onApproved, collapsible = false, op
   // In accordion mode the body is hidden until the header is expanded.
   const bodyVisible = !collapsible || open;
 
+  // Report the current count up so the Dashboard's top "requests" stat-button can
+  // show it (the component stays mounted to keep the count live even while closed).
+  useEffect(() => { if (typeof onCount === 'function') onCount(count); }, [count, onCount]);
+
+  // Headerless mode: the Dashboard's stat-button is the trigger, so render nothing
+  // until it's opened (the fetch + onCount above already ran on mount).
+  if (collapsible && headerless && !open) return null;
+
   return (
     <div className={`bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden ${collapsible ? 'p-0' : 'p-5 mb-8'}`}>
-      {collapsible ? (
+      {collapsible && !headerless ? (
         // DECLUTTERED header (mirrors the חמ"ל summary) — ONE leading icon + title +
         // count badge, single trailing chevron affordance, whole row a hover button.
         // Dropped the 📥 emoji + "·" dot + duplicate chevron; the refresh button
@@ -100,7 +108,7 @@ export default function PendingRequests({ t, onApproved, collapsible = false, op
           </span>
           <ChevronDown size={18} className={`text-zinc-400 flex-shrink-0 ms-auto transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
-      ) : (
+      ) : !collapsible ? (
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-bold text-zinc-300 flex items-center gap-2">
             <Inbox size={16} className="text-emerald-400" /> {t('pendingRequests')}
@@ -118,7 +126,7 @@ export default function PendingRequests({ t, onApproved, collapsible = false, op
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> {t('requestRefresh')}
           </button>
         </div>
-      )}
+      ) : null}
 
       {bodyVisible && (<>
       <div className={collapsible ? 'px-4 pb-4' : ''}>

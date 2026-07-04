@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
   BookOpen, Server, Puzzle, FolderTree, ShieldCheck,
-  Cpu, Repeat, ArrowUp, ArrowLeft, ArrowRight,
+  Cpu, Repeat, ArrowLeft, ArrowRight,
 } from 'lucide-react';
 import { AddonTypesTable, InstallLocationCards } from './GuidePageSections';
 import { CompatRules, RamTable, AltTable } from './GuidePageRules';
 import ServerEnvCards from './GuideEnvCards';
+import { PageHeader } from './ui';
+import guideLogo from '../assets/guide-logo.png';
 
 // ============================================================================
 //  GuidePage — public, no-auth reference center (SEO + onboarding).
@@ -42,23 +44,33 @@ const SECTIONS = [
 // one-line contexts (section heading, prev/next buttons) it flattens to a space.
 const flatTitle = (s) => (typeof s === 'string' ? s.split('/').map((p) => p.trim()).join(' ') : s);
 
-// A guide section shell: anchored heading + optional "back to top" + body.
-function Section({ id, icon: Icon, title, sub, t, children }) {
+// A title may embed an all-caps Latin word (e.g. "RAM") inside an otherwise
+// Hebrew/Arabic/Cyrillic title. Latin caps render visually TALLER than those
+// scripts at the same font size, so we draw such words ~1 step smaller to keep
+// the whole title one visual size. Pure-Latin titles (English) are left uniform.
+const RTL_SCRIPT_RE = /[֐-׿؀-ۿЀ-ӿ]/;
+function renderTitleParts(text) {
+  if (typeof text !== 'string' || !RTL_SCRIPT_RE.test(text)) return text;
+  return text.split(/(\s+)/).map((tok, i) =>
+    /^[A-Z][A-Z0-9]{1,}$/.test(tok)
+      ? <span key={i} className="text-[0.82em] font-extrabold">{tok}</span>
+      : tok
+  );
+}
+
+// A guide section shell: anchored heading + body. (The old per-section
+// "back to top" link was removed — prev/next now live on the back-to-guide row.)
+function Section({ id, icon: Icon, title, sub, children }) {
   return (
     <section id={id} className="scroll-mt-24">
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <div className="flex items-start gap-3">
-          <div className="inline-flex p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 shrink-0">
-            <Icon size={20} />
-          </div>
-          <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-zinc-100 leading-tight">{flatTitle(title)}</h2>
-            {sub && <p className="text-sm text-zinc-400 mt-0.5">{sub}</p>}
-          </div>
+      <div className="flex items-start gap-3 mb-4">
+        <div className="inline-flex p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 shrink-0">
+          <Icon size={20} />
         </div>
-        <a href="#guide-top" className="hidden sm:inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-emerald-400 transition-colors shrink-0 mt-1">
-          <ArrowUp size={13} /> {t('guideBackToTop')}
-        </a>
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-zinc-100 leading-tight">{renderTitleParts(flatTitle(title))}</h2>
+          {sub && <p className="text-sm text-zinc-400 mt-0.5">{sub}</p>}
+        </div>
       </div>
       {children}
     </section>
@@ -145,16 +157,9 @@ export default function GuidePage({ t, isRtl, scrollToAnchor }) {
 
   return (
     <div id="guide-top" className="relative scroll-mt-24" dir={isRtl ? 'rtl' : 'ltr'}>
-      {/* ===== HEADER ===== */}
-      <header className="mb-8">
-        {/* "מדריך" badge — white text + white outline (the page title below it
-            is just "שרתים ותוספים", so the badge carries the word "guide"). */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-white/40 bg-white/5 text-white text-xs font-bold mb-4">
-          <BookOpen size={14} /> {t('guideNav')}
-        </div>
-        <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-zinc-100 mb-2">{t('guideTitle')}</h1>
-        <p className="text-zinc-400 max-w-2xl">{t('guideSubtitle')}</p>
-      </header>
+      {/* ===== HEADER — the guide emblem + "מדריך" title, in the SAME page-title
+              style as every other page (the add-ons page etc.). ===== */}
+      <PageHeader logo={guideLogo} title={t('guideNav')} flip={isRtl} glow="rgba(45,212,191,0.4)" />
 
       {openSection === null ? (
         /* ===== OVERVIEW — clickable card gallery (one card per topic) ===== */
@@ -163,13 +168,11 @@ export default function GuidePage({ t, isRtl, scrollToAnchor }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {SECTIONS.map((s) => {
               const title = t(s.titleKey);
-              // Oversized gray glyph, pinned to the PHYSICAL right of the card in
-              // every language: a literal bigGlyph ("3") > a "?" for question
-              // titles > the section's own lucide icon.
-              const glyph = s.bigGlyph || (title.trim().endsWith('?') ? '?' : null);
-              // The card shows the "?" as the big glyph, so the TITLE drops it
-              // (section view keeps the full question form).
-              const displayTitle = glyph === '?' ? title.trim().replace(/\?$/, '') : title;
+              // Oversized gray glyph, pinned to the PHYSICAL right of the card.
+              // Always the section's own lucide icon (Yosef reverted the auto "?"
+              // glyph back to icons); a literal bigGlyph still wins if one is set.
+              const glyph = s.bigGlyph || null;
+              const displayTitle = title;
               return (
                 <button
                   key={s.id}
@@ -190,10 +193,10 @@ export default function GuidePage({ t, isRtl, scrollToAnchor }) {
                       from the bottom, in front of the glyph — font-black to MATCH the
                       glyph's weight. A "/" in the title is a LOGICAL line break (e.g.
                       Hebrew line above the English line), not an inline slash. */}
-                  <h3 className="relative z-10 w-full mb-1.5 text-center text-2xl sm:text-3xl font-black text-white leading-tight">
+                  <h3 className="relative z-10 w-full mb-1.5 text-center text-3xl sm:text-4xl font-bold tracking-tight leading-none text-white">
                     {displayTitle.includes('/')
-                      ? displayTitle.split('/').map((part, i) => <span key={i} className="block">{part.trim()}</span>)
-                      : displayTitle}
+                      ? displayTitle.split('/').map((part, i) => <span key={i} className="block">{renderTitleParts(part.trim())}</span>)
+                      : renderTitleParts(displayTitle)}
                   </h3>
                 </button>
               );
@@ -203,14 +206,42 @@ export default function GuidePage({ t, isRtl, scrollToAnchor }) {
       ) : (
         /* ===== OPEN — a single topic, with back + prev/next ===== */
         <>
-          <button
-            onClick={() => setOpenSection(null)}
-            className="inline-flex items-center gap-2 mb-6 px-3.5 py-2 rounded-lg text-sm font-bold
-                       border border-emerald-500/30 bg-emerald-500/10 text-emerald-300
-                       hover:bg-emerald-500/20 hover:border-emerald-400/50 transition-colors"
-          >
-            <BackIcon size={16} /> {t('guideBackToAll')}
-          </button>
+          {/* Top row: "back to guide" on one side, compact prev/next on the other
+              — these replace the old per-section "back to top" link. */}
+          <div className="flex items-center justify-between gap-3 mb-6">
+            <button
+              onClick={() => setOpenSection(null)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-bold
+                         border border-emerald-500/30 bg-emerald-500/10 text-emerald-300
+                         hover:bg-emerald-500/20 hover:border-emerald-400/50 transition-colors"
+            >
+              <BackIcon size={16} /> {t('guideBackToAll')}
+            </button>
+            {(prevSection || nextSection) && (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  disabled={!prevSection}
+                  onClick={() => prevSection && open(prevSection.id)}
+                  title={prevSection ? flatTitle(t(prevSection.titleKey)) : ''}
+                  aria-label={prevSection ? flatTitle(t(prevSection.titleKey)) : ''}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-zinc-800 bg-zinc-950/60 text-zinc-300 hover:border-emerald-500/40 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-default"
+                >
+                  <BackIcon size={16} />
+                </button>
+                <button
+                  type="button"
+                  disabled={!nextSection}
+                  onClick={() => nextSection && open(nextSection.id)}
+                  title={nextSection ? flatTitle(t(nextSection.titleKey)) : ''}
+                  aria-label={nextSection ? flatTitle(t(nextSection.titleKey)) : ''}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-zinc-800 bg-zinc-950/60 text-zinc-300 hover:border-emerald-500/40 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-default"
+                >
+                  <FwdIcon size={16} />
+                </button>
+              </div>
+            )}
+          </div>
 
           {renderSection(openSection, t)}
 
