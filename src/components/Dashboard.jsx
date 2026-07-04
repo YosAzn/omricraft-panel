@@ -191,7 +191,10 @@ export default function Dashboard({
 
   // חמ"ל counts + sorted list (scoped to the user's own servers). null while
   // loading / unavailable → dash for the stat card.
-  const issues = diagnostics || [];
+  // Drop issues for servers that were DELETED (stale VPS-scan leftovers) — keep only
+  // issues for servers still present (or global, server-less issues).
+  const knownServerIds = new Set(servers.map(s => s.id));
+  const issues = (diagnostics || []).filter(i => !i.serverId || knownServerIds.has(i.serverId));
   const issueCount = diagnostics === null ? null : issues.length;
   // Show errors first, then warnings, then info — the full (scrollable) summary
   // panel renders ALL of the user's issues in this order, each with its fix button.

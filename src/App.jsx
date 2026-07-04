@@ -14,6 +14,7 @@ import { DICT, translate, dirForLang } from './lib/i18n';
 import { DEFAULT_ADDONS, getInstallMethod, collectRequiredIds, isCoreIncompatible, isWorldgenDatapack, isBukkitBased, SOFTWARE_TYPES } from './lib/constants';
 import { NavBtn } from './components/ui';
 import omricraftLogo from './assets/omricraft-logo.png';
+import omricraftLogoS from './assets/omricraft-logo-s.png';
 import ocGuideIcon from './assets/oc-guide-icon.png';
 import Dashboard from './components/Dashboard';
 import DeleteServerModal from './components/DeleteServerModal';
@@ -921,7 +922,7 @@ export default function App() {
 
           <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-start">
             <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setCurrentView('landing')} title={t('appTitle')}>
-              <img src={omricraftLogo} alt={t('appTitle')} className="h-10 w-auto brightness-[1.55] contrast-[1.28] drop-shadow-[0_0_7px_rgba(203,213,225,0.5)]" />
+              <img src={omricraftLogoS} alt={t('appTitle')} className="h-10 w-auto drop-shadow-[0_0_7px_rgba(203,213,225,0.4)]" />
               <h1 className="text-2xl font-black tracking-tight bg-[linear-gradient(180deg,#eafff6_0%,#74cea1_26%,#2f9165_46%,#a8ead0_58%,#2c8a61_70%,#12583e_100%)] bg-clip-text text-transparent hidden sm:block">
                 {t('appTitle')}
               </h1>
@@ -1043,7 +1044,7 @@ export default function App() {
             redirect effect below bounces non-admins back to the dashboard if they
             ever land on this view; their חמ"ל lives in the Dashboard panel. */}
         {currentView === 'health' && isAdmin && (
-          <HealthTab t={t} isAdmin={isAdmin} isRtl={isRtl} />
+          <HealthTab t={t} isAdmin={isAdmin} isRtl={isRtl} serverIds={visibleServers.map(s => s.id)} />
         )}
       </main>
 

@@ -230,7 +230,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
           </div>
         )}
         </div>
-        <p className="text-zinc-400 text-sm mt-1.5 max-w-lg">{t('globalRepoDesc')}</p>
+        <p className="text-zinc-400 text-sm mt-1.5">{t('globalRepoDesc')}</p>
       </div>
 
       {/* AI Texture Generator — controlled by the row's Texture button. */}

@@ -18,7 +18,7 @@ import warroomLogo from '../assets/warroom-logo.png';
 // The single-issue row + fix-button wiring lives in the shared <HealthIssueRow>,
 // reused by the Dashboard summary panel so both stay identical.
 
-export default function HealthTab({ t = (k) => k, isAdmin = false, isRtl = false }) {
+export default function HealthTab({ t = (k) => k, isAdmin = false, isRtl = false, serverIds = [] }) {
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(false);
   const [scanError, setScanError] = useState(null);
@@ -52,18 +52,25 @@ export default function HealthTab({ t = (k) => k, isAdmin = false, isRtl = false
     loadDiagnostics();
   }, [loadDiagnostics]);
 
+  // Hide issues for servers that no longer exist (deleted) — stale VPS-scan
+  // leftovers shouldn't linger in the War Room once the server is gone.
+  const knownIds = new Set(serverIds || []);
+  const shownIssues = (serverIds && serverIds.length)
+    ? issues.filter((i) => !i.serverId || knownIds.has(i.serverId))
+    : issues;
+
   // Group issues by server for readable display.
   const groups = {};
-  issues.forEach((iss) => {
+  shownIssues.forEach((iss) => {
     const k = iss.serverId || '—';
     if (!groups[k]) groups[k] = { serverName: iss.serverName || k, serverSlug: iss.serverSlug || null, items: [] };
     groups[k].items.push(iss);
   });
   const groupKeys = Object.keys(groups);
 
-  const errorCount = issues.filter((i) => i.severity === 'error').length;
-  const warnCount = issues.filter((i) => i.severity === 'warning').length;
-  const infoCount = issues.filter((i) => i.severity === 'info').length;
+  const errorCount = shownIssues.filter((i) => i.severity === 'error').length;
+  const warnCount = shownIssues.filter((i) => i.severity === 'warning').length;
+  const infoCount = shownIssues.filter((i) => i.severity === 'info').length;
 
   return (
     <div className="max-w-4xl mx-auto" dir="rtl">
@@ -104,7 +111,7 @@ export default function HealthTab({ t = (k) => k, isAdmin = false, isRtl = false
       </div>
 
       {/* Summary counters */}
-      {hasScanned && !scanError && issues.length > 0 && (
+      {hasScanned && !scanError && shownIssues.length > 0 && (
         <div className="flex items-center gap-2 mb-4 text-xs font-bold">
           {errorCount > 0 && <span className="px-2.5 py-1 rounded-full bg-red-500/10 text-red-300">🔴 {errorCount} {t('healthErrors')}</span>}
           {warnCount > 0 && <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-300">🟠 {warnCount} {t('healthWarnings')}</span>}
@@ -123,7 +130,7 @@ export default function HealthTab({ t = (k) => k, isAdmin = false, isRtl = false
           <RefreshCw size={28} className="animate-spin mx-auto mb-3 text-zinc-600" />
           {t('healthScanning')}
         </div>
-      ) : !scanError && issues.length === 0 && hasScanned ? (
+      ) : !scanError && shownIssues.length === 0 && hasScanned ? (
         <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-10 text-center">
           <CheckCircle2 size={36} className="mx-auto mb-3 text-emerald-400" />
           <div className="text-emerald-300 font-bold">{t('healthAllOk')}</div>
