@@ -12,31 +12,49 @@ JAVA_BIN="/home/ubuntu/jdk-25/bin/java"
 
 echo "[$(date)] Starting Velocity..."
 
+# Guard: velocity must run as ubuntu (systemd User=ubuntu). A manually root-started
+# velocity becomes an orphan that ubuntu scripts cannot pkill — it then holds :25565
+# and deadlocks systemd (the 7-day-orphan / 37k-restart incident, 2026-07-05).
+if [ "$(id -u)" = "0" ]; then
+  echo "[$(date)] ERROR: refusing to run velocity as root. Start it with: sudo systemctl start omricraft-velocity.service"
+  exit 1
+fi
+
 if [ ! -f "$VEL_DIR/velocity.jar" ]; then
   echo "[$(date)] ERROR: velocity.jar not found. Run install-velocity.sh first."
   exit 1
 fi
 
 # --- Inoculation: port/process pre-check (lock pattern) ---
-# Root cause of the "Outdated client" bug: previous Velocity processes were never
-# killed, accumulating orphans that held :25565 with half-initialized state.
-# Before launching, kill any stale velocity.jar process and ensure :25565 is free.
+# Root cause of the recurring "port 25565 still occupied" deadlock: the old logic
+# killed by NAME (pkill -f velocity.jar) as ubuntu, which cannot signal a stray
+# root-owned velocity and silently no-ops (|| true). A 7-day root orphan then held
+# :25565 while systemd restart-looped 37k times (2026-07-05 incident).
+# Fix: find the actual PID(s) holding the port (sudo, so we see other users'
+# processes too) and escalate TERM->KILL against them. Verify real release.
 PROXY_PORT=25565
 
-echo "[$(date)] Pre-check: killing any stale velocity.jar process..."
+# PIDs currently LISTENing on the proxy port, regardless of process name or owner.
+port_pids() {
+  { sudo -n ss -ltnp 2>/dev/null || ss -ltnp 2>/dev/null; } \
+    | grep ":$PROXY_PORT " \
+    | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u || true
+}
+
+echo "[$(date)] Pre-check: freeing port $PROXY_PORT..."
+for sig in TERM KILL; do
+  PIDS=$(port_pids)
+  [ -z "$PIDS" ] && break
+  echo "[$(date)] Port $PROXY_PORT held by PID(s): $PIDS — sending SIG$sig..."
+  for p in $PIDS; do sudo -n kill -"$sig" "$p" 2>/dev/null || kill -"$sig" "$p" 2>/dev/null || true; done
+  for _ in 1 2 3 4 5 6; do if [ -z "$(port_pids)" ]; then break; fi; sleep 1; done
+done
+# Belt-and-suspenders: clear any stale velocity.jar procs not bound to the port.
 pkill -f velocity.jar 2>/dev/null || true
-sleep 3
 
-# Verify the proxy port is free; escalate to SIGKILL if still held.
-if ss -ltnp 2>/dev/null | grep -q ":$PROXY_PORT "; then
-  echo "[$(date)] Port $PROXY_PORT still in use after pkill. Escalating to SIGKILL..."
-  pkill -9 -f velocity.jar 2>/dev/null || true
-  sleep 3
-fi
-
-if ss -ltnp 2>/dev/null | grep -q ":$PROXY_PORT "; then
-  echo "[$(date)] ERROR: Port $PROXY_PORT still occupied after SIGKILL. Aborting to avoid orphan/bind conflict."
-  ss -ltnp 2>/dev/null | grep ":$PROXY_PORT " || true
+if [ -n "$(port_pids)" ]; then
+  echo "[$(date)] ERROR: Port $PROXY_PORT still occupied after TERM+KILL. Aborting to avoid orphan/bind conflict."
+  { sudo -n ss -ltnp 2>/dev/null || ss -ltnp 2>/dev/null; } | grep ":$PROXY_PORT " || true
   exit 1
 fi
 echo "[$(date)] Port $PROXY_PORT is free. Proceeding."
