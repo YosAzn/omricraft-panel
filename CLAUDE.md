@@ -9,6 +9,7 @@
 - `oracle/scripts/` — bash scripts שרצים על ה-VPS
 - `oracle/manager-api/server.js` — Express API על ה-VPS
 - `ARCHITECTURE.md` — תיעוד מלא של המערכת (קרא לפני כל שינוי גדול)
+- **`MINECRAFT_RULES.md` — חוקי הברזל להתקנת תוספים/אוטומציות. חובה לקרוא לפני כל נגיעה ב-`oracle/scripts/*` או בלוגיקת addons ב-`src/`. מונע קריסות שרת + לולאות באגים.**
 
 ## גישה ל-VPS
 ```
