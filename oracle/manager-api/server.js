@@ -66,6 +66,60 @@ function runScript(scriptName, args, timeout) {
   });
 }
 
+// --- P0 Rule-0 post-install verify (boot smoke-test) --------------------------
+// Runs verify-health.sh for one server. Resolves { ok, code, output }.
+//   ok:true  => boot/reload clean (exit 0).
+//   ok:false => code 1 dirty log / 2 never booted / 3 env; output has offending lines.
+// Bounded to ~4.3 min so a cold Purpur/Paper worldgen can finish (start-server + boot-wait).
+// VERIFY_SKIP=1 lets ops disable the boot-verify globally in an emergency (fails open LOUDLY).
+function verifyHealth(serverId) {
+  if (process.env.VERIFY_SKIP === '1') {
+    console.warn('[' + new Date().toISOString() + '] VERIFY_SKIP=1 — skipping Rule-0 boot verify for ' + serverId);
+    return Promise.resolve({ ok: true, code: 0, output: 'skipped (VERIFY_SKIP=1)' });
+  }
+  return runScript('verify-health.sh', [serverId], 260000)
+    .then(function(stdout) { return { ok: true, code: 0, output: stdout }; })
+    .catch(function(err) {
+      return { ok: false, code: (typeof err.exitCode === 'number' ? err.exitCode : 1), output: err.message };
+    });
+}
+
+// Reversibly retire a just-installed addon file: move plugins/mods/<jar> ->
+// plugins-removed/ (Rule 6 — never hard-delete on a verify failure; keep it so the
+// user can inspect / an operator can re-enable). Best-effort: never throws.
+function retireAddonFile(serverId, subdir, filename) {
+  try {
+    if (!filename) return null;
+    var live = path.join(SERVERS_DIR, serverId, subdir, filename);
+    if (!fs.existsSync(live)) return null;
+    var graveyard = path.join(SERVERS_DIR, serverId, subdir + '-removed');
+    fs.mkdirSync(graveyard, { recursive: true });
+    var dest = path.join(graveyard, filename);
+    fs.renameSync(live, dest);
+    console.log('[' + new Date().toISOString() + '] retired incompatible addon ' + filename + ' -> ' + subdir + '-removed/ on ' + serverId);
+    return dest;
+  } catch (e) {
+    console.error('retireAddonFile failed (' + filename + '):', e.message);
+    return null;
+  }
+}
+
+// Parse "installed at <path>" that install-plugin.sh / install-mod.sh print, to learn
+// the exact filename we just dropped (so we can retire precisely on failure).
+function installedFilename(scriptStdout) {
+  if (!scriptStdout) return null;
+  var m = String(scriptStdout).match(/installed at .*[\/\\]([^\/\\\s]+)\s*$/m);
+  return m ? m[1] : null;
+}
+
+// MC version of a server for 422 phrasing — never throws.
+function srvVersion(serverId) {
+  try {
+    var s = readServersArray().find(function(x) { return x.id === serverId; });
+    return (s && s.version) ? s.version : 'this version';
+  } catch (e) { return 'this version'; }
+}
+
 function rconConnect(host, port, password, command, timeout) {
   timeout = timeout || 10000;
   return new Promise((resolve, reject) => {
@@ -529,9 +583,17 @@ app.post('/install-plugin', async function(req, res) {
     return res.status(400).json({ success: false, error: 'Invalid pluginId' });
   }
   try {
-    await runScript('install-plugin.sh', [serverId, pluginId], 90000);
-    console.log('[' + new Date().toISOString() + '] Installed plugin ' + pluginId + ' on ' + serverId);
-    return res.json({ success: true });
+    var _out = await runScript('install-plugin.sh', [serverId, pluginId], 90000);
+    console.log('[' + new Date().toISOString() + '] Installed plugin ' + pluginId + ' on ' + serverId + ' — verifying (Rule 0)');
+    // Rule 0 — prove it boots/reloads clean before we call it a success.
+    var _v = await verifyHealth(serverId);
+    if (!_v.ok) {
+      var _mv = srvVersion(serverId);
+      retireAddonFile(serverId, 'plugins', installedFilename(_out));  // Rule 6 — reversible
+      console.error('install-plugin VERIFY FAILED (' + pluginId + ', code ' + _v.code + '): ' + String(_v.output).slice(0, 500));
+      return res.status(422).json({ success: false, error: pluginId + ' not compatible with ' + _mv, verify: { code: _v.code } });
+    }
+    return res.json({ success: true, verified: true });
   } catch (err) {
     console.error('install-plugin error:', err.message);
     return res.status(500).json({ success: false, error: err.message });
@@ -592,9 +654,22 @@ app.post('/install-mod', async function(req, res) {
     return res.status(400).json({ success: false, error: 'מודים ניתנים להתקנה רק על שרתי Fabric/Forge/NeoForge (זהו ' + loader + ')' });
   }
   try {
-    await runScript('install-mod.sh', [serverDir, loader, version, slug], 90000);
-    console.log('[' + new Date().toISOString() + '] Installed mod ' + modId + ' (' + slug + ') on ' + serverId);
-    return res.json({ success: true, modId: modId, slug: slug, needsRestart: true });
+    var _out = await runScript('install-mod.sh', [serverDir, loader, version, slug], 90000);
+    console.log('[' + new Date().toISOString() + '] Installed mod ' + modId + ' (' + slug + ') on ' + serverId + ' — verifying (Rule 0)');
+    // Mods only load on (re)start — a live `reload` never loads a new jar, so verifying a
+    // running server as-is would FALSE-PASS. The deployed verify-health.sh reloads-if-up /
+    // cold-starts-if-down (no RESTART hook), so we first stop the server (idempotent — a
+    // no-op if already down), then verifyHealth cold-starts it FRESH with the new jar loaded
+    // before it scans the boot log. (P0 doc Edit-4b explicit-stop variant.)
+    try { await runScript('stop-server.sh', [serverId], 60000); }
+    catch (se) { console.error('install-mod pre-verify stop-server non-fatal:', se.message); }
+    var _v = await verifyHealth(serverId);
+    if (!_v.ok) {
+      retireAddonFile(serverId, 'mods', installedFilename(_out));  // Rule 6 — reversible
+      console.error('install-mod VERIFY FAILED (' + modId + '/' + slug + ', code ' + _v.code + '): ' + String(_v.output).slice(0, 500));
+      return res.status(422).json({ success: false, error: slug + ' not compatible with ' + version, verify: { code: _v.code } });
+    }
+    return res.json({ success: true, modId: modId, slug: slug, needsRestart: false, verified: true });
   } catch (err) {
     console.error('install-mod error:', err.message);
     if (err && err.exitCode === 2) {
@@ -668,6 +743,12 @@ app.post('/install-resourcepack', async function(req, res) {
   }
   try {
     await runScript('install-resourcepack.sh', [serverDir, srv.version, slug], 90000);
+    // Rule 5 — client-side pack: no boot-verify. Assert the URL actually landed in
+    // server.properties (fail loud if the script "succeeded" but wrote nothing).
+    var _props = fs.readFileSync(path.join(serverDir, 'server.properties'), 'utf8');
+    if (!/^resource-pack=\S+/m.test(_props)) {
+      return res.status(422).json({ success: false, error: slug + ' not compatible with ' + srv.version + ' (resource-pack not set)' });
+    }
     console.log('[' + new Date().toISOString() + '] Installed resourcepack ' + addonId + ' (' + slug + ') on ' + serverId);
     var running = isServerRunning(serverId);
     return res.json({
@@ -1463,6 +1544,22 @@ app.post('/install-datapack-by-id', async function(req, res) {
       note = 'Server has no world yet — datapack staged in datapacks-pending and will load when the world is first generated.';
     }
 
+    // Rule 0 — if we enabled it live, prove the reload didn't break the boot.
+    if (installedToWorld && isServerRunning(serverId)) {
+      var _v = await verifyHealth(serverId);
+      if (!_v.ok) {
+        try {
+          var _grave = path.join(serverDir, 'world', 'datapacks-removed');
+          fs.mkdirSync(_grave, { recursive: true });
+          fs.renameSync(dest, path.join(_grave, filename));   // Rule 6 — reversible
+          var _rc = readRcon(serverId);
+          if (_rc.pass) { await rconConnect('127.0.0.1', _rc.port, _rc.pass, 'reload', 30000); }
+        } catch (_e) { console.error('datapack retire failed:', _e.message); }
+        console.error('install-datapack VERIFY FAILED (' + addonId + '/' + filename + ', code ' + _v.code + '): ' + String(_v.output).slice(0, 500));
+        return res.status(422).json({ success: false, error: filename + ' not compatible with ' + srvVersion(serverId), verify: { code: _v.code } });
+      }
+    }
+
     return res.json({
       success: true,
       addonId: addonId,
@@ -1471,6 +1568,7 @@ app.post('/install-datapack-by-id', async function(req, res) {
       installedToWorld: installedToWorld,
       rconApplied: rconApplied,
       needsRestart: !rconApplied,
+      verified: (installedToWorld && isServerRunning(serverId)),
       note: note
     });
   } catch (e) {
