@@ -1,0 +1,30 @@
+# ===========================================================================
+# omricraft-notify@.service — OnFailure notifier (templated oneshot).
+#
+# WHY: referenced by the crash-guard drop-in's `OnFailure=omricraft-notify@%n.service`.
+# When a monitored unit (e.g. omricraft-velocity) fails, systemd starts THIS with the
+# failed unit's name as the instance (%i), and it fires the webhook via health.sh's
+# --notify path — so a crash-loop that hit StartLimitBurst tells a human instead of
+# dying quietly. Reuses health.sh so there is exactly ONE place that reads the webhook
+# secret from .env; the URL never lives in a unit file (Rule: no secrets in repo).
+#
+# APPLY (manual, on the VPS — see monitoring/README.md; deploy only ships scripts):
+#   sudo cp omricraft-notify@.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   # test:  sudo systemctl start omricraft-notify@test.service ; journalctl -u omricraft-notify@test -n 20
+#
+# ROLLBACK:
+#   sudo rm /etc/systemd/system/omricraft-notify@.service
+#   sudo systemctl daemon-reload
+# ===========================================================================
+
+[Unit]
+Description=OmriCraft failure notifier for %i
+# Do NOT re-trigger notifier-on-notifier; keep this leaf simple.
+
+[Service]
+Type=oneshot
+User=ubuntu
+# %i is the failed unit's name (e.g. omricraft-velocity.service). health.sh --notify
+# reads HEALTH_WEBHOOK_URL from /home/ubuntu/omricraft/manager/.env and POSTs the message.
+ExecStart=/home/ubuntu/omricraft/manager/scripts/health.sh --notify "OmriCraft unit FAILED: %i on %H (systemd OnFailure). Check: systemctl status %i && journalctl -u %i -n 50"
