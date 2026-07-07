@@ -47,4 +47,14 @@ jobs:
       - name: Run gate tests
         run: |
           ssh -i ~/.ssh/oracle.pem ubuntu@${{ secrets.ORACLE_HOST }} \
-            "bash /home/ubuntu/omricraft/manager/scripts/gate-tests.sh 2>&1 || true"
+            "bash /home/ubuntu/omricraft/manager/scripts/gate-tests.sh 2>&1"
+
+      - name: Run smoke test (Rule-0 boot E2E)
+        # Heavier live E2E: creates a throwaway server, installs a datapack + plugin,
+        # boots them, greps latest.log for Failed-to-load/Exception/incompatible, then
+        # permanently deletes the throwaway (its own EXIT trap self-cleans). Non-zero
+        # exit here FAILS the deploy — a broken install/boot path must block the deploy,
+        # not slip through like the two outages this whole safety net exists to catch.
+        run: |
+          ssh -i ~/.ssh/oracle.pem ubuntu@${{ secrets.ORACLE_HOST }} \
+            "bash /home/ubuntu/omricraft/manager/scripts/smoke-test.sh 2>&1"
