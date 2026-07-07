@@ -9,6 +9,7 @@
 - `oracle/scripts/` — bash scripts שרצים על ה-VPS
 - `oracle/manager-api/server.js` — Express API על ה-VPS
 - `ARCHITECTURE.md` — תיעוד מלא של המערכת (קרא לפני כל שינוי גדול)
+- **`MINECRAFT_RULES.md` — חוקי הברזל להתקנת תוספים/אוטומציות. חובה לקרוא לפני כל נגיעה ב-`oracle/scripts/*` או בלוגיקת addons ב-`src/`. מונע קריסות שרת + לולאות באגים.**
 
 ## גישה ל-VPS
 ```
@@ -17,12 +18,11 @@ SSH: ssh -i "D:\Apps Webs\Oracle_Code\ssh-key-2026-04-20.key" ubuntu@151.145.94.
 ```
 
 ## Deploy
+**רק `git push origin main`** — אין deploy ידני.
 ```powershell
-npm run build
-npx firebase-tools deploy --only hosting   # אתר
-npx firebase-tools deploy --only functions # פונקציות
-# oracle scripts → deploy אוטומטי ב-git push לmain
+git push origin main   # ה-CI מדפלה: functions + Pages (אתר), ו-oracle/** ל-VPS
 ```
+⚠️ אסור `firebase deploy` / `npx firebase-tools deploy` ידני — מתנגש עם ה-CI על ה-Firebase lock (memory: feedback_omricraft_deploy).
 
 ## Firestore
 - Path: `omricraft/main/servers` (משותף לכל המכשירים — לא per-user!)
