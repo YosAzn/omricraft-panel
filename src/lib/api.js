@@ -60,6 +60,9 @@ export const purgeBackupFn = httpsCallable(functionsInstance, 'purgeServerBackup
 export const getDiagnosticsFn = httpsCallable(functionsInstance, 'getDiagnostics');
 export const resetServerStatusFn = httpsCallable(functionsInstance, 'resetServerStatus');
 export const removeDatapackFn = httpsCallable(functionsInstance, 'removeDatapack');
+// War Room — manually HIDE one issue by its content hash (issueKey). Owner-or-admin.
+// The exact issue stays hidden across re-scans; a new/different issue reappears.
+export const dismissDiagnosticFn = httpsCallable(functionsInstance, 'dismissDiagnostic');
 // Phase 6b — REVERSIBLE archive of cross-family leftover jars (plugins/ on a mod core,
 // mods/ on a plugin core) after a server TYPE switch. Moves them to disabled-*/ (not deleted).
 export const archiveIncompatibleFilesFn = httpsCallable(functionsInstance, 'archiveIncompatibleFiles');

@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const net = require('net');
 const dns = require('dns');
+const crypto = require('crypto');
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const MANAGER_API_KEY = process.env.MANAGER_API_KEY || '';
@@ -2387,6 +2388,29 @@ function scanClientModRejections(segment) {
   return hit ? { players: players, mods: mods } : null;
 }
 
+// Deterministic per-issue key so the panel can DISMISS a specific problem and have
+// it stay hidden ACROSS re-scans — but only for that EXACT problem. The key hashes
+// the serverId + category + the content signal that distinguishes this instance
+// (e.g. the offending datapack filename), so a genuinely NEW/different problem on
+// the same server produces a DIFFERENT key and is NOT accidentally suppressed.
+//   key = sha1( serverId | category | signal ).slice(0,16)
+// `signal` defaults to the human-readable detail text when nothing more specific is
+// passed. Computed HERE (the single authoritative issue producer) and attached as
+// issue.issueKey, so both getDiagnostics filtering and the dismiss button agree.
+function makeIssueKey(serverId, category, signal) {
+  var basis = String(serverId || '') + '|' + String(category || '') + '|' + String(signal || '');
+  return crypto.createHash('sha1').update(basis).digest('hex').slice(0, 16);
+}
+
+// Attach a stable issueKey to an issue object (mutates + returns it). Uses an
+// explicit `signal` when the caller has a more stable discriminator than the
+// free-text detail (e.g. sorted datapack filenames); otherwise falls back to detail.
+function withIssueKey(issue, signal) {
+  issue.issueKey = makeIssueKey(issue.serverId, issue.category,
+    signal !== undefined ? signal : issue.detail);
+  return issue;
+}
+
 app.get('/diagnostics', function(req, res) {
   var servers;
   try {
@@ -2655,6 +2679,25 @@ app.get('/diagnostics', function(req, res) {
   } catch (e) {
     console.error('[diagnostics] orphan-dir scan failed:', e.message);
   }
+
+  // Attach a stable issueKey to EVERY issue for the dismiss mechanism. For issues
+  // that carry a more stable discriminator than their free-text detail, key on it
+  // so the dismissal survives cosmetic wording changes but still distinguishes a
+  // genuinely different instance:
+  //   • datapack-failed / worldgen-on-bukkit → the offending/removable file list.
+  //   • cross-family-files → the incompatible file list.
+  //   • everything else → the human-readable detail (default).
+  issues.forEach(function (iss) {
+    var signal;
+    if (iss.category === 'datapack-failed') {
+      signal = (iss.removableDatapacks || []).slice().sort().join(',');
+    } else if (iss.category === 'worldgen-on-bukkit') {
+      signal = (iss.fix && iss.fix.params && iss.fix.params.file) || iss.detail;
+    } else if (iss.category === 'cross-family-files') {
+      signal = (iss.incompatibleFiles || []).slice().sort().join(',');
+    }
+    withIssueKey(iss, signal);
+  });
 
   return res.json({ success: true, issues: issues });
 });
