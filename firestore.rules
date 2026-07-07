@@ -21,6 +21,17 @@ service cloud.firestore {
         && request.auth.token.email in ['yosijo@gmail.com', 'omri.sokolov@gmail.com'];
     }
 
+    // War Room dismissals — issueKeys שהוסתרו ידנית לכל שרת (doc id = serverId).
+    // הכתיבה נעשית רק דרך callable dismissDiagnostic (admin SDK, עוקף rules); הפילטור
+    // ב-getDiagnostics (admin SDK) — הלקוח לא קורא כאן ישירות. הכללים כאן הם הגנה:
+    // קריאה = owner של השרת או אדמין; כתיבה ישירה מהלקוח חסומה (רק ה-callable כותב).
+    match /omricraft/main/dismissedDiagnostics/{serverId} {
+      allow read: if request.auth != null
+        && (get(/databases/$(database)/documents/omricraft/main/servers/$(serverId)).data.ownerUid == request.auth.uid
+            || request.auth.token.email in ['yosijo@gmail.com', 'omri.sokolov@gmail.com']);
+      allow write: if false;
+    }
+
     // Admin config — קריאה לכל מאומת; כתיבה חסומה לחלוטין (anti-admin-hijack).
     // ה-doc כבר קיים (adminUid נקבע בכניסה הראשונה); אין צורך ב-create יותר,
     // וחסימתו מונעת מתוקף אנונימי לחטוף אדמין. שינוי adminUid = ידנית בקונסולה.

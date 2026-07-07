@@ -517,6 +517,11 @@ exports.deleteServer = onCall(
       return { success: false, error: result.error || 'Delete failed' };
     }
 
+    // Clear any War-Room dismissals for this id so a later recreation/restore under
+    // the same serverId starts clean (best-effort; a failure here must not fail the
+    // delete — the diagnostics also drop issues for servers with no live Firestore doc).
+    await cleanupDismissedDiagnostics(serverId);
+
     return { success: true, serverId, permanent: isPermanent };
   }
 );
@@ -1716,6 +1721,47 @@ exports.listServerBackups = onCall(
 //   - Non-admins are ALWAYS forced to the scoped set regardless of `scope`.
 //   The Manager API returns all servers; THIS function filters by accessibility.
 // ---------------------------------------------------------------------------
+// The set of serverIds that have a LIVE Firestore doc (the authoritative "active"
+// server set the frontend reads). A server the panel deleted has NO doc here even
+// if a stale servers.json entry or leftover directory lingers on the VPS — so we
+// use this to drop diagnostics for servers that no longer exist (Part 1 safety-net:
+// "a deleted server produces zero War-Room messages", including admin/all scope).
+async function liveServerDocIds() {
+  const ids = new Set();
+  const snap = await db.collection('omricraft/main/servers').get();
+  snap.forEach((doc) => ids.add(doc.id));
+  return ids;
+}
+
+// The set of dismissed issueKeys for the given serverIds (or ALL when serverIds is
+// null, used for admin/all scope). Each dismiss doc is keyed by serverId and holds
+// { keys: [issueKey,...] }; an issue is hidden only while its EXACT key is present,
+// so a genuinely new/different problem (different key) reappears. Reads in chunks of
+// 10 (Firestore 'in' limit) to avoid N round-trips.
+async function dismissedIssueKeys(serverIds) {
+  const keys = new Set();
+  const col = db.collection('omricraft/main/dismissedDiagnostics');
+  if (serverIds === null) {
+    const snap = await col.get();
+    snap.forEach((doc) => {
+      const arr = (doc.data() || {}).keys;
+      if (Array.isArray(arr)) arr.forEach((k) => keys.add(k));
+    });
+    return keys;
+  }
+  const idList = Array.from(serverIds);
+  for (let i = 0; i < idList.length; i += 10) {
+    const chunk = idList.slice(i, i + 10);
+    if (chunk.length === 0) continue;
+    const snap = await col.where('__name__', 'in', chunk).get();
+    snap.forEach((doc) => {
+      const arr = (doc.data() || {}).keys;
+      if (Array.isArray(arr)) arr.forEach((k) => keys.add(k));
+    });
+  }
+  return keys;
+}
+
 exports.getDiagnostics = onCall(
   { region: "us-central1", secrets: [managerApiUrl, managerApiKey], timeoutSeconds: 60 },
   async (request) => {
@@ -1730,10 +1776,21 @@ exports.getDiagnostics = onCall(
     try {
       const res = await callManagerApi(BASE_URL, API_KEY, 'GET', '/diagnostics', null);
       if (!res || !res.success) return res;
-      const allIssues = Array.isArray(res.issues) ? res.issues : [];
+      let allIssues = Array.isArray(res.issues) ? res.issues : [];
+
+      // Part 1 safety-net: drop issues for servers with NO live Firestore doc. A
+      // panel-deleted server may leave a stale servers.json row / leftover dir that
+      // the VPS scan still flags; the panel reads servers only from Firestore, so a
+      // missing doc == the server no longer exists == it must not appear in the חמ"ל.
+      // Applies to EVERY scope, admins included.
+      const liveIds = await liveServerDocIds();
+      allIssues = allIssues.filter((iss) => iss && liveIds.has(iss.serverId));
 
       if (wantAll) {
-        return { ...res, issues: allIssues, scope: 'all' };
+        // Part 2: hide issues an admin has explicitly dismissed (by exact issueKey).
+        const dismissed = await dismissedIssueKeys(null);
+        const visible = allIssues.filter((iss) => !(iss.issueKey && dismissed.has(iss.issueKey)));
+        return { ...res, issues: visible, scope: 'all' };
       }
 
       // Filter to the caller's accessible serverIds (own + legacy-unowned).
@@ -1741,12 +1798,62 @@ exports.getDiagnostics = onCall(
       const scoped = (ids === null)
         ? allIssues
         : allIssues.filter((iss) => iss && ids.has(iss.serverId));
-      return { ...res, issues: scoped, scope: 'mine' };
+      // Part 2: hide dismissed issues (by exact issueKey) for the in-scope servers.
+      const scopeIds = ids === null ? null : ids;
+      const dismissed = await dismissedIssueKeys(scopeIds);
+      const visible = scoped.filter((iss) => !(iss.issueKey && dismissed.has(iss.issueKey)));
+      return { ...res, issues: visible, scope: 'mine' };
     } catch (error) {
       return { success: false, error: error?.message || String(error) };
     }
   }
 );
+
+// ---------------------------------------------------------------------------
+// dismissDiagnostic (OWNER-OR-ADMIN) — manually HIDE one War-Room issue. Persists
+// the issue's exact issueKey (content hash of serverId+category+signal) under
+// omricraft/main/dismissedDiagnostics/{serverId}.keys[]. getDiagnostics filters out
+// any issue whose issueKey is dismissed, so the message stays hidden across re-scans
+// — but ONLY that exact problem: a genuinely new/different issue produces a different
+// issueKey and reappears (we never suppress future problems). Cleared for a server on
+// delete (cleanupDismissedDiagnostics) so restored/recreated ids start clean.
+// ---------------------------------------------------------------------------
+exports.dismissDiagnostic = onCall(
+  { region: "us-central1", timeoutSeconds: 20 },
+  async (request) => {
+    const { serverId, issueKey } = request.data || {};
+    if (!serverId || typeof serverId !== 'string' || !/^[a-z0-9_-]+$/.test(serverId)) {
+      return { success: false, error: 'Invalid serverId' };
+    }
+    if (!issueKey || typeof issueKey !== 'string' || !/^[a-f0-9]{8,40}$/.test(issueKey)) {
+      return { success: false, error: 'Invalid issueKey' };
+    }
+    // Owner-or-admin: a non-admin may dismiss issues only on a server they own
+    // (matches resetServerStatus/removeDatapack). Admin may dismiss on any server.
+    await assertOwnerOrAdmin(request, serverId);
+    try {
+      const ref = db.collection('omricraft/main/dismissedDiagnostics').doc(serverId);
+      await ref.set({
+        keys: admin.firestore.FieldValue.arrayUnion(issueKey),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return { success: true, serverId, issueKey };
+    } catch (error) {
+      return { success: false, error: error?.message || String(error) };
+    }
+  }
+);
+
+// Delete the dismissedDiagnostics doc for a server (best-effort). Called when a
+// server is deleted so a later recreation/restore under the same id starts with a
+// clean slate (no stale dismissals leaking onto a different server's real issues).
+async function cleanupDismissedDiagnostics(serverId) {
+  try {
+    await db.collection('omricraft/main/dismissedDiagnostics').doc(serverId).delete();
+  } catch (e) {
+    console.error('cleanupDismissedDiagnostics failed for ' + serverId + ':', e.message);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // resetServerStatus (OWNER-OR-ADMIN) — sets a stuck server's status to 'stopped'

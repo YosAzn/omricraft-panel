@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { AlertCircle, AlertTriangle, Info, Wrench, RefreshCw, Archive } from 'lucide-react';
-import { resetServerStatusFn, removeDatapackFn, restartServerFn, archiveIncompatibleFilesFn } from '../lib/api';
+import { AlertCircle, AlertTriangle, Info, Wrench, RefreshCw, Archive, X } from 'lucide-react';
+import { resetServerStatusFn, removeDatapackFn, restartServerFn, archiveIncompatibleFilesFn, dismissDiagnosticFn } from '../lib/api';
 import { equivalentForFile } from '../lib/constants';
 
 // --- Shared single-issue row for the חמ"ל / War Room ---
@@ -24,8 +24,40 @@ const SEVERITY = {
 // which is not grouped by server the way HealthTab is).
 export default function HealthIssueRow({ issue, onFixed, showServer = false, t = (k) => k }) {
   const [fixing, setFixing] = useState(false);
+  const [dismissing, setDismissing] = useState(false);
   const sev = SEVERITY[issue.severity] || SEVERITY.info;
   const SevIcon = sev.icon;
+
+  // Manually HIDE this exact issue (by its content hash issueKey). The backend
+  // persists the key under dismissedDiagnostics/{serverId}; getDiagnostics then
+  // filters it out on every future scan — so it stays hidden. A genuinely NEW or
+  // DIFFERENT problem gets a different issueKey and still appears. After a successful
+  // dismiss we re-scan (onFixed) so the row disappears immediately. Orphan issues
+  // (orphan-dir, scan-error) carry a key too and can be dismissed the same way.
+  const dismiss = async () => {
+    if (dismissing || fixing) return;
+    if (!issue.issueKey) {
+      // Fail loud rather than pretend-succeed: an issue with no key can't be tracked.
+      alert('לא ניתן להסתיר תקלה זו (חסר מזהה תוכן).');
+      return;
+    }
+    const ok = window.confirm(
+      `להסתיר את ההודעה "${issue.title || ''}" עבור "${issue.serverName || issue.serverId || ''}"?\n` +
+      'התקלה תוסתר בסריקות הבאות. אם אותה תקלה תחזור — תישאר מוסתרת; תקלה חדשה/שונה כן תופיע.'
+    );
+    if (!ok) return;
+    setDismissing(true);
+    try {
+      const res = await dismissDiagnosticFn({ serverId: issue.serverId, issueKey: issue.issueKey });
+      const d = res.data || res;
+      if (!d.success) throw new Error(d.error || t('commonActionFailed'));
+      if (typeof onFixed === 'function') await onFixed();
+    } catch (e) {
+      console.error('dismiss failed:', e);
+      alert(`הסתרת ההודעה נכשלה: ${e.message}`);
+    }
+    setDismissing(false);
+  };
 
   const applyFix = async () => {
     if (!issue.fix || fixing) return;
@@ -145,8 +177,20 @@ export default function HealthIssueRow({ issue, onFixed, showServer = false, t =
     : [];
 
   return (
-    <div className={`border ${sev.ring} ${sev.bg} rounded-xl p-4`}>
-      <div className="flex items-start gap-3">
+    <div className={`relative border ${sev.ring} ${sev.bg} rounded-xl p-4`}>
+      {/* Manual dismiss ("סגור") — hides THIS exact issue across future scans. Always
+          available (even for issues with no auto-fix). Positioned top-start (RTL) so
+          it never overlaps the fix buttons on the top-end side. */}
+      <button
+        onClick={dismiss}
+        disabled={dismissing || fixing}
+        title="הסתר הודעה זו"
+        aria-label="הסתר הודעה זו"
+        className="absolute top-2 start-2 text-zinc-500 hover:text-zinc-200 disabled:opacity-40 transition-colors"
+      >
+        {dismissing ? <RefreshCw size={14} className="animate-spin" /> : <X size={16} />}
+      </button>
+      <div className="flex items-start gap-3 ps-6">
         <SevIcon size={18} className={`${sev.iconColor} flex-shrink-0 mt-0.5`} />
         <div className="min-w-0 flex-1">
           <div className={`font-bold ${sev.text}`}>
