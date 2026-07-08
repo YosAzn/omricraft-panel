@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Package, RefreshCw, RefreshCcw, AlertCircle, X, Search,
-  Star, Download, Lock
+  Star, Download, Lock, AlertTriangle
 } from 'lucide-react';
 import { listFilesFn, removePluginJarFn, reloadPluginFn } from '../../lib/api';
 import { TYPE_COLORS, iconForType, typeTextColor, getInstallMethod, isBukkitBased, isWorldgenDatapack, isCoreIncompatible, collectRequiredIds, compatibleCoresLabel, isPluginBoundBlocked, isModpackIncompatible, modpackRequirementLabel } from '../../lib/constants';
@@ -283,6 +283,13 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
                     {installMethod === 'client' && item.clientUrl && <ClientDownloadLink url={item.clientUrl} t={t} />}
                   </div>
                   <p className="text-sm text-zinc-400 mt-2 leading-relaxed">{addonDesc(item.id, lang, item.desc)}</p>
+                  {/* Addon-requirement note — "what you actually need for this to work" (amh Looting, worldgen-only, paid/manual, crafting-only, companion plugin). Only when item.requiresNote is set. */}
+                  {item.requiresNote && (
+                    <p className="text-[11px] text-amber-400/90 mt-1.5 leading-relaxed flex items-start gap-1">
+                      <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
+                      <span><span className="font-bold">דורש:</span> {item.requiresNote}</span>
+                    </p>
+                  )}
                   {worldgenBlocked && (
                     <p className="text-[11px] text-amber-400/80 mt-1.5 leading-relaxed">{t('worldgenBukkitNote')}</p>
                   )}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Layers, X, Plus, UploadCloud, Link as LinkIcon, Search,
-  Palette, Star, Trash2, Download, Check, Sparkles, ExternalLink, Loader2, Boxes, Monitor
+  Palette, Star, Trash2, Download, Check, Sparkles, ExternalLink, Loader2, Boxes, Monitor, AlertTriangle
 } from 'lucide-react';
 
 import { TYPE_COLORS, ADDON_TYPES, iconForType, typeTextColor, getInstallMethod, canPcDownloadRP } from '../lib/constants';
@@ -41,6 +41,26 @@ function ClientInstallNote({ text, className = '' }) {
     <p className={`flex items-start gap-1 text-[11px] text-teal-400/90 leading-relaxed ${className}`}>
       <Monitor size={12} className="flex-shrink-0 mt-0.5" /> {text}
     </p>
+  );
+}
+
+// Amber "what you actually need for this to work" badge, driven by addon.requiresNote
+// (a short Hebrew SSOT string on the catalog entry). Surfaces real extra requirements —
+// a Looting sword, a worldgen-only constraint, a paid/manual JAR, a crafting-only pack,
+// a companion plugin — so a kid doesn't install an addon, see nothing, and assume it's
+// broken. Shown ONLY when the field exists; distinct amber tone so it stands out from
+// the muted description + teal PC note. Custom hex (not a raw Tailwind default) per the
+// design rules. RTL-safe (flex + logical gap, no left/right offsets).
+function RequiresNote({ text, className = '' }) {
+  if (!text) return null;
+  return (
+    <div
+      className={`flex items-start gap-1.5 text-[11px] leading-relaxed rounded-md px-2 py-1.5 border ${className}`}
+      style={{ color: '#fbbf24', backgroundColor: 'rgba(245,158,11,0.08)', borderColor: 'rgba(245,158,11,0.25)' }}
+    >
+      <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
+      <span><span className="font-bold">דורש:</span> {text}</span>
+    </div>
   );
 }
 
@@ -490,6 +510,9 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
                   </div>
                   <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2 group-hover:line-clamp-none transition-all">{addonDesc(a.id, lang, a.desc)}</p>
 
+                  {/* Addon-requirement badge — "what you actually need for this to work" (amh Looting, worldgen-only, paid/manual, crafting-only, companion plugin). Only when addon.requiresNote is set. */}
+                  <RequiresNote text={a.requiresNote} className="mt-1.5" />
+
                   {/* FIX #7 — concise player-PC install note (modpacks / content mods / RPs). */}
                   <ClientInstallNote text={repoClientNote(a, t)} className="mt-1.5" />
 
@@ -533,6 +556,13 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
             <p className="text-zinc-300 text-sm leading-relaxed mb-6 bg-zinc-950 p-4 rounded-xl border border-zinc-800">
               {addonDesc(selectedAddon.id, lang, selectedAddon.desc)}
             </p>
+
+            {/* Addon-requirement badge in the detail modal (same SSOT field as the card). */}
+            {selectedAddon.requiresNote && (
+              <div className="mb-6">
+                <RequiresNote text={selectedAddon.requiresNote} />
+              </div>
+            )}
 
             {/* FIX #7 — same concise player-PC note as the card (modpacks / content mods / RPs). */}
             {repoClientNote(selectedAddon, t) && (
