@@ -203,82 +203,30 @@ if [ "$TYPE" = "fabric" ] || [ "$TYPE" = "forge" ] || [ "$TYPE" = "neoforge" ]; 
   fi
 fi
 
-# Download plugins if addons provided
-declare -A PLUGIN_URLS
-# --- Plugins with direct download URLs ---
-PLUGIN_URLS["p1"]="https://github.com/EssentialsX/Essentials/releases/download/2.22.0/EssentialsX-2.22.0.jar"
-PLUGIN_URLS["p2"]="https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/spigot"
-PLUGIN_URLS["p3"]="https://cdn.modrinth.com/data/Lu3KuzdV/versions/6W2ad1iI/CoreProtect-CE-23.2.jar"
-PLUGIN_URLS["p4"]="https://cdn.modrinth.com/data/Vebnzrzj/versions/MBSY8toc/LuckPerms-Bukkit-5.5.53.jar"
-PLUGIN_URLS["p5"]="https://github.com/MilkBowl/Vault/releases/download/1.7.3/Vault.jar"
-PLUGIN_URLS["p6"]="https://cdn.modrinth.com/data/1u6JkXh5/versions/ecqqLKUO/worldedit-bukkit-7.3.8.jar"
-PLUGIN_URLS["p9"]="https://github.com/BlueMap-Minecraft/BlueMap/releases/download/v5.20/bluemap-5.20-paper.jar"
-# TODO: Data — M5: blueMapPort not wired end-to-end. Need: App.jsx expose port field → functions pass BLUEMAP_PORT param → write to BlueMap config after plugin install
-PLUGIN_URLS["p10"]="https://cdn.modrinth.com/data/FnE6S0Zk/versions/TyzRB3KW/FastLeafDecay-1.0.6.jar"
-PLUGIN_URLS["p11"]="https://github.com/gecolay/GSit/releases/download/3.4.2/GSit-3.4.2.jar"
-PLUGIN_URLS["p12"]="https://github.com/Multiverse/Multiverse-Core/releases/download/5.7.0/multiverse-core-5.7.0.jar"
-PLUGIN_URLS["p14"]="https://github.com/PlaceholderAPI/PlaceholderAPI/releases/download/2.12.2/PlaceholderAPI-2.12.2.jar"
-PLUGIN_URLS["p16"]="https://github.com/kangarko/ChatControl-Free/releases/download/5.9.6/ChatControl-Free-5.9.6.jar"
-PLUGIN_URLS["p17"]="https://github.com/TownyAdvanced/Towny/releases/download/0.103.0.2/towny-0.103.0.2.jar"
-PLUGIN_URLS["p19"]="https://github.com/Archy-X/AuraSkills/releases/download/2.3.12/AuraSkills-2.3.12.jar"
-PLUGIN_URLS["p20"]="https://cdn.modrinth.com/data/mRfwcqe3/versions/th0S9rok/AuctionHouse-1.0.0-SNAPSHOT.jar"
-PLUGIN_URLS["p22"]="https://cdn.modrinth.com/data/8fW0q2Yg/versions/nl3u6PJq/RtpGUI.jar"
-PLUGIN_URLS["p23"]="https://ci.lucko.me/job/spark/lastSuccessfulBuild/artifact/spark-paper/build/libs/spark-1.10.172-paper.jar"
-PLUGIN_URLS["p25"]="https://cdn.modrinth.com/data/QufNAmjx/versions/uFIoBZOK/ExcellentEnchants-5.4.1.jar"
-PLUGIN_URLS["p29"]="https://cdn.modrinth.com/data/LJNGWSvH/versions/DLhBWSiW/grimac-bukkit-2.3.74-41b0fff.jar"
-PLUGIN_URLS["p30"]="https://hangarcdn.papermc.io/plugins/ViaVersion/ViaVersion/versions/5.9.1/PAPER/ViaVersion-5.9.1.jar"
-PLUGIN_URLS["p32"]="https://cdn.modrinth.com/data/fALzjamp/versions/MdY6JATr/Chunky-Bukkit-1.5.3.jar"
-PLUGIN_URLS["p33"]="https://hangarcdn.papermc.io/plugins/NEZNAMY/TAB/versions/5.0.7/PAPER/TAB%20v5.0.7.jar"
-PLUGIN_URLS["p35"]="https://cdn.modrinth.com/data/KAaZvh09/versions/6Yb1ntAi/ClearLaggEnhanced-2026.5.3.jar"
-PLUGIN_URLS["p36"]="https://cdn.modrinth.com/data/Y4NRwMW5/versions/V3X0pOQr/nightcore-2.16.2.jar"
-PLUGIN_URLS["p-chatfmt"]="https://github.com/EternalCodeTeam/ChatFormatter/releases/download/v1.3.5/ChatFormatter.v1.3.5.jar"
-PLUGIN_URLS["p-axiom"]="https://cdn.modrinth.com/data/evkiwA7V/versions/mSS9faHn/AxiomPaperPlugin-5.0.4-for-MC1.21.11.jar"
-# ViaVersion is auto-included from templates/plugins (already installed)
-PLUGIN_URLS["p-viaversion"]="https://hangarcdn.papermc.io/plugins/ViaVersion/ViaVersion/versions/5.9.1/PAPER/ViaVersion-5.9.1.jar"
-
-# Explicit filenames for URLs that don't end in .jar (API redirects, no extension in URL)
-declare -A PLUGIN_FILENAMES
-PLUGIN_FILENAMES["p2"]="Geyser-Spigot.jar"
-PLUGIN_FILENAMES["p33"]="TAB.jar"
-
-# GitHub-release plugins (free, NOT on Modrinth) — resolved via install-plugin-url.sh
-# (latest .jar asset from the GitHub API, with a pinned fallback URL on API failure).
-# Keep in sync with install-plugin.sh PLUGIN_GITHUB_REPOS.
-declare -A PLUGIN_GITHUB_REPOS
-declare -A PLUGIN_GITHUB_FALLBACK
-PLUGIN_GITHUB_REPOS["p37"]="dmulloy2/ProtocolLib"       # ProtocolLib — packet library
-PLUGIN_GITHUB_FALLBACK["p37"]="https://github.com/dmulloy2/ProtocolLib/releases/download/5.4.0/ProtocolLib.jar"
-
+# Download plugins if addons provided — DELEGATE to install-plugin.sh, the SINGLE source
+# of truth for plugin download URLs, filenames, GitHub/paid handling and the
+# EssentialsXSpawn / Geyser+Floodgate companion installs. This removes the old drifted
+# PLUGIN_URLS copy that used to live here and silently no-op'd several plugins at create
+# time (p13/p18/p24/p31/p34 were absent from it).
 if [ "$TYPE" != "fabric" ] && [ "$TYPE" != "forge" ] && [ "$TYPE" != "neoforge" ] && [ -n "$ADDONS" ] && [ "$ADDONS" != "[]" ]; then
-  echo "[$(date)] Installing plugins..."
+  echo "[$(date)] Installing plugins (via install-plugin.sh — single SSOT table)..."
   while IFS= read -r addonId; do
     [ -z "$addonId" ] && continue
-    url="${PLUGIN_URLS[$addonId]:-}"
-    if [ -n "$url" ]; then
-      if [[ -n "${PLUGIN_FILENAMES[$addonId]:-}" ]]; then
-        filename="${PLUGIN_FILENAMES[$addonId]}"
-      else
-        filename=$(basename "$url" | sed 's/\?.*$//')
-      fi
-      echo "[$(date)] Downloading $addonId: $filename"
-      wget -q -L --timeout=60 "$url" -O "$SERVER_DIR/plugins/$filename" || true
-      if validate_jar_or_fail "$SERVER_DIR/plugins/$filename" "$addonId ($filename)"; then
-        echo "[$(date)] OK: $addonId ($filename)"
-      else
-        echo "[$(date)] FAILED (invalid jar): $addonId ($filename)"
-      fi
-    elif [[ -n "${PLUGIN_GITHUB_REPOS[$addonId]:-}" ]]; then
-      # GitHub-release plugin (e.g. p37 ProtocolLib) — delegate to install-plugin-url.sh,
-      # which resolves the latest .jar asset via the GitHub API (pinned fallback on failure).
-      echo "[$(date)] Installing $addonId via GitHub release (${PLUGIN_GITHUB_REPOS[$addonId]})"
-      if PLUGIN_FALLBACK_URL="${PLUGIN_GITHUB_FALLBACK[$addonId]:-}" \
-         bash "$SCRIPTS_DIR_SELF/install-plugin-url.sh" "$SERVER_DIR" "github:${PLUGIN_GITHUB_REPOS[$addonId]}"; then
-        echo "[$(date)] OK: $addonId (GitHub)"
-      else
-        echo "[$(date)] FAILED (GitHub install): $addonId"
-      fi
+    # Plugin ids are p* ; mods (m*), datapacks (d*) and textures (t*) have their own loops
+    # elsewhere, so only hand p* ids to install-plugin.sh.
+    case "$addonId" in
+      p*) ;;
+      *) continue ;;
+    esac
+    if bash "$SCRIPTS_DIR_SELF/install-plugin.sh" "$SERVER_ID" "$addonId"; then
+      echo "[$(date)] OK plugin: $addonId"
     else
-      echo "[$(date)] No URL mapped for addon: $addonId (skipping)"
+      rc=$?
+      if [ "$rc" -eq 2 ]; then
+        echo "[$(date)] skipped plugin $addonId: premium/unavailable (cannot auto-install)"
+      else
+        echo "[$(date)] skipped/failed plugin $addonId (no mapped URL or download error)"
+      fi
     fi
   done < <(node -e "const ids=JSON.parse(process.argv[1]); ids.forEach(function(i){console.log(i);})" "$ADDONS")
 fi
@@ -297,7 +245,7 @@ DATAPACK_SLUGS["d6"]="mini-blocks-datapack"       # Mini Blocks
 DATAPACK_SLUGS["d7"]="better-wanderingtraders"    # Wandering Trades — improved wandering-trader offers
 DATAPACK_SLUGS["d9"]="hotbarcoordinates"          # Coordinates HUD above the hotbar
 DATAPACK_SLUGS["d10"]="player-drops-head"         # Player Head Drops
-DATAPACK_SLUGS["d11"]="mob-heads"                 # More Mob Heads
+DATAPACK_SLUGS["d11"]="amh"                       # All Mob Heads (catalog slug 'amh'; 'mob-heads' was the wrong pack)
 DATAPACK_SLUGS["d12"]="veinminer"                 # VeinMiner — break a whole ore/log vein at once
 DATAPACK_SLUGS["d13"]="tectonic"                  # worldgen overhaul (terrain)
 DATAPACK_SLUGS["d14"]="incendium"                 # worldgen overhaul (Nether)
@@ -445,6 +393,8 @@ fi
 mv "$TMP_JSON" "$SERVERS_JSON"
 
 # BlueMap config — set web port based on server port (e.g. 25566 -> 26566)
+# TODO: Data — M5: blueMapPort not wired end-to-end. Need: App.jsx expose port field ->
+# functions pass BLUEMAP_PORT param -> write to BlueMap config after plugin install.
 BLUEMAP_PORT=$((GAME_PORT + 1000))
 mkdir -p "$SERVER_DIR/plugins/BlueMap"
 cat > "$SERVER_DIR/plugins/BlueMap/core.conf" << 'BLUECORE'

@@ -1354,7 +1354,7 @@ var DATAPACK_CATALOG = {
   'd7':  { modrinthSlug: 'better-wanderingtraders' },// Wandering Trades
   'd9':  { modrinthSlug: 'hotbarcoordinates' },      // Coordinates HUD
   'd10': { modrinthSlug: 'player-drops-head' },      // Player Head Drops
-  'd11': { modrinthSlug: 'mob-heads' },              // More Mob Heads
+  'd11': { modrinthSlug: 'amh' },                    // All Mob Heads (catalog slug 'amh'; 'mob-heads' was the wrong pack)
   'd12': { modrinthSlug: 'veinminer' },              // VeinMiner
   'd13': { modrinthSlug: 'tectonic', worldgen: true },   // Tectonic — worldgen overhaul
   'd14': { modrinthSlug: 'incendium', worldgen: true },  // Incendium — Nether worldgen overhaul

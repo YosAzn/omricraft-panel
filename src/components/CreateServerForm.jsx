@@ -85,7 +85,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
       // core-incompatible addons (Create on Fabric etc.), plugin-bound packs on a
       // non-plugin core (no backing plugin can run there), and modpacks whose exact
       // loader+version doesn't match the server — the VPS can't build any of these.
-      return getInstallMethod(addon) === 'server' && !isWorldgenBlocked(addon) && !isCoreBlocked(addon) && !isPluginBoundCoreBlocked(addon) && !isModpackBlocked(addon);
+      return getInstallMethod(addon) === 'server' && !addon?.paid && !isWorldgenBlocked(addon) && !isCoreBlocked(addon) && !isPluginBoundCoreBlocked(addon) && !isModpackBlocked(addon);
     });
     onCreate({
       name, icon, software, version, gamemode, worldType, ops: opsArray,
@@ -116,6 +116,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
   const toggleSelection = (id) => {
     const addon = allAddons.find(a => a.id === id);
     if (getInstallMethod(addon) !== 'server') return;
+    if (addon?.paid) return; // paid/premium plugin — can't be auto-installed (buy + upload manually)
     if (isWorldgenBlocked(addon)) return; // greyed on Bukkit — not selectable
     if (isCoreBlocked(addon)) return;     // greyed on incompatible core — not selectable
     if (isPluginBoundCoreBlocked(addon)) return; // greyed: plugin-bound pack on non-plugin core
@@ -463,13 +464,16 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                     const coreBlocked = isCoreBlocked(a);
                     const pluginBoundBlocked = isPluginBoundCoreBlocked(a); // Phase 5d
                     const modpackBlocked = isModpackBlocked(a); // modpack loader/version mismatch
-                    const installable = installMethod === 'server' && !worldgenBlocked && !coreBlocked && !pluginBoundBlocked && !modpackBlocked;
+                    // Paid/premium plugins (MythicMobs/MythicMounts/ItemsAdder) can't be auto-installed
+                    // (behind a paywall — buy + upload manually), so they're never a selectable checkbox.
+                    const isPaid = !!a.paid;
+                    const installable = installMethod === 'server' && !isPaid && !worldgenBlocked && !coreBlocked && !pluginBoundBlocked && !modpackBlocked;
                     const greyed = worldgenBlocked || coreBlocked || pluginBoundBlocked || modpackBlocked;
                     const checked = selectedAddons.includes(a.id);
                     const autoAdded = checked && autoSelected.includes(a.id);
                     return (
                     <div key={a.id} onClick={() => toggleSelection(a.id)}
-                      title={worldgenBlocked ? t('worldgenBukkitNote') : (pluginBoundBlocked ? t('pluginBoundCoreBlocked') : (modpackBlocked ? t('modpackIncompatibleNote').replace('{req}', modpackRequirementLabel(a)) : (installable ? undefined : (installMethod === 'client' ? t('clientInstallInfo') : (a.type === 'modpacks' ? t('modpackManualInfo') : t('manualInstallInfo'))))))}
+                      title={isPaid ? t('addonsPremiumManualTitle') : (worldgenBlocked ? t('worldgenBukkitNote') : (pluginBoundBlocked ? t('pluginBoundCoreBlocked') : (modpackBlocked ? t('modpackIncompatibleNote').replace('{req}', modpackRequirementLabel(a)) : (installable ? undefined : (installMethod === 'client' ? t('clientInstallInfo') : (a.type === 'modpacks' ? t('modpackManualInfo') : t('manualInstallInfo')))))))}
                       className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${installable ? 'cursor-pointer' : 'cursor-default'} ${greyed ? 'opacity-50' : ''} ${checked ? 'bg-green-500/5 border-green-500/50' : 'bg-zinc-900 border-transparent hover:border-zinc-700'}`}>
                       {coreBlocked || pluginBoundBlocked || modpackBlocked ? (
                         // Addon's build doesn't exist for the chosen core, a plugin-bound
@@ -482,6 +486,12 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                         // Worldgen datapack on a Bukkit server — greyed, not selectable.
                         <span className="mt-0.5 text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border flex-shrink-0 whitespace-nowrap border-zinc-700 text-zinc-500 bg-zinc-800/40">
                           {t('datapacks')}
+                        </span>
+                      ) : isPaid ? (
+                        // Paid/premium plugin — behind a paywall, can't be auto-installed. Show a
+                        // Premium marker instead of a checkbox (buy link + upload guide render below).
+                        <span className="mt-0.5 w-5 h-5 rounded flex items-center justify-center border border-yellow-500/30 bg-yellow-500/10 text-yellow-400 flex-shrink-0" title={t('addonsPremiumManualTitle')}>
+                          💎
                         </span>
                       ) : installable ? (
                         <div className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center border flex-shrink-0 ${checked ? 'bg-green-600 border-green-600' : 'border-zinc-600'}`}>
@@ -499,6 +509,11 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                           <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border ${TYPE_COLORS[a.type]}`}>
                             {t(a.type)}
                           </span>
+                          {isPaid && (
+                            <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border bg-yellow-500/10 text-yellow-400 border-yellow-500/20 whitespace-nowrap">
+                              💎 Premium
+                            </span>
+                          )}
                           {autoAdded && (
                             <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border border-green-500/30 text-green-400 bg-green-500/10 whitespace-nowrap">
                               {t('autoAddedTag')}
@@ -536,7 +551,7 @@ export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lan
                             {t('autoAddedByNote')}
                           </span>
                         )}
-                        {!installable && !greyed && (
+                        {!installable && !greyed && !isPaid && (
                           <span className="text-[11px] text-zinc-500 mt-1.5 block leading-relaxed">
                             {installMethod === 'client' ? t('clientInstallInfo') : (a.type === 'modpacks' ? t('modpackManualInfo') : t('manualInstallInfo'))}
                           </span>

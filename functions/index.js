@@ -1367,19 +1367,33 @@ exports.getVersionMatrix = onCall(
 
     // Each entry: fetch source, map to a newest-first stable string[] of MC versions.
     const sources = {
-      // PaperMC: .versions[] oldest-first → reverse to newest-first.
+      // PaperMC deprecated the v2 API (api.papermc.io/v2 now returns an empty
+      // versions[] → the form silently fell back to FALLBACK_121, capping Paper at
+      // 1.21.11). The v3 "fill" API exposes .versions as a
+      // { "<mc-family>": ["<build-version>", ...] } map; the build-version strings
+      // ARE the MC versions. Flatten them, keep stable, newest-first.
       paper: async () => {
-        const j = await fetchJson('https://api.papermc.io/v2/projects/paper', null);
-        const arr = j?.versions;
-        if (!Array.isArray(arr) || !arr.length) return FALLBACK_121;
-        return arr.filter(isStable).reverse();
+        const j = await fetchJson('https://fill.papermc.io/v3/projects/paper', null);
+        const vmap = j?.versions;
+        if (!vmap || typeof vmap !== 'object') return FALLBACK_121;
+        const all = [];
+        for (const grp of Object.values(vmap)) {
+          if (Array.isArray(grp)) for (const v of grp) if (typeof v === 'string') all.push(v);
+        }
+        const list = [...new Set(all.filter(isStable))].sort(cmpVerDesc);
+        return list.length ? list : FALLBACK_121;
       },
-      // Folia: same PaperMC API shape.
+      // Folia: same v3 "fill" API shape as Paper.
       folia: async () => {
-        const j = await fetchJson('https://api.papermc.io/v2/projects/folia', null);
-        const arr = j?.versions;
-        if (!Array.isArray(arr) || !arr.length) return FALLBACK_121;
-        return arr.filter(isStable).reverse();
+        const j = await fetchJson('https://fill.papermc.io/v3/projects/folia', null);
+        const vmap = j?.versions;
+        if (!vmap || typeof vmap !== 'object') return FALLBACK_121;
+        const all = [];
+        for (const grp of Object.values(vmap)) {
+          if (Array.isArray(grp)) for (const v of grp) if (typeof v === 'string') all.push(v);
+        }
+        const list = [...new Set(all.filter(isStable))].sort(cmpVerDesc);
+        return list.length ? list : FALLBACK_121;
       },
       // Purpur: .versions[] oldest-first → reverse. Already ships 26.x.
       purpur: async () => {
@@ -1416,18 +1430,37 @@ exports.getVersionMatrix = onCall(
         const list = Array.from(mc);
         return list.length ? list.sort(cmpVerDesc) : FALLBACK_121;
       },
-      // NeoForge: maven versions like "21.1.93" → MC "1.21.1" (major.minor → 1.major.minor).
-      // Real source so the form never offers a version with no NeoForge jar.
+      // NeoForge → MC version. The scheme changed in 2026: legacy builds are
+      // <mcMinor>.<mcPatch>.<build> (21.1.93 → MC 1.21.1); new builds are
+      // <mcMajor>.<mcMinor>.<mcPatch>.<build> (26.1.2.78 → MC 26.1.2, 26.2.0.x → MC 26.2).
+      // Blindly prefixing "1." produced phantom ids like "1.26.2" (no MC release, no mod
+      // builds → install-mod.sh fails on every mod at the newest offered version). Derive
+      // candidate ids per scheme and keep only REAL Minecraft releases, validated against
+      // Modrinth's game_version tag — the SAME source install-mod.sh resolves builds from,
+      // so the form can never offer a NeoForge version that has no jar.
       neoforge: async () => {
         const j = await fetchJson('https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge', null);
         const arr = j?.versions;
         if (!Array.isArray(arr) || !arr.length) return FALLBACK_121;
+        const tags = await fetchJson('https://api.modrinth.com/v2/tag/game_version', null);
+        const realIds = new Set(
+          (Array.isArray(tags) ? tags : []).filter(g => g && g.version_type === 'release').map(g => g.version)
+        );
         const mc = new Set();
         for (const v of arr) {
-          const m = String(v).match(/^(\d+)\.(\d+)\.\d+/);
-          if (m) mc.add(`1.${m[1]}.${m[2]}`);
+          if (!isStable(v)) continue;                          // drop -beta/-alpha on the RAW maven string
+          const m = String(v).match(/^(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?/);
+          if (!m) continue;
+          const [, a, b, c, build] = m;
+          // New 4-component scheme → try the specific id (26.1.2) then the family (26.2);
+          // legacy 3-component → 1.<a>.<b>. Both candidate forms are always real MC ids.
+          const cands = (build !== undefined) ? [`${a}.${b}.${c}`, `${a}.${b}`] : [`1.${a}.${b}`];
+          // Prefer the most-specific REAL release; if the tag list is unavailable, fall
+          // back to the last candidate (26.2 / 1.21.1 — always a real id, never phantom).
+          const hit = realIds.size ? cands.find(id => realIds.has(id)) : cands[cands.length - 1];
+          if (hit) mc.add(hit);
         }
-        const list = Array.from(mc).filter(isStable);
+        const list = Array.from(mc);
         return list.length ? list.sort(cmpVerDesc) : FALLBACK_121;
       },
       // Mohist only publishes 1.20.1 builds — offer exactly that, no phantom versions.

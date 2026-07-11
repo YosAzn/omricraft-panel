@@ -175,7 +175,11 @@ export default function App() {
     // (owner OR admin-email) to read servers. If we subscribe during the pre-auth /
     // anonymous phase the listen is permission-denied and dies; re-running on
     // authUser change (below) re-subscribes with the real (admin/Google) identity.
-    if (!db || !authUser) return;
+    // Anonymous visitors (signInAnonymously) own no servers and are not admin, so an
+    // unconstrained servers listen is always permission-denied — noisy console errors
+    // and wasted Firestore reads on every public page view. Only subscribe once a real
+    // (Google) identity is present; the admin/owner read then succeeds.
+    if (!db || !authUser || authUser.isAnonymous) return;
 
     const serversPath = getServersPath();
     const addonsPath = getAddonsPath();
@@ -195,20 +199,8 @@ export default function App() {
     // so a listen that was denied while anonymous is re-established once authed.
   }, [authUser]);
 
-  // Poll player counts every 30s (non-blocking, best-effort)
-  useEffect(() => {
-    const fetchPlayers = async () => {
-      try {
-        const res = await getPlayersOnlineFn();
-        if (res?.data?.success && res.data.servers) {
-          setPlayersData(res.data.servers);
-        }
-      } catch (e) { console.error('getPlayersOnline poll failed:', e?.message || e); }
-    };
-    fetchPlayers();
-    const interval = setInterval(fetchPlayers, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  // Player-count poll relocated below the isAdmin definition (it is gated on isAdmin,
+  // which is declared further down — referencing it here would hit the TDZ).
   // ----------------------------------------
 
   // Sign in as admin via Google (added ALONGSIDE anonymous — anonymous stays for kids/other devices)
@@ -248,6 +240,25 @@ export default function App() {
   // self-promote in the UI). The Cloud Functions independently enforce admin server-side;
   // this only gates which controls render.
   useEffect(() => { setUserRole(isAdmin ? 'admin' : 'member'); }, [isAdmin]);
+
+  // Poll player counts every 30s — ADMIN ONLY. getPlayersOnline is an admin-only
+  // Cloud Function; for anonymous visitors and non-admin members it always throws
+  // "Admin only", so polling it there only spams the console and burns a Function
+  // invocation every 30s. The live counts are only shown on the admin dashboard.
+  useEffect(() => {
+    if (!isAdmin) return;
+    const fetchPlayers = async () => {
+      try {
+        const res = await getPlayersOnlineFn();
+        if (res?.data?.success && res.data.servers) {
+          setPlayersData(res.data.servers);
+        }
+      } catch (e) { console.error('getPlayersOnline poll failed:', e?.message || e); }
+    };
+    fetchPlayers();
+    const interval = setInterval(fetchPlayers, 30000);
+    return () => clearInterval(interval);
+  }, [isAdmin]);
 
   // Reflect the active language's text direction onto the document root so the
   // whole app — including any portal/modal rendered to <body> — flips correctly

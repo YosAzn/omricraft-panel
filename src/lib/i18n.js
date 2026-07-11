@@ -197,7 +197,7 @@ export const DICT = {
     globalRepoDesc: "כאן תוכלו לחפש תוספים, להוסיף חדשים, או לבנות משלכם מותאם אישית.",
     mods: "מודים",
     plugins: "פלאגינים",
-    datapacks: "דתה-פאקים",
+    datapacks: "דאטה-פאקים",
     modpacks: "מודפאקים",
     textures: "טקסטורות",
     shaders: "שיידרים",

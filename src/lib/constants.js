@@ -372,13 +372,13 @@ export const DEFAULT_ADDONS = [
   { id: 'm2', name: 'Iris Shaders', desc: 'תמיכה בשיידרים מהממים', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/iris', requires: ['m1'], downloads: '15M', rating: 4.8, reviews: 11200 },
   { id: 'm3', name: 'Create', desc: 'מוד טכנולוגיה, גלגלי שיניים, אוטומציה ורכבות (Forge/NeoForge בלבד)', type: 'mods', modrinthSlug: 'create', compatibleCores: ['forge', 'neoforge'], downloads: '40M', rating: 4.9, reviews: 30000 },
   { id: 'm4', name: 'Litematica', desc: 'מאפשר להציג סכמות ושרטוטים תלת ממדיים', type: 'mods', installMethod: 'client', clientUrl: 'https://modrinth.com/mod/litematica', downloads: '12M', rating: 4.7, reviews: 8500 },
-  { id: 'm5', name: 'Distant Horizons', desc: 'מגדיל את טווח הראייה משמעותית בלי להעמיס על המחשב', type: 'mods', modrinthSlug: 'distanthorizons', downloads: '8M', rating: 4.6, reviews: 4200 },
+  { id: 'm5', name: 'Distant Horizons', desc: 'מגדיל את טווח הראייה משמעותית בלי להעמיס על המחשב', type: 'mods', modrinthSlug: 'distanthorizons', compatibleCores: ['fabric', 'neoforge'], downloads: '8M', rating: 4.6, reviews: 4200 },
   { id: 'm6', name: 'Simple Voice Chat', desc: 'צ\'אט קולי מובנה במשחק לפי מרחק שחקנים (Proximity Chat)', type: 'mods', modrinthSlug: 'simple-voice-chat', downloads: '25M', rating: 4.8, reviews: 16000 },
-  { id: 'm7', name: 'Just Enough Items (JEI)', desc: 'מציג את כל הפריטים והמתכונים במשחק', type: 'mods', modrinthSlug: 'jei', downloads: '150M', rating: 4.9, reviews: 90000 },
+  { id: 'm7', name: 'Just Enough Items (JEI)', desc: 'מציג את כל הפריטים והמתכונים במשחק (מוד — נטען רק על ליבות מודים, לא על Paper/Purpur/Folia)', type: 'mods', modrinthSlug: 'jei', compatibleCores: ['fabric', 'forge', 'neoforge'], downloads: '150M', rating: 4.9, reviews: 90000 },
   // Server-side performance/utility mods — install-mod.sh resolves the build for the
   // server's loader+version; loaders that lack a build (e.g. Lithium has no Forge build,
   // C2ME is Fabric-only) fail loud + skip, never install an incompatible jar.
-  { id: 'm8', name: 'Lithium', desc: 'מנוע אופטימיזציה לשרת - משפר ביצועי טיק, AI של מובים ופיזיקה בלי לשנות gameplay (Fabric/NeoForge/Quilt)', type: 'mods', modrinthSlug: 'lithium', downloads: '20M', rating: 4.9, reviews: 14000 },
+  { id: 'm8', name: 'Lithium', desc: 'מנוע אופטימיזציה לשרת - משפר ביצועי טיק, AI של מובים ופיזיקה בלי לשנות gameplay (Fabric/NeoForge/Quilt)', type: 'mods', modrinthSlug: 'lithium', compatibleCores: ['fabric', 'neoforge'], downloads: '20M', rating: 4.9, reviews: 14000 },
   { id: 'm9', name: 'FerriteCore', desc: 'מצמצם דרמטית את צריכת הזיכרון (RAM) של השרת בלי שום השפעה על המשחק', type: 'mods', modrinthSlug: 'ferrite-core', downloads: '30M', rating: 4.9, reviews: 12000 },
   { id: 'm10', name: 'C2ME', desc: 'מאיץ טעינה ויצירת צ\'אנקים במקביל (multi-thread) - פחות לאגים כשחוקרים אזורים חדשים (Fabric בלבד)', type: 'mods', modrinthSlug: 'c2me-fabric', compatibleCores: ['fabric'], downloads: '8M', rating: 4.7, reviews: 4200 },
   { id: 'm11', name: 'No Chat Reports', desc: 'מסיר את מערכת דיווחי הצ\'אט של מוג\'אנג ומשפר פרטיות בשרת', type: 'mods', modrinthSlug: 'no-chat-reports', downloads: '10M', rating: 4.8, reviews: 9000 },
@@ -396,7 +396,7 @@ export const DEFAULT_ADDONS = [
 
   // --- Plugins (Paper) ---
   { id: 'p1', name: 'EssentialsX', desc: 'פקודות בסיסיות לשרת (spawn, home, tpa, warp)', type: 'plugins', downloads: '10M', rating: 4.7, reviews: 12500 },
-  { id: 'p2', name: 'GeyserMC', desc: 'יאפשר לחברים מהטלפון/קונסולה להיכנס לשרת ה-Java', type: 'plugins', downloads: '8M', rating: 4.8, reviews: 6800 },
+  { id: 'p2', name: 'GeyserMC', desc: 'חברים מהטלפון/קונסולה (Bedrock) נכנסים לשרת ה-Java שלך — עכשיו עובד מהקופסה, בלי צורך בחשבון Java לכל שחקן (Floodgate מותקן אוטומטית יחד איתו)', type: 'plugins', downloads: '8M', rating: 4.8, reviews: 6800 },
   { id: 'p3', name: 'CoreProtect', desc: 'שומר היסטוריה של כל בלוק לביצוע Rollback ומניעת גריפינג', type: 'plugins', downloads: '5M', rating: 4.9, reviews: 4500 },
   { id: 'p4', name: 'LuckPerms', desc: 'מערכת ניהול הרשאות ודרגות (Admin, VIP) המובילה כיום', type: 'plugins', downloads: '12M', rating: 4.9, reviews: 9000 },
   { id: 'p5', name: 'Vault', desc: 'תשתית הכרחית למערכות כלכלה וכסף בשרת', type: 'plugins', downloads: '25M', rating: 4.7, reviews: 13000 },
@@ -407,12 +407,12 @@ export const DEFAULT_ADDONS = [
   { id: 'p12', name: 'Multiverse-Core', desc: 'ניהול מתקדם של מספר עולמות נפרדים על אותו שרת', type: 'plugins', downloads: '18M', rating: 4.8, reviews: 15000 },
   { id: 'p13', name: 'ZNPCsPlus', desc: 'יצירת דמויות NPC בקלות שנותנות פקודות לשחקנים', type: 'plugins', downloads: '2.2M', rating: 4.6, reviews: 1900 },
   { id: 'p14', name: 'PlaceholderAPI', desc: 'תשתית עיקרית למשתנים (כמו {player_name}) בפלאגינים', type: 'plugins', downloads: '20M', rating: 4.9, reviews: 11000 },
-  { id: 'p15', name: 'PowerRanks', desc: 'מערכת דרגות והרשאות קלה להגדרה מתוך המשחק', type: 'plugins', downloads: '1.2M', rating: 4.4, reviews: 900 },
   { id: 'p16', name: 'ChatControl', desc: 'סינון ספאם, קללות ושליטה מתקדמת בצ\'אט', type: 'plugins', downloads: '3M', rating: 4.5, reviews: 2400 },
   { id: 'p17', name: 'Towny Advanced', desc: 'מערכת ערים ואומות שמאפשרת לשחקנים לנהל שטחים (בדיוק כמו בנייטפול)', type: 'plugins', downloads: '8M', rating: 4.8, reviews: 14000 },
+  { id: 'p38', name: 'GriefPrevention', desc: 'הגנת-שטח פשוטה: שחקנים תובעים אזור עם אתי-זהב ואף אחד לא יכול לבנות/להרוס אצלם — התוסף מס\' 1 להישרדות', type: 'plugins', downloads: '15M', rating: 4.8, reviews: 12000 },
   { id: 'p18', name: 'Slimefun 4', desc: 'מוסיף מכונות, גנרטורים וקסמים בלי צורך במודים! חווית הישרדות מתקדמת (דורש Vault לכלכלה ולהרשאות של המכונות/חנויות)', type: 'plugins', requires: ['p5'], downloads: '6M', rating: 4.9, reviews: 21000 },
-  { id: 'p19', name: 'Aurelium Skills', desc: 'מערכת סקילים ורמות RPG - לחימה, חציבה, פארקור ועוד הרבה', type: 'plugins', downloads: '4M', rating: 4.9, reviews: 8500 },
-  { id: 'p20', name: 'AuctionHouse', desc: 'שוק עולמי שבו שחקנים מוכרים וקונים פריטים אחד מהשני (מערכת כלכלה) (דורש Vault + פלאגין כלכלה)', type: 'plugins', requires: ['p5'], downloads: '9M', rating: 4.8, reviews: 11000 },
+  { id: 'p19', name: 'AuraSkills', desc: 'מערכת סקילים ורמות RPG - לחימה, חציבה, פארקור ועוד הרבה', type: 'plugins', downloads: '4M', rating: 4.9, reviews: 8500 },
+  { id: 'p20', name: 'AuctionHouse', desc: 'שוק עולמי שבו שחקנים מוכרים וקונים פריטים אחד מהשני (מערכת כלכלה) (דורש Vault + פלאגין כלכלה)', requiresNote: 'דורש ספק-כלכלה אמיתי (EssentialsX) מעבר לגשר Vault — בלעדיו אין ארנק/כסף לקנייה ומכירה', type: 'plugins', requires: ['p5', 'p1'], downloads: '9M', rating: 4.8, reviews: 11000 },
   { id: 'p21', name: 'MythicMobs', desc: 'מאפשר ליצור בוסים ומפלצות מותאמים אישית עם כוחות מיוחדים (כמו בנייטפול)', requiresNote: 'תוסף בתשלום — העלאת קובץ JAR ידנית', type: 'plugins', downloads: '7M', rating: 4.9, reviews: 16000, paid: true, buyUrl: 'https://mythiccraft.io/index.php?resources/mythicmobs.1/' },
   { id: 'p22', name: 'BetterRTP', desc: 'מאפשר לשחקנים להשתגר בבטחה למקום רנדומלי בעולם הפתוח כדי לבנות', type: 'plugins', downloads: '11M', rating: 4.7, reviews: 12500 },
 
@@ -437,8 +437,6 @@ export const DEFAULT_ADDONS = [
   // --- עיצוב וניהול עומסים (בקשת משתמש) ---
   { id: 'p33', name: 'TAB', desc: 'מעצב את רשימת השחקנים (Tablist) שמופיעה שלוחצים על TAB. מאפשר להוסיף צבעים, את הדרגה של השחקן, אנימציות, והודעות למעלה ולמטה (Header/Footer).', type: 'plugins', downloads: '10M', rating: 4.9, reviews: 18000 },
   { id: 'p34', name: 'InvisibleItemFrames', desc: 'מאפשר להפוך מסגרות של חפצים (Item Frames) לבלתי נראות. מעולה לעיצוב חדרים וחנויות בלי לראות את העץ של המסגרת!', type: 'plugins', downloads: '1.2M', rating: 4.8, reviews: 2100 },
-  { id: 'p35', name: 'ClearLag', desc: 'פלאגין חובה לשרתים עמוסים: מנקה אוטומטית חפצים שזרוקים על הרצפה, מוחק מובים מיותרים שנתקעו, ומונע קריסות (Crash) כשיש עומס.', type: 'plugins', downloads: '22M', rating: 4.7, reviews: 35000 },
-
   // --- ספריות תלות (dependency libraries) ---
   // p36 NightCore — ספריית הליבה של מפתח ExcellentEnchants (p25); מותקנת אוטומטית מ-Modrinth.
   // p37 ProtocolLib — אינו ב-Modrinth (מופץ דרך GitHub releases). `githubRepo` → install-plugin.sh
@@ -489,7 +487,7 @@ export const DEFAULT_ADDONS = [
   // mp3..mp7 — modpacks אמיתיים שאומתו ב-Modrinth (project_type:modpack, 200).
   // downloadUrl = הדף הרשמי ב-Modrinth; ה-AddonsTab הופך את ה-badge הידני לקישור.
   // mp3 Cobblemon Official [Fabric] 1.5.2 → MC 1.20.1 (Modrinth featured version).
-  { id: 'mp3', name: 'Cobblemon Official Modpack', desc: 'המודפאק הרשמי של Cobblemon - הרפתקת פוקימון מלאה בעולם המיינקראפט (Fabric)', type: 'modpacks', installMethod: 'manual', loader: 'fabric', mcVersion: '1.20.1', modrinthSlug: 'cobblemon-fabric', downloadUrl: 'https://modrinth.com/modpack/cobblemon-fabric', weight: 'medium', downloads: '8M', rating: 4.9, reviews: 14000 },
+  { id: 'mp3', name: 'Cobblemon Official Modpack', desc: 'המודפאק הרשמי של Cobblemon - הרפתקת פוקימון מלאה בעולם המיינקראפט (Fabric)', type: 'modpacks', installMethod: 'manual', loader: 'fabric', mcVersion: '1.21.1', modrinthSlug: 'cobblemon-fabric', downloadUrl: 'https://modrinth.com/modpack/cobblemon-fabric', weight: 'medium', downloads: '8M', rating: 4.9, reviews: 14000 },
   // mp4 COBBLEVERSE 1.7.31 → MC 1.21.1 (Modrinth featured version).
   { id: 'mp4', name: 'COBBLEVERSE', desc: 'הרפתקת פוקימון ענקית מבוססת Cobblemon - מנהיגי חדרים, אליפות וגיבוש חבורת פוקימון', type: 'modpacks', installMethod: 'manual', loader: 'fabric', mcVersion: '1.21.1', modrinthSlug: 'cobbleverse', downloadUrl: 'https://modrinth.com/modpack/cobbleverse', weight: 'medium', downloads: '4.5M', rating: 4.8, reviews: 9000 },
   // mp5 Prominence II: Hasturian Era 3.9.27 → MC 1.20.1 (Modrinth featured version).
@@ -501,12 +499,11 @@ export const DEFAULT_ADDONS = [
   
   // --- Textures ---
   // installMethod: 'client' = resource/texture packs מותקנים בצד-הלקוח (אצל השחקן), לא בשרת. אין URL מתארח כרגע.
-  // pluginBound:true — a bare resource pack can't ADD the hats; the items only exist when a
-  // plugin (ItemsAdder/Oraxen) injects them. So this is server-only (no plain PC download) and
-  // carries a prominent "needs ItemsAdder/compatible datapack" tag. suggestsPlugin (soft hint,
-  // NOT a hard `requires`) points the user at ItemsAdder without auto-installing a paid plugin.
-  { id: 't1', name: 'Custom Hats Pack', desc: 'מוסיף כתרים, כובעי קסם ופריטים שניתן לשים על הראש לטובת מראה ייחודי (בדומה לנייטפול) (חבילת מרקם בצד-הלקוח — מוחלת בשרת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', requiresNote: 'צריך תוסף ItemsAdder כדי להזריק את הכובעים — בלעדיו החבילה לא מוסיפה כלום', type: 'textures', installMethod: 'server', modrinthSlug: 'elibruhs-custom-hats-pack', pluginBound: true, suggestsPlugin: 'p28', downloads: '1.2M', rating: 4.8, reviews: 4500 },
-  { id: 't2', name: 'Golden Pumpkin Pie', desc: 'מודל תלת-ממדי מיוחד שהופך את פשטידת הדלעת הרגילה לפשטידת זהב נוצצת', type: 'textures', installMethod: 'client', clientUrl: 'https://modrinth.com/resourcepack/golden-pumpkin-pie', downloads: '800K', rating: 4.6, reviews: 2100 },
+  // Custom Hats (t1) is a plain CLIENT resource pack (Modrinth server_side:unsupported) built
+  // by renaming a carved pumpkin — no backing plugin needed. It installs like any other
+  // server-applied resource pack (server-resource-pack, same as t3); no pluginBound gating.
+  { id: 't1', name: 'Custom Hats Pack', desc: 'מוסיף כתרים, כובעי קסם ופריטים שניתן לשים על הראש לטובת מראה ייחודי (בדומה לנייטפול) (חבילת מרקם בצד-הלקוח — מוחלת בשרת דרך server-resource-pack; כל שחקן צריך לאשר אותה אצלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'elibruhs-custom-hats-pack', downloads: '1.2M', rating: 4.8, reviews: 4500 },
+  { id: 't2', name: '3D Pumpkin Pie', desc: 'מודל תלת-ממדי מיוחד שהופך את פשטידת הדלעת השטוחה לפשטידה תלת-ממדית בולטת ומרשימה', type: 'textures', installMethod: 'client', clientUrl: 'https://modrinth.com/resourcepack/3d-pumpkin-pie', downloads: '800K', rating: 4.6, reviews: 2100 },
   // clientDeps — this server-applied pack only FUNCTIONS if each player also has one client option installed.
   // Rendered as an inline "pick one" chooser (no popup); each option lists its client items + download links.
   { id: 't3', name: 'Fresh Animations', desc: 'אנימציות תנועה מציאותיות, חלקות ומצחיקות לכל המפלצות והחיות במשחק (דורש בצד-הלקוח את המודים ETF + EMF, או OptiFine, כדי שהאנימציות יפעלו)', type: 'textures', installMethod: 'server', modrinthSlug: 'fresh-animations', clientDeps: [{ label: 'ETF + EMF', recommended: true, ids: ['m14', 'm15'] }, { label: 'OptiFine', ids: ['m16'] }], downloads: '15M', rating: 4.9, reviews: 45000 },
