@@ -12,13 +12,15 @@
 
 > ⚠️ Firebase Hosting הוסר (2026-06-07). Frontend = GitHub Pages בלבד.
 
-## Deploy
+## Deploy — הכל דרך `git push origin main` (אין deploy ידני)
 
-| מה | פקודה |
+| מה | מנגנון |
 |----|--------|
 | Frontend (A) | `git push origin main` → GitHub Actions → Pages |
-| Backend (C) | `firebase deploy --only functions,firestore` |
+| Backend (C) | `git push origin main` → ה-CI מריץ `firebase deploy --only functions,firestore` (job `deploy-functions` ב-`deploy.yml`) |
 | VPS scripts (B) | push ל-`oracle/**` → workflow "Deploy to Oracle" |
+
+⚠️ אסור `firebase deploy` ידני — מתנגש עם ה-CI על ה-Firebase lock (memory: feedback_omricraft_deploy).
 
 ## מידע טכני
 
@@ -38,7 +40,9 @@
 | bbb | 25569 | 25579 |
 
 ## Auth
-- Anonymous auth — `adminUid` = UID ראשון ב-`config/admin`
+- **Admin = מייל מ-allowlist** דרך Google sign-in (`yosijo@gmail.com`, `omri.sokolov@gmail.com`) —
+  מסונכרן ב-3 מקומות: `src/App.jsx` (`ADMIN_EMAILS`) · `functions/index.js` (`assertAdmin`) · `firestore.rules`.
+- Anonymous auth לכל מבקר; `adminUid` ב-`config/admin` = legacy fallback בלבד (כתיבה חסומה ב-rules).
 - Admin רואה הכל; שאר רואים רק שרתים עם `ownerUid === uid`
 
 ## כלל עבודה
@@ -110,8 +114,8 @@ gate-tests.sh כעת בודק נוכחות של כל route קריטי — אם �
 URLs נרקבים. כל הורדה → בדוק שהקובץ > 0 bytes (קיים ב-create-server.sh / install-plugin.sh).
 
 ## Backlog פתוח
-- #8 File Manager (endpoints קיימים, UI עדיין mock)
-- #9 Console live log
-- #10 Users/Admin
-- #11 Plugin Browser
-- #12 Backups
+- #9 Console live log streaming (שליחת פקודות כבר עובדת)
+- Scheduled start/stop
+
+> הושלמו מהרשימה הישנה: #8 File Manager · #10 Users/Admin (email-based + request→approve) ·
+> #11 Plugin Browser (GlobalRepository) · #12 Backups (+Recycle Bin). ראה "מצב פיצ'רים" ב-`CLAUDE.md` הראשי.
