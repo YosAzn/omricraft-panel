@@ -40,6 +40,17 @@ glassprofile/             תת-פרויקט נפרד (Glass Dome, ניסיוני
 ARCHITECTURE.md FLOW.md MINECRAFT_RULES.md   תיעוד — קרא לפני שינוי גדול
 ```
 
+## 🧭 ניווט מהיר — משימה → קבצים (התחל כאן, אל תסרוק את הריפו)
+
+| רוצה ל… | גע ב… |
+|---------|--------|
+| לשנות UI של עמוד/טאב | `src/components/…` (טאבי-שרת ב-`ServerPanel/`) + טקסטים **רק** דרך `src/lib/i18n.js` |
+| להוסיף/לשנות תוסף בקטלוג | `src/lib/constants.js` (`DEFAULT_ADDONS`) + `addonI18n.js` — **קרא `MINECRAFT_RULES.md` קודם** |
+| יכולת backend חדשה | `functions/index.js` (onCall) + חתימה ב-`src/lib/api.js`; אם נוגע ב-VPS → route ב-`oracle/manager-api/server.js` + script ב-`oracle/scripts/` |
+| התנהגות שרת MC (create/start/install) | `oracle/scripts/*.sh` — **קרא `MINECRAFT_RULES.md` קודם** |
+| הרשאות/גישה | `firestore.rules` + `assertAdmin` ב-functions + `ADMIN_EMAILS` ב-`App.jsx` (3 מקומות מסונכרנים!) |
+| ניתוב/פרוקסי (slug לא מגיע לשרת) | `register-server-in-velocity.sh` / `apply-forwarding-config.sh`; `velocity.toml` = runtime על ה-VPS בלבד |
+
 ## 🖥️ Frontend (שכבה A)
 
 `App.jsx` הוא ה-orchestrator (auth, Firestore listeners, state, ניתוב `currentView`,
@@ -58,6 +69,18 @@ ARCHITECTURE.md FLOW.md MINECRAFT_RULES.md   תיעוד — קרא לפני שי
 - **קטלוג תוספים + gating:** `src/lib/constants.js` — `DEFAULT_ADDONS`, `SOFTWARE_TYPES`,
   ולוגיקת תאימות (`isBukkitBased`, `isCoreIncompatible`, `isModpackIncompatible`,
   `isWorldgenDatapack`, `collectRequiredIds`…). כל שינוי לוגיקת addons עובר דרך `MINECRAFT_RULES.md`.
+
+### 🎨 עיצוב — חשוב! שמור על השפה הוויזואלית הקיימת
+- **Dark-only:** רקע `zinc-950`, משטחים `zinc-900`, גבולות `zinc-800`. אין light mode.
+- **Accent:** emerald = פעולה ראשית/מצב חיובי (כפתור create, badge admin); אדום = הרס; ענבר = אזהרה.
+- **כותרת-מותג "מתכתית":** gradient ירוק עם `bg-clip-text text-transparent` (ראה ה-h1 ב-`App.jsx`).
+- **אייקונים: lucide-react בלבד — אסור אימוג'י ב-UI** (האימוג'ים הוסרו בכוונה, ראה היסטוריית ה-Guide).
+- **primitives משותפים ב-`src/components/ui.jsx`:** `PageHeader` (לוגו+כותרת אחיד לכל עמוד, תומך sticky+glow+RTL-flip), `NavBtn`, `TabBtn` — השתמש בהם, אל תמציא header/כפתור חדש.
+- **לוגו ייעודי לכל עמוד** ב-`src/assets/` (`dashboard/guide/warroom/addons/build-logo.png`).
+- **RTL-first:** עברית ברירת-מחדל; `dir` נקבע על ה-root; ה-nav העליון נעול LTR פיזית (הלוגו תמיד משמאל).
+- **כל טקסט UI דרך `t()`** (`i18n.js`, ~10 שפות) — אסור מחרוזת קשיחה בקומפוננטה.
+- עמודים ציבוריים (Landing/Guide) עשירים יותר (hero, flip-cards) אבל באותה פלטה. שינוי עיצוב =
+  בתוך השפה הקיימת; **לא** להכניס ספריית UI חדשה או פלטת צבעים שונה בלי אישור מפורש.
 
 ## 🔌 Backend — Firebase Functions (שכבה C)
 
