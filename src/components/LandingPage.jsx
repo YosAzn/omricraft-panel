@@ -12,8 +12,11 @@ import omricraftLogo from '../assets/omricraft-logo.png';
 import omricraftLogoS from '../assets/omricraft-logo-s.png';
 import ocGuide from '../assets/oc-guide.png';
 import ocGuideIcon from '../assets/oc-guide-icon.png';
-import addonsLogo from '../assets/addons-logo.png';
-import guideLogo from '../assets/guide-logo.png';
+// CTA button art — the same faceted set the top nav uses, so both rows match.
+import dashboardSpider from '../assets/dashboard-spider.png';
+import addonsSword from '../assets/addons-sword.png';
+import guideManGold from '../assets/guide-man-gold.png';
+import warroomCreeperTnt from '../assets/warroom-creeper-tnt.png';
 
 // Public, no-auth-required landing page. The first thing a visitor sees.
 // Matches (and elevates) the app's zinc-950 / emerald glass language.
@@ -23,7 +26,7 @@ import guideLogo from '../assets/guide-logo.png';
 export default function LandingPage({
   t, lang, setLang, isRtl,
   authUser, isAdmin, adminEmail,
-  onCreate, onPlugins, onGuide, onOpenPanel, onSignIn,
+  onCreate, onPlugins, onGuide, onOpenPanel, onHealth, onSignIn,
 }) {
   const ArrowCta = isRtl ? ({ size }) => <ArrowRight size={size} className="rotate-180" /> : ArrowRight;
 
@@ -148,6 +151,26 @@ export default function LandingPage({
               `items-stretch` keeps them the SAME HEIGHT even when a label wraps to
               two lines at a given width; `sm:min-w` keeps them the same width. Create
               is just the emerald-accented one (no loud gradient). */}
+          {/* "How it works" is NOT one of the five destinations — it only scrolls
+              further down this same page. It sits ABOVE the row as a quiet link so
+              the five real destinations below read as one clean, even row. */}
+          <div className="oc-rise flex justify-center mb-5" style={{ animationDelay: '215ms' }}>
+            <a
+              href="#how-it-works"
+              className="group inline-flex items-center gap-2 text-sm sm:text-base font-bold text-zinc-400 hover:text-amber-100 transition-colors"
+            >
+              <BookOpen size={17} className="text-amber-300/80 group-hover:text-amber-200 transition-colors shrink-0" />
+              <span className="border-b border-dashed border-zinc-700 group-hover:border-amber-500/50 pb-0.5">
+                {t('landingHowItWorks')}
+              </span>
+            </a>
+          </div>
+
+          {/* PRIMARY DESTINATIONS — the same five, in the same order, as the panel's
+              top nav: create · dashboard · add-ons · guide · war-room. DOM order is
+              the single source of that order; the row follows the page direction, so
+              in Hebrew "צור שרת" lands on the RIGHT exactly like the nav.
+              War room is admin-only, matching the nav and the view guard in App.jsx. */}
           <div className="oc-rise flex flex-col sm:flex-row flex-wrap items-stretch justify-center gap-3.5"
                style={{ animationDelay: '240ms' }}>
             {/* Create — emerald accent (primary by colour, same footprint as the rest) */}
@@ -161,6 +184,17 @@ export default function LandingPage({
               <span>{t('landingCtaCreate')}</span>
             </button>
 
+            {/* Dashboard — teal accent. Ungated, exactly like the nav's dashboard tab. */}
+            <button
+              onClick={onOpenPanel}
+              className="group w-full sm:w-auto sm:min-w-[190px] inline-flex items-center justify-center gap-2.5 text-teal-50 text-lg font-bold px-7 py-4 rounded-2xl transition-all
+                         border border-teal-500/40 bg-teal-500/15 hover:bg-teal-500/25 hover:border-teal-400/60
+                         shadow-lg shadow-teal-950/40 hover:-translate-y-0.5"
+            >
+              <img src={dashboardSpider} alt="" className="h-8 w-auto object-contain shrink-0" />
+              <span>{t('dashboard')}</span>
+            </button>
+
             {/* Add-ons ("תוספים") — violet accent */}
             <button
               onClick={onPlugins}
@@ -168,7 +202,7 @@ export default function LandingPage({
                          border border-violet-500/40 bg-violet-500/15 hover:bg-violet-500/25 hover:border-violet-400/60
                          shadow-lg shadow-violet-950/40 hover:-translate-y-0.5"
             >
-              <img src={addonsLogo} alt="" className="h-8 w-auto object-contain shrink-0" />
+              <img src={addonsSword} alt="" className="h-8 w-auto object-contain shrink-0" />
               <span>{t('repo')}</span>
             </button>
 
@@ -179,19 +213,24 @@ export default function LandingPage({
                          border border-sky-500/40 bg-sky-500/15 hover:bg-sky-500/25 hover:border-sky-400/60
                          shadow-lg shadow-sky-950/40 hover:-translate-y-0.5"
             >
-              <img src={guideLogo} alt="" className={`h-8 w-auto object-contain shrink-0 opacity-95 group-hover:opacity-100 transition-opacity ${isRtl ? '-scale-x-100' : ''}`} />
+              <img src={guideManGold} alt="" className={`h-8 w-auto object-contain shrink-0 opacity-95 group-hover:opacity-100 transition-opacity ${isRtl ? '-scale-x-100' : ''}`} />
               <span>{t('landingCtaGuide')}</span>
             </button>
 
-            {/* How it works — neutral outline + amber-tinted icon */}
-            <a
-              href="#how-it-works"
-              className="group w-full sm:w-auto sm:min-w-[190px] inline-flex items-center justify-center gap-2.5 text-zinc-200 hover:text-white text-lg font-bold px-7 py-4 rounded-2xl transition-all
-                         border border-zinc-700/80 bg-zinc-900/60 hover:bg-zinc-800/80 hover:border-amber-500/40"
-            >
-              <BookOpen size={24} className="text-amber-300/90 group-hover:text-amber-200 transition-colors shrink-0" />
-              <span>{t('landingHowItWorks')}</span>
-            </a>
+            {/* War room ("חמ״ל") — rose accent. ADMIN ONLY: the health view is admin-
+                gated in App.jsx (redirect + render guard), so showing it to anyone
+                else would just bounce them straight back to the dashboard. */}
+            {isAdmin && (
+              <button
+                onClick={onHealth}
+                className="group w-full sm:w-auto sm:min-w-[190px] inline-flex items-center justify-center gap-2.5 text-rose-50 text-lg font-bold px-7 py-4 rounded-2xl transition-all
+                           border border-rose-500/40 bg-rose-500/15 hover:bg-rose-500/25 hover:border-rose-400/60
+                           shadow-lg shadow-rose-950/40 hover:-translate-y-0.5"
+              >
+                <img src={warroomCreeperTnt} alt="" className="h-8 w-auto object-contain shrink-0" />
+                <span>{t('healthNav')}</span>
+              </button>
+            )}
           </div>
         </section>
 

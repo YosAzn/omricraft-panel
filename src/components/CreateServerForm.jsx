@@ -8,7 +8,8 @@ import ImageUploader from './ImageUploader';
 import { ClientDownloadLink, RequirementsAccordion, CoreIncompatibleNote, ResourcePackInstallChoice, PluginBoundTag, ModpackPlayerRequirements, PremiumPluginGuide } from './AddonClientExtras';
 import ClientRequirements from './ClientRequirements';
 import { PageHeader } from './ui';
-import buildLogo from '../assets/build-logo.png';
+// The build page's own emblem — the diamond pickaxe from Yosef's faceted set.
+import buildLogo from '../assets/build-pickaxe.png';
 
 export default function CreateServerForm({ onCancel, onCreate, allAddons, t, lang, userRole, isAdmin = false, mcVersions, versionMatrix = {}, isCreatingServer = false, isRtl = false }) {
   const [name, setName] = useState('');

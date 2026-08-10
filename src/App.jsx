@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Server, Library, Shield, Users, Activity, BookOpen, Rocket, Plus } from 'lucide-react';
+import { Shield, Users, BookOpen, Rocket, Plus } from 'lucide-react';
 
 import { signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, updateDoc, getDoc } from 'firebase/firestore';
@@ -15,7 +15,11 @@ import { DEFAULT_ADDONS, getInstallMethod, collectRequiredIds, isCoreIncompatibl
 import { NavBtn } from './components/ui';
 import omricraftLogo from './assets/omricraft-logo.png';
 import omricraftLogoS from './assets/omricraft-logo-s.png';
-import ocGuideIcon from './assets/oc-guide-icon.png';
+// Nav button art — Yosef's faceted Minecraft set, one per destination.
+import dashboardSpider from './assets/dashboard-spider.png';
+import addonsSword from './assets/addons-sword.png';
+import guideManGold from './assets/guide-man-gold.png';
+import warroomCreeperTnt from './assets/warroom-creeper-tnt.png';
 import Dashboard from './components/Dashboard';
 import DeleteServerModal from './components/DeleteServerModal';
 import CreateServerForm from './components/CreateServerForm';
@@ -914,6 +918,7 @@ export default function App() {
         onPlugins={() => setCurrentView('repository')}
         onGuide={() => openGuide()}
         onOpenPanel={() => setCurrentView('dashboard')}
+        onHealth={() => setCurrentView('health')}
         onSignIn={signInAsAdmin}
       />
     );
@@ -938,8 +943,13 @@ export default function App() {
                 {t('appTitle')}
               </h1>
             </div>
-            <div className="flex items-center gap-2">
-              <NavBtn active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} icon={<Server size={16}/>} label={t('dashboard')} />
+            {/* The button GROUP follows the app direction (the surrounding nav row
+                stays pinned LTR so the logo keeps its left slot). That lets this DOM
+                order — create · dashboard · add-ons · guide · war-room — be the ONE
+                place the order is defined: it renders right-to-left in Hebrew and
+                left-to-right in English, and the landing page's CTA row uses the very
+                same sequence, so the two always agree. */}
+            <div dir={dir} className="flex items-center gap-2">
               {/* Create — same shape/size as the sibling NavBtns, but with a GREEN
                   outline + green text/icon so it reads as the primary action without
                   being a loud solid button. */}
@@ -950,10 +960,11 @@ export default function App() {
               >
                 <Plus size={16} /> <span className="hidden sm:inline">{t('navCreateShort')}</span>
               </button>
-              <NavBtn active={currentView === 'repository'} onClick={() => setCurrentView('repository')} icon={<Library size={16}/>} label={t('repo')} />
+              <NavBtn active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} icon={<img src={dashboardSpider} alt="" className="h-6 w-6 object-contain" />} label={t('dashboard')} />
+              <NavBtn active={currentView === 'repository'} onClick={() => setCurrentView('repository')} icon={<img src={addonsSword} alt="" className="h-6 w-6 object-contain" />} label={t('repo')} />
               {/* Guide / מדריך — PUBLIC reference center (servers + add-ons). Visible
                   to everyone incl. anonymous visitors; reachable from the main nav. */}
-              <NavBtn active={currentView === 'guide'} onClick={() => openGuide()} icon={<img src={ocGuideIcon} alt="" className={`h-5 w-5 object-contain ${dir === 'rtl' ? '-scale-x-100' : ''}`} />} label={t('guideNav')} />
+              <NavBtn active={currentView === 'guide'} onClick={() => openGuide()} icon={<img src={guideManGold} alt="" className={`h-6 w-6 object-contain ${dir === 'rtl' ? '-scale-x-100' : ''}`} />} label={t('guideNav')} />
               {/* War Room / חמ"ל — dedicated health-diagnostics tab is ADMIN-ONLY
                   (it carries the mine/all toggle). Non-admins get the full חמ"ל
                   experience — every issue on their own servers + fix buttons —
@@ -961,7 +972,7 @@ export default function App() {
                   open: getDiagnostics is callable by any authed user (scoped) and
                   the fix callables are owner-or-admin, which powers that panel. */}
               {isAdmin && (
-                <NavBtn active={currentView === 'health'} onClick={() => setCurrentView('health')} icon={<Activity size={16}/>} label={t('healthNav')} />
+                <NavBtn active={currentView === 'health'} onClick={() => setCurrentView('health')} icon={<img src={warroomCreeperTnt} alt="" className="h-6 w-6 object-contain" />} label={t('healthNav')} />
               )}
             </div>
           </div>
