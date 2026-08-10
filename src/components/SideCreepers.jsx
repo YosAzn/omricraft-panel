@@ -91,9 +91,11 @@ function pickIdx(prev) {
   return i === prev ? (i + 1) % CHARACTERS.length : i;
 }
 
-// 'hold' gets no class, so the wrapper keeps its layout role without animating.
-function motionClass(ch) {
-  return ch.motion === 'hover' ? 'hover' : '';
+// Nothing rotates or walks any more (Yosef: "I didn't ask you to rotate at all").
+// The only movement is the gentle vertical .oc-float bob applied to every figure;
+// the gait wrapper keeps its layout role but drives no animation.
+function motionClass() {
+  return '';
 }
 
 // One rendered character. The entrance is gated on the image's own load event —
@@ -204,16 +206,10 @@ export default function SideCreepers() {
           50%     { transform: translateY(-12px); }
         }
 
-        /* HOVER: everything that moves hangs in the air and sways gently, the way
-           dropped loot does in-game. Nothing walks — a walk cycle looked reversed
-           on the mirrored right side. Different periods per side so the two never
-           swing in sync. */
-        .side-creepers .oc-side.left  .oc-gait.hover { animation: ocHover 6.5s ease-in-out infinite; }
-        .side-creepers .oc-side.right .oc-gait.hover { animation: ocHover 7.8s ease-in-out 0.9s infinite; }
-        @keyframes ocHover {
-          0%,100% { transform: rotate(-6deg); }
-          50%     { transform: rotate(6deg); }
-        }
+        /* NO rotation and NO walk. The mobs used to walk (which looked reversed on
+           the mirrored right side) and were then changed to a rotate-sway — but
+           Yosef asked for neither. The only movement left is the vertical .oc-float
+           bob above; the gait wrapper drives nothing. */
 
         /* RESPONSIVE: below 1536px the gutter is too narrow to hold a character
            without crowding the text, so hide the layer entirely. */

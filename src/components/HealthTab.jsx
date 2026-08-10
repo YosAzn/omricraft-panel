@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Activity, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { getDiagnosticsFn } from '../lib/api';
 import HealthIssueRow from './HealthIssueRow';
-import warroomLogo from '../assets/warroom-creeper-tnt.png';
+import warroomLogo from '../assets/warroom-tnt.png';
 
 // --- War Room / חמ"ל — health diagnostics (available to ALL signed-in users) ---
 // Flow: A (this component) → B getDiagnostics Cloud Function (auth-required,
@@ -76,7 +76,7 @@ export default function HealthTab({ t = (k) => k, isAdmin = false, isRtl = false
     <div className="max-w-4xl mx-auto" dir="rtl">
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <img src={warroomLogo} alt="" aria-hidden="true" className="h-11 sm:h-12 w-auto shrink-0" style={{ filter: 'drop-shadow(0 0 16px rgba(244,63,94,0.4))' }} />
+          <img src={warroomLogo} alt="" aria-hidden="true" className="h-16 sm:h-20 w-auto shrink-0" style={{ filter: 'drop-shadow(0 0 18px rgba(244,63,94,0.45))' }} />
           <h2 className="text-3xl font-bold leading-tight">{t('healthTitle')}</h2>
         </div>
         <div className="flex items-center gap-2">

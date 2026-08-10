@@ -19,7 +19,7 @@ import omricraftLogoS from './assets/omricraft-logo-s.png';
 import dashboardSpider from './assets/dashboard-spider.png';
 import addonsSword from './assets/addons-sword.png';
 import guideWiseMan from './assets/guide-wise-man.png';
-import warroomCreeperTnt from './assets/warroom-creeper-tnt.png';
+import warroomTnt from './assets/warroom-tnt.png';
 import Dashboard from './components/Dashboard';
 import DeleteServerModal from './components/DeleteServerModal';
 import CreateServerForm from './components/CreateServerForm';
@@ -964,7 +964,8 @@ export default function App() {
               <NavBtn active={currentView === 'repository'} onClick={() => setCurrentView('repository')} icon={<img src={addonsSword} alt="" className="h-6 w-6 object-contain" />} label={t('repo')} />
               {/* Guide / מדריך — PUBLIC reference center (servers + add-ons). Visible
                   to everyone incl. anonymous visitors; reachable from the main nav. */}
-              <NavBtn active={currentView === 'guide'} onClick={() => openGuide()} icon={<img src={guideWiseMan} alt="" className={`h-6 w-6 object-contain ${dir === 'rtl' ? '-scale-x-100' : ''}`} />} label={t('guideNav')} />
+              {/* wise-man art already faces LEFT in the source — never mirror it. */}
+              <NavBtn active={currentView === 'guide'} onClick={() => openGuide()} icon={<img src={guideWiseMan} alt="" className="h-6 w-6 object-contain" />} label={t('guideNav')} />
               {/* War Room / חמ"ל — dedicated health-diagnostics tab is ADMIN-ONLY
                   (it carries the mine/all toggle). Non-admins get the full חמ"ל
                   experience — every issue on their own servers + fix buttons —
@@ -972,7 +973,7 @@ export default function App() {
                   open: getDiagnostics is callable by any authed user (scoped) and
                   the fix callables are owner-or-admin, which powers that panel. */}
               {isAdmin && (
-                <NavBtn active={currentView === 'health'} onClick={() => setCurrentView('health')} icon={<img src={warroomCreeperTnt} alt="" className="h-6 w-6 object-contain" />} label={t('healthNav')} />
+                <NavBtn active={currentView === 'health'} onClick={() => setCurrentView('health')} icon={<img src={warroomTnt} alt="" className="h-6 w-6 object-contain" />} label={t('healthNav')} />
               )}
             </div>
           </div>
