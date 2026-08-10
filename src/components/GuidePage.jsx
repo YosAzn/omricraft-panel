@@ -7,7 +7,7 @@ import { AddonTypesTable, InstallLocationCards } from './GuidePageSections';
 import { CompatRules, RamTable, AltTable } from './GuidePageRules';
 import ServerEnvCards from './GuideEnvCards';
 import { PageHeader } from './ui';
-import guideLogo from '../assets/guide-logo.png';
+import guideLogo from '../assets/guide-wise-man.png';
 
 // ============================================================================
 //  GuidePage — public, no-auth reference center (SEO + onboarding).

@@ -9,7 +9,7 @@ import PendingRequests from './PendingRequests';
 import HealthIssueRow from './HealthIssueRow';
 import RecycleBin from './RecycleBin';
 import { PageHeader } from './ui';
-import dashboardLogo from '../assets/dashboard-logo.png';
+import dashboardLogo from '../assets/dashboard-spider.png';
 
 // Numeric MC-version compare (newest-first): "1.21.11" must rank above "1.21.9".
 // String compare gets this wrong, so we tuple-compare integer segments.

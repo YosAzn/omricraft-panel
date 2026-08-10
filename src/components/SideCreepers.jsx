@@ -11,7 +11,7 @@ import React, { useEffect, useState } from 'react';
 // TRANSFORM LAYERING — each element owns exactly ONE transform, because a CSS
 // animation on `transform` wipes any other transform on the same element:
 //   .oc-side  → static position + right-side mirror   (no animation)
-//   .oc-walk  → gait: walk cycle (translateX off-screen and back) or item sway
+//   .oc-gait  → gait: walk cycle (translateX off-screen and back) or item sway
 //   .oc-float → idle bob, translateY
 //   .oc-scale → per-character size trim, static scale
 //   img       → entrance, opacity + translateY + scale
@@ -46,9 +46,10 @@ import itemCreeperFace from '../assets/characters/item-creeper-face.webp';
 //            wide animal at gutter-width reads much smaller than a tall creeper.
 //            Items are deliberately small — they should read as dropped loot, not
 //            as another mob.
-// `motion` — 'walk' strolls off-screen and back (animals), 'hold' stands still
-//            (creepers, which are carrying TNT), 'spin' is a slow pendulum sway
-//            for floating items.
+// `motion` — 'hover' drifts in place with a slow sway; 'hold' only bobs.
+//            Nothing walks any more: the mobs used to stroll off-screen and back,
+//            but the right side is mirrored (scaleX(-1)), so they read as moving
+//            BACKWARDS. They now hover like the items instead.
 // `weight` — relative odds of being picked. Items sit at 0.5 so they turn up now
 //            and then rather than half the time.
 const CHARACTERS = [
@@ -56,19 +57,19 @@ const CHARACTERS = [
   { key: 'creeper-tnt-tall', src: creeperTntTall, glow: '34,197,94',   scale: 1.00, motion: 'hold' },
   { key: 'creeper-teal-tnt', src: creeperTealTnt, glow: '45,212,191',  scale: 1.10, motion: 'hold' },
   { key: 'creeper-white',    src: creeperWhite,   glow: '203,213,225', scale: 1.00, motion: 'hold' },
-  { key: 'steve-pickaxe',    src: stevePickaxe,   glow: '56,189,248',  scale: 1.06, motion: 'walk' },
-  { key: 'horse-white',      src: horseWhite,     glow: '226,232,240', scale: 1.16, motion: 'walk' },
-  { key: 'wolf-hearts',      src: wolfHearts,     glow: '248,113,113', scale: 1.10, motion: 'walk' },
-  { key: 'sheep-blue',       src: sheepBlue,      glow: '96,165,250',  scale: 1.06, motion: 'walk' },
-  { key: 'pig-pink',         src: pigPink,        glow: '249,168,212', scale: 1.12, motion: 'walk' },
-  { key: 'sheep-red',        src: sheepRed,       glow: '248,113,113', scale: 1.08, motion: 'walk' },
+  { key: 'steve-pickaxe',    src: stevePickaxe,   glow: '56,189,248',  scale: 1.06, motion: 'hover' },
+  { key: 'horse-white',      src: horseWhite,     glow: '226,232,240', scale: 1.16, motion: 'hover' },
+  { key: 'wolf-hearts',      src: wolfHearts,     glow: '248,113,113', scale: 1.10, motion: 'hover' },
+  { key: 'sheep-blue',       src: sheepBlue,      glow: '96,165,250',  scale: 1.06, motion: 'hover' },
+  { key: 'pig-pink',         src: pigPink,        glow: '249,168,212', scale: 1.12, motion: 'hover' },
+  { key: 'sheep-red',        src: sheepRed,       glow: '248,113,113', scale: 1.08, motion: 'hover' },
 
-  { key: 'item-sword-diamond',   src: itemSwordDiamond,   glow: '45,212,191',  scale: 0.74, motion: 'spin', weight: 0.5 },
-  { key: 'item-sword-netherite', src: itemSwordNetherite, glow: '167,139,250', scale: 0.74, motion: 'spin', weight: 0.5 },
-  { key: 'item-pickaxe',         src: itemPickaxe,        glow: '45,212,191',  scale: 0.74, motion: 'spin', weight: 0.5 },
-  { key: 'item-axe',             src: itemAxe,            glow: '45,212,191',  scale: 0.74, motion: 'spin', weight: 0.5 },
-  { key: 'item-tnt',             src: itemTnt,            glow: '248,113,113', scale: 0.72, motion: 'spin', weight: 0.5 },
-  { key: 'item-creeper-face',    src: itemCreeperFace,    glow: '34,197,94',   scale: 0.72, motion: 'spin', weight: 0.5 },
+  { key: 'item-sword-diamond',   src: itemSwordDiamond,   glow: '45,212,191',  scale: 0.74, motion: 'hover', weight: 0.5 },
+  { key: 'item-sword-netherite', src: itemSwordNetherite, glow: '167,139,250', scale: 0.74, motion: 'hover', weight: 0.5 },
+  { key: 'item-pickaxe',         src: itemPickaxe,        glow: '45,212,191',  scale: 0.74, motion: 'hover', weight: 0.5 },
+  { key: 'item-axe',             src: itemAxe,            glow: '45,212,191',  scale: 0.74, motion: 'hover', weight: 0.5 },
+  { key: 'item-tnt',             src: itemTnt,            glow: '248,113,113', scale: 0.72, motion: 'hover', weight: 0.5 },
+  { key: 'item-creeper-face',    src: itemCreeperFace,    glow: '34,197,94',   scale: 0.72, motion: 'hover', weight: 0.5 },
 ];
 
 // Cumulative weights, built once — a weighted draw is just a binary-free scan over
@@ -92,7 +93,7 @@ function pickIdx(prev) {
 
 // 'hold' gets no class, so the wrapper keeps its layout role without animating.
 function motionClass(ch) {
-  return ch.motion === 'walk' ? 'walk' : ch.motion === 'spin' ? 'spin' : '';
+  return ch.motion === 'hover' ? 'hover' : '';
 }
 
 // One rendered character. The entrance is gated on the image's own load event —
@@ -168,7 +169,7 @@ export default function SideCreepers() {
           transform: translateY(-50%) scaleX(-1);
         }
 
-        .side-creepers .oc-walk,
+        .side-creepers .oc-gait,
         .side-creepers .oc-float,
         .side-creepers .oc-scale { width: 100%; display: block; }
         .side-creepers .oc-scale { transform: scale(var(--s, 1)); }
@@ -203,35 +204,15 @@ export default function SideCreepers() {
           50%     { transform: translateY(-12px); }
         }
 
-        /* WALK: the character strolls outward past the screen edge, pauses, then
-           walks back in. Both sides use the same NEGATIVE translate — the right
-           side's parent scaleX(-1) mirrors it, so each exits toward its own edge.
-           Left & right run at different durations so they never step in lockstep. */
-        .side-creepers .oc-side.left  .oc-walk.walk { animation: ocWalk 15s ease-in-out infinite; }
-        .side-creepers .oc-side.right .oc-walk.walk { animation: ocWalk 17.5s ease-in-out 1.8s infinite; }
-
-        /* SPIN: dropped items don't walk — they hang in the air and sway, the way
-           loot does on the ground in-game. Different periods per side so the two
-           never swing in sync. */
-        .side-creepers .oc-side.left  .oc-walk.spin { animation: ocSpin 6.5s ease-in-out infinite; }
-        .side-creepers .oc-side.right .oc-walk.spin { animation: ocSpin 7.8s ease-in-out 0.9s infinite; }
-        @keyframes ocSpin {
-          0%,100% { transform: rotate(-8deg); }
-          50%     { transform: rotate(8deg); }
-        }
-        @keyframes ocWalk {
-          0%   { transform: translateX(0)      rotate(0deg); }
-          14%  { transform: translateX(0)      rotate(0deg); }
-          18%  { transform: translateX(-26px)  rotate(-2deg); }
-          24%  { transform: translateX(-120px) rotate(2deg); }
-          30%  { transform: translateX(-250px) rotate(-2deg); }
-          38%  { transform: translateX(-620px) rotate(0deg); }
-          52%  { transform: translateX(-620px) rotate(0deg); }
-          60%  { transform: translateX(-250px) rotate(2deg); }
-          66%  { transform: translateX(-120px) rotate(-2deg); }
-          72%  { transform: translateX(-26px)  rotate(2deg); }
-          78%  { transform: translateX(0)      rotate(0deg); }
-          100% { transform: translateX(0)      rotate(0deg); }
+        /* HOVER: everything that moves hangs in the air and sways gently, the way
+           dropped loot does in-game. Nothing walks — a walk cycle looked reversed
+           on the mirrored right side. Different periods per side so the two never
+           swing in sync. */
+        .side-creepers .oc-side.left  .oc-gait.hover { animation: ocHover 6.5s ease-in-out infinite; }
+        .side-creepers .oc-side.right .oc-gait.hover { animation: ocHover 7.8s ease-in-out 0.9s infinite; }
+        @keyframes ocHover {
+          0%,100% { transform: rotate(-6deg); }
+          50%     { transform: rotate(6deg); }
         }
 
         /* RESPONSIVE: below 1536px the gutter is too narrow to hold a character
@@ -242,20 +223,20 @@ export default function SideCreepers() {
 
         @media (prefers-reduced-motion: reduce) {
           .side-creepers .oc-float,
-          .side-creepers .oc-walk { animation: none; transform: none; }
+          .side-creepers .oc-gait { animation: none; transform: none; }
           .side-creepers .oc-char { opacity: 1; transform: none; animation: none; }
         }
       `}</style>
 
       <div className="oc-side left">
-        <div className={`oc-walk ${motionClass(leftCh)}`}>
+        <div className={`oc-gait ${motionClass(leftCh)}`}>
           <div className="oc-float">
             <Character key={`left-${left}-${tick}`} ch={leftCh} />
           </div>
         </div>
       </div>
       <div className="oc-side right">
-        <div className={`oc-walk ${motionClass(rightCh)}`}>
+        <div className={`oc-gait ${motionClass(rightCh)}`}>
           <div className="oc-float">
             <Character key={`right-${right}-${tick}`} ch={rightCh} />
           </div>

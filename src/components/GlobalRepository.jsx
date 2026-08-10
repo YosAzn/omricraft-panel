@@ -9,7 +9,7 @@ import { addonDesc } from '../lib/addonI18n';
 import { suggestModpackFn } from '../lib/api';
 import AiTextureGenerator from './AiTextureGenerator';
 import DatapackBuilder from './DatapackBuilder';
-import addonsLogo from '../assets/addons-logo.png';
+import addonsLogo from '../assets/addons-sword.png';
 
 // FIX #7 — concise player-PC note for a catalog entry, derived from the SAME per-addon
 // fields the create-form uses (no blanket-noting). Returns an i18n string or null:

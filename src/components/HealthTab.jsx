@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Activity, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { getDiagnosticsFn } from '../lib/api';
 import HealthIssueRow from './HealthIssueRow';
-import warroomLogo from '../assets/warroom-logo.png';
+import warroomLogo from '../assets/warroom-creeper-tnt.png';
 
 // --- War Room / חמ"ל — health diagnostics (available to ALL signed-in users) ---
 // Flow: A (this component) → B getDiagnostics Cloud Function (auth-required,

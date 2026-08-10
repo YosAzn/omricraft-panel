@@ -18,7 +18,7 @@ import omricraftLogoS from './assets/omricraft-logo-s.png';
 // Nav button art — Yosef's faceted Minecraft set, one per destination.
 import dashboardSpider from './assets/dashboard-spider.png';
 import addonsSword from './assets/addons-sword.png';
-import guideManGold from './assets/guide-man-gold.png';
+import guideWiseMan from './assets/guide-wise-man.png';
 import warroomCreeperTnt from './assets/warroom-creeper-tnt.png';
 import Dashboard from './components/Dashboard';
 import DeleteServerModal from './components/DeleteServerModal';
@@ -964,7 +964,7 @@ export default function App() {
               <NavBtn active={currentView === 'repository'} onClick={() => setCurrentView('repository')} icon={<img src={addonsSword} alt="" className="h-6 w-6 object-contain" />} label={t('repo')} />
               {/* Guide / מדריך — PUBLIC reference center (servers + add-ons). Visible
                   to everyone incl. anonymous visitors; reachable from the main nav. */}
-              <NavBtn active={currentView === 'guide'} onClick={() => openGuide()} icon={<img src={guideManGold} alt="" className={`h-6 w-6 object-contain ${dir === 'rtl' ? '-scale-x-100' : ''}`} />} label={t('guideNav')} />
+              <NavBtn active={currentView === 'guide'} onClick={() => openGuide()} icon={<img src={guideWiseMan} alt="" className={`h-6 w-6 object-contain ${dir === 'rtl' ? '-scale-x-100' : ''}`} />} label={t('guideNav')} />
               {/* War Room / חמ"ל — dedicated health-diagnostics tab is ADMIN-ONLY
                   (it carries the mine/all toggle). Non-admins get the full חמ"ל
                   experience — every issue on their own servers + fix buttons —

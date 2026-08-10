@@ -15,7 +15,7 @@ import ocGuideIcon from '../assets/oc-guide-icon.png';
 // CTA button art — the same faceted set the top nav uses, so both rows match.
 import dashboardSpider from '../assets/dashboard-spider.png';
 import addonsSword from '../assets/addons-sword.png';
-import guideManGold from '../assets/guide-man-gold.png';
+import guideWiseMan from '../assets/guide-wise-man.png';
 import warroomCreeperTnt from '../assets/warroom-creeper-tnt.png';
 
 // Public, no-auth-required landing page. The first thing a visitor sees.
@@ -213,7 +213,7 @@ export default function LandingPage({
                          border border-sky-500/40 bg-sky-500/15 hover:bg-sky-500/25 hover:border-sky-400/60
                          shadow-lg shadow-sky-950/40 hover:-translate-y-0.5"
             >
-              <img src={guideManGold} alt="" className={`h-8 w-auto object-contain shrink-0 opacity-95 group-hover:opacity-100 transition-opacity ${isRtl ? '-scale-x-100' : ''}`} />
+              <img src={guideWiseMan} alt="" className={`h-8 w-auto object-contain shrink-0 opacity-95 group-hover:opacity-100 transition-opacity ${isRtl ? '-scale-x-100' : ''}`} />
               <span>{t('landingCtaGuide')}</span>
             </button>
 
