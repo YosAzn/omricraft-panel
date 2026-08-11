@@ -459,7 +459,7 @@ export default function Dashboard({
                   disabled={userRole !== 'admin'}
                   title={userRole !== 'admin' ? t('noPermission') : ''}
                   className={`flex-1 py-1.5 rounded-lg text-sm font-medium flex justify-center items-center gap-2 transition-colors disabled:opacity-30
-                    ${server.status === 'online' ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20' : 'bg-green-600 hover:bg-green-500 text-white'}`}
+                    ${server.status === 'online' ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20' : 'bg-crown hover:bg-crown-light text-white'}`}
                 >
                   {server.status === 'starting'
                     ? <RefreshCw size={16} className="animate-spin" />

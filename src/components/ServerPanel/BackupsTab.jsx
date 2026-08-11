@@ -117,7 +117,7 @@ export default function BackupsTab({ server, t, userRole, syncStatus }) {
             <button
               onClick={handleBackup}
               disabled={backingUp}
-              className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors disabled:opacity-50"
+              className="bg-crown hover:bg-crown-light text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors disabled:opacity-50"
             >
               {backingUp ? <RefreshCw size={16} className="animate-spin" /> : <Plus size={16} />}
               {backingUp ? t('backingUp') : t('backupNow')}

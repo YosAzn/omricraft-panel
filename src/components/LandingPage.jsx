@@ -82,11 +82,11 @@ export default function LandingPage({
         {/* Pinned physical LTR (dir="ltr") like the panel nav — the logo stays on
             the visual LEFT even in RTL languages; lang/auth group on the right. */}
         <header dir="ltr" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between gap-4">
+          {/* Brand lockup: face + wordmark IMAGE (consistent with the hero, nav and
+              footer). Replaces the old gradient text. */}
           <div className="flex items-center gap-2.5">
-            <img src={omricraftFace} alt={t('appTitle')} className="h-10 w-auto" />
-            <span className="text-xl font-black tracking-tight bg-[linear-gradient(180deg,#eafff6_0%,#74cea1_26%,#2f9165_46%,#a8ead0_58%,#2c8a61_70%,#12583e_100%)] bg-clip-text text-transparent">
-              {t('appTitle')}
-            </span>
+            <img src={omricraftFace} alt="" aria-hidden="true" className="h-11 w-auto" />
+            <img src={omricraftWordmark} alt={t('appTitle')} className="h-7 w-auto drop-shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -106,7 +106,7 @@ export default function LandingPage({
                 )}
                 <button
                   onClick={onOpenPanel}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold text-sm px-4 py-2 rounded-lg transition-all shadow-lg shadow-green-900/30"
+                  className="flex items-center gap-2 bg-crown hover:bg-crown-light text-white font-bold text-sm px-4 py-2 rounded-lg transition-all shadow-lg shadow-green-900/30"
                 >
                   <SlidersHorizontal size={16} /> {t('landingOpenPanel')}
                 </button>
@@ -131,13 +131,13 @@ export default function LandingPage({
             src={omricraftFace}
             alt=""
             aria-hidden="true"
-            className="oc-rise mx-auto mb-5 h-36 sm:h-44 lg:h-56 w-auto drop-shadow-[0_0_60px_rgba(16,185,129,0.4)]"
+            className="oc-rise mx-auto mb-5 h-44 sm:h-56 lg:h-64 w-auto drop-shadow-[0_0_60px_rgba(16,185,129,0.4)]"
           />
           {/* Wordmark image (Yosef's new "OmriCraft" logo) replaces the gradient text;
               kept inside the h1 with alt text so the page still has its heading. */}
           <h1 className="oc-rise mb-6" style={{ animationDelay: '60ms' }}>
             <img src={omricraftWordmark} alt={t('appTitle')}
-                 className="mx-auto h-16 sm:h-20 lg:h-24 w-auto drop-shadow-[0_0_40px_rgba(16,185,129,0.35)]" />
+                 className="mx-auto h-20 sm:h-24 lg:h-28 w-auto drop-shadow-[0_0_40px_rgba(16,185,129,0.35)]" />
           </h1>
 
           <p className="oc-rise text-2xl sm:text-3xl font-bold text-zinc-100 max-w-2xl mx-auto mb-4"
@@ -307,10 +307,8 @@ export default function LandingPage({
         <footer className="border-t border-zinc-900">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
             <div className="flex items-center gap-2.5">
-              <img src={omricraftLogoS} alt="" className="h-8 w-auto" />
-              <span className="font-black tracking-tight bg-[linear-gradient(180deg,#eafff6_0%,#74cea1_26%,#2f9165_46%,#a8ead0_58%,#2c8a61_70%,#12583e_100%)] bg-clip-text text-transparent">
-                {t('appTitle')}
-              </span>
+              <img src={omricraftFace} alt="" aria-hidden="true" className="h-9 w-auto" />
+              <img src={omricraftWordmark} alt={t('appTitle')} className="h-6 w-auto opacity-90" />
             </div>
             <p className="text-zinc-500">{t('landingFooterCredit')}</p>
           </div>

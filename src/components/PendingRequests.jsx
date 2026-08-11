@@ -180,7 +180,7 @@ export default function PendingRequests({ t, onApproved, collapsible = false, op
                   <button
                     onClick={() => handleApprove(r.id)}
                     disabled={isBusy}
-                    className="bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                    className="bg-crown hover:bg-crown-light text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50"
                   >
                     {isBusy ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />} {t('requestApprove')}
                   </button>

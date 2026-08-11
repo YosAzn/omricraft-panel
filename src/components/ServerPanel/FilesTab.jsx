@@ -155,7 +155,7 @@ export default function FilesTab({ server, t, userRole }) {
             onClick={handleUploadClick}
             disabled={uploading}
             title={t('uploadHint')}
-            className="ml-auto bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors">
+            className="ml-auto bg-crown hover:bg-crown-light disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors">
             <Upload size={14}/> {uploading ? '...' : t('uploadFile')}
           </button>
         )}
@@ -199,7 +199,7 @@ export default function FilesTab({ server, t, userRole }) {
               {savedMsg && <span className="text-green-400 text-xs font-bold animate-pulse">{t('fileSaved')} — {t('filesRestartMayBeNeeded')}</span>}
               {fileNote && <span className="text-red-400 text-xs font-bold">{fileNote}</span>}
               {userRole === 'admin' && (
-                <button onClick={handleSave} disabled={saving} className="bg-green-600 hover:bg-green-500 text-white px-4 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors disabled:opacity-50">
+                <button onClick={handleSave} disabled={saving} className="bg-crown hover:bg-crown-light text-white px-4 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors disabled:opacity-50">
                   <Save size={14}/> {saving ? '...' : t('saveFile')}
                 </button>
               )}

@@ -42,7 +42,7 @@ export default function OpsEditor({ server, updateServer, t = (k) => k }) {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-4 py-2 rounded-lg text-sm font-bold transition-colors bg-green-600 hover:bg-green-500 text-white disabled:opacity-50 whitespace-nowrap"
+          className="px-4 py-2 rounded-lg text-sm font-bold transition-colors bg-crown hover:bg-crown-light text-white disabled:opacity-50 whitespace-nowrap"
         >
           {saving ? '...' : saved ? t('commonSaved') : t('opsApply')}
         </button>

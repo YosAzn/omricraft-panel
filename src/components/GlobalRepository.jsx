@@ -243,7 +243,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
             </button>
             <button
               onClick={() => { setShowAddForm(!showAddForm); setShowModpackForm(false); setShowTexture(false); setShowDatapack(false); }}
-              className={`px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all border ${showAddForm ? 'bg-green-600 text-white border-green-500' : 'bg-zinc-900 border-green-500/40 hover:border-green-500 text-green-300'}`}
+              className={`px-4 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all border ${showAddForm ? 'bg-crown text-white border-crown-light' : 'bg-zinc-900 border-green-500/40 hover:border-green-500 text-green-300'}`}
             >
               {showAddForm ? <X size={20}/> : <Plus size={20} />} <span className="hidden sm:inline">{showAddForm ? t('cancel') : t('addCustomAddon')}</span>
             </button>
@@ -294,7 +294,7 @@ export default function GlobalRepository({ allAddons, customAddons, onAdd, onDel
            </div>
            
            <div className="flex justify-end mt-4">
-             <button type="submit" className="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-lg font-bold w-full md:w-auto">{t('save')}</button>
+             <button type="submit" className="bg-crown hover:bg-crown-light text-white px-6 py-2 rounded-lg font-bold w-full md:w-auto">{t('save')}</button>
            </div>
         </form>
       )}

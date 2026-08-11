@@ -79,7 +79,7 @@ export default function ServerPanel({ server, onBack, toggleStatus, restartServe
               <button
                 onClick={toggleStatus}
                 className={`px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-all
-                  ${server.status === 'online' ? 'bg-zinc-800 hover:bg-zinc-700 text-white' : 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/20'}`}
+                  ${server.status === 'online' ? 'bg-zinc-800 hover:bg-zinc-700 text-white' : 'bg-crown hover:bg-crown-light text-white shadow-lg shadow-green-900/20'}`}
               >
                 {server.status === 'starting'
                   ? <RefreshCw size={16} className="animate-spin" />

@@ -390,7 +390,7 @@ export default function AddonsTab({ server, toggleAddon, t, lang, allAddons, use
                     </a>
                   )
                 ) : (
-                  <button onClick={() => handleToggle(item)} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${isInstalled ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20' : 'bg-green-600 hover:bg-green-500 text-white'}`}>
+                  <button onClick={() => handleToggle(item)} className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${isInstalled ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20' : 'bg-crown hover:bg-crown-light text-white'}`}>
                     {isInstalled ? t('uninstall') : <><Download size={16} /> {t('install')}</>}
                   </button>
                 )
