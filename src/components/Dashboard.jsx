@@ -229,6 +229,7 @@ export default function Dashboard({
               badge was dropped — the total is already shown in the stat card below. ===== */}
       <PageHeader
         logo={dashboardLogo}
+        logoClass="h-14 sm:h-16"
         eyebrow={t('dashGreeting')}
         title={t('dashboard')}
         desc={userRole === 'admin' ? t('dashGreetingAdmin') : t('manageDesc')}

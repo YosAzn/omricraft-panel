@@ -10,6 +10,8 @@ import SideCreepers from './SideCreepers';
 import LanguageSelector from './LanguageSelector';
 import omricraftLogo from '../assets/omricraft-logo.png';
 import omricraftLogoS from '../assets/omricraft-logo-s.png';
+import omricraftFace from '../assets/omricraft-face.png';
+import omricraftWordmark from '../assets/omricraft-wordmark.png';
 import ocGuide from '../assets/oc-guide.png';
 import ocGuideIcon from '../assets/oc-guide-icon.png';
 // CTA button art — the same faceted set the top nav uses, so both rows match.
@@ -81,7 +83,7 @@ export default function LandingPage({
             the visual LEFT even in RTL languages; lang/auth group on the right. */}
         <header dir="ltr" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <img src={omricraftLogoS} alt={t('appTitle')} className="h-10 w-auto" />
+            <img src={omricraftFace} alt={t('appTitle')} className="h-10 w-auto" />
             <span className="text-xl font-black tracking-tight bg-[linear-gradient(180deg,#eafff6_0%,#74cea1_26%,#2f9165_46%,#a8ead0_58%,#2c8a61_70%,#12583e_100%)] bg-clip-text text-transparent">
               {t('appTitle')}
             </span>
@@ -123,19 +125,19 @@ export default function LandingPage({
 
         {/* ===== HERO ===== */}
         <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-16 sm:pt-16 sm:pb-24 text-center">
-          {/* Big FRAMELESS brand emblem (background removed) — the head floats on the
-              page's black; "OmriCraft" is written beneath it. */}
+          {/* FRAMELESS face emblem (Yosef's new art, no circular frame) floating on
+              the page black, with the "OmriCraft" wordmark beneath it. */}
           <img
-            src={omricraftLogo}
+            src={omricraftFace}
             alt=""
             aria-hidden="true"
-            className="oc-rise mx-auto mb-4 h-40 sm:h-52 lg:h-64 w-auto drop-shadow-[0_0_60px_rgba(16,185,129,0.4)]"
+            className="oc-rise mx-auto mb-5 h-36 sm:h-44 lg:h-56 w-auto drop-shadow-[0_0_60px_rgba(16,185,129,0.4)]"
           />
-          <h1 className="oc-rise text-6xl sm:text-7xl lg:text-8xl font-black tracking-tighter leading-[0.95] mb-6"
-              style={{ animationDelay: '60ms' }}>
-            <span className="bg-[linear-gradient(180deg,#eafff6_0%,#74cea1_24%,#2f9165_44%,#bff0d8_57%,#2c8a61_70%,#0f5236_100%)] bg-clip-text text-transparent drop-shadow-[0_0_40px_rgba(16,185,129,0.3)]">
-              {t('appTitle')}
-            </span>
+          {/* Wordmark image (Yosef's new "OmriCraft" logo) replaces the gradient text;
+              kept inside the h1 with alt text so the page still has its heading. */}
+          <h1 className="oc-rise mb-6" style={{ animationDelay: '60ms' }}>
+            <img src={omricraftWordmark} alt={t('appTitle')}
+                 className="mx-auto h-16 sm:h-20 lg:h-24 w-auto drop-shadow-[0_0_40px_rgba(16,185,129,0.35)]" />
           </h1>
 
           <p className="oc-rise text-2xl sm:text-3xl font-bold text-zinc-100 max-w-2xl mx-auto mb-4"

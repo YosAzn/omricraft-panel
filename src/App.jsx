@@ -15,6 +15,7 @@ import { DEFAULT_ADDONS, getInstallMethod, collectRequiredIds, isCoreIncompatibl
 import { NavBtn } from './components/ui';
 import omricraftLogo from './assets/omricraft-logo.png';
 import omricraftLogoS from './assets/omricraft-logo-s.png';
+import omricraftFace from './assets/omricraft-face.png';
 // Nav button art — Yosef's faceted Minecraft set, one per destination.
 import dashboardSpider from './assets/dashboard-spider.png';
 import addonsSword from './assets/addons-sword.png';
@@ -938,7 +939,7 @@ export default function App() {
 
           <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-start">
             <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setCurrentView('landing')} title={t('appTitle')}>
-              <img src={omricraftLogoS} alt={t('appTitle')} className="h-10 w-auto drop-shadow-[0_0_7px_rgba(203,213,225,0.4)]" />
+              <img src={omricraftFace} alt={t('appTitle')} className="h-10 w-auto drop-shadow-[0_0_10px_rgba(16,185,129,0.35)]" />
               <h1 className="text-2xl font-black tracking-tight bg-[linear-gradient(180deg,#eafff6_0%,#74cea1_26%,#2f9165_46%,#a8ead0_58%,#2c8a61_70%,#12583e_100%)] bg-clip-text text-transparent hidden sm:block">
                 {t('appTitle')}
               </h1>
