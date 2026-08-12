@@ -49,10 +49,12 @@ import itemCreeperFace from '../assets/characters/item-creeper-face.webp';
 // `glow`   — "r,g,b" triplet for the accent halo behind the art.
 // `scale`  — evens out apparent size: the source art has mixed aspect ratios, so a
 //            wide animal at gutter-width reads much smaller than a tall creeper.
-// `motion` — 'walk' strolls off-screen toward the edge and back (the animals, which
-//            Yosef missed once they were removed); 'hold' stays put (creepers carry
-//            TNT); 'hover' bobs in place (dropped items). No rotation — that was the
-//            only thing Yosef actually objected to, not the walking.
+// `motion` — 'hover' bobs gently in place; 'hold' stays put. Everything hovers for
+//            now: Yosef found the simple in/out walk not lively enough and asked to
+//            keep the calm hover until a PROPER free-walk is designed (a mob enters,
+//            stops, "explores", wanders off behind the page, another turns up). The
+//            'walk' gait + ocWalk keyframes are parked below, ready for that pass;
+//            no roster entry uses 'walk' yet, so nothing walks.
 // `weight` — relative odds of being picked. Items sit at 0.5 so they turn up now
 //            and then rather than half the time.
 const CHARACTERS = [
@@ -61,20 +63,20 @@ const CHARACTERS = [
   { key: 'creeper-teal-tnt', src: creeperTealTnt, glow: '45,212,191',  scale: 1.10, motion: 'hold' },
   { key: 'creeper-white',    src: creeperWhite,   glow: '203,213,225', scale: 1.00, motion: 'hold' },
 
-  { key: 'steve-pickaxe',    src: stevePickaxe,   glow: '56,189,248',  scale: 1.06, motion: 'walk' },
-  { key: 'horse-white',      src: horseWhite,     glow: '226,232,240', scale: 1.16, motion: 'walk' },
-  { key: 'wolf-hearts',      src: wolfHearts,     glow: '248,113,113', scale: 1.10, motion: 'walk' },
-  { key: 'sheep-blue',       src: sheepBlue,      glow: '96,165,250',  scale: 1.06, motion: 'walk' },
-  { key: 'sheep-red',        src: sheepRed,       glow: '248,113,113', scale: 1.08, motion: 'walk' },
-  { key: 'mob-spider',       src: mobSpider,      glow: '248,113,113', scale: 1.30, motion: 'walk' },
+  { key: 'steve-pickaxe',    src: stevePickaxe,   glow: '56,189,248',  scale: 1.06, motion: 'hover' },
+  { key: 'horse-white',      src: horseWhite,     glow: '226,232,240', scale: 1.16, motion: 'hover' },
+  { key: 'wolf-hearts',      src: wolfHearts,     glow: '248,113,113', scale: 1.10, motion: 'hover' },
+  { key: 'sheep-blue',       src: sheepBlue,      glow: '96,165,250',  scale: 1.06, motion: 'hover' },
+  { key: 'sheep-red',        src: sheepRed,       glow: '248,113,113', scale: 1.08, motion: 'hover' },
+  { key: 'mob-spider',       src: mobSpider,      glow: '248,113,113', scale: 1.30, motion: 'hover' },
 
   // Pigs in different colours — the same pig art, hue-recoloured (Yosef: "just
   // colour what exists"). Weighted a touch under 1 so five pigs don't flood the mix.
-  { key: 'pig-pink',         src: pigPink,        glow: '249,168,212', scale: 1.12, motion: 'walk', weight: 0.7 },
-  { key: 'pig-gold',         src: pigGold,        glow: '234,179,8',   scale: 1.12, motion: 'walk', weight: 0.7 },
-  { key: 'pig-green',        src: pigGreen,       glow: '74,222,128',  scale: 1.12, motion: 'walk', weight: 0.7 },
-  { key: 'pig-blue',         src: pigBlue,        glow: '96,165,250',  scale: 1.12, motion: 'walk', weight: 0.7 },
-  { key: 'pig-purple',       src: pigPurple,      glow: '192,132,252', scale: 1.12, motion: 'walk', weight: 0.7 },
+  { key: 'pig-pink',         src: pigPink,        glow: '249,168,212', scale: 1.12, motion: 'hover', weight: 0.7 },
+  { key: 'pig-gold',         src: pigGold,        glow: '234,179,8',   scale: 1.12, motion: 'hover', weight: 0.7 },
+  { key: 'pig-green',        src: pigGreen,       glow: '74,222,128',  scale: 1.12, motion: 'hover', weight: 0.7 },
+  { key: 'pig-blue',         src: pigBlue,        glow: '96,165,250',  scale: 1.12, motion: 'hover', weight: 0.7 },
+  { key: 'pig-purple',       src: pigPurple,      glow: '192,132,252', scale: 1.12, motion: 'hover', weight: 0.7 },
 
   { key: 'item-sword-diamond',   src: itemSwordDiamond,   glow: '45,212,191',  scale: 0.95, motion: 'hover', weight: 0.5 },
   { key: 'item-sword-netherite', src: itemSwordNetherite, glow: '167,139,250', scale: 0.95, motion: 'hover', weight: 0.5 },
