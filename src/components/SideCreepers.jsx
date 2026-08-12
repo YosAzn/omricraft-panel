@@ -42,6 +42,8 @@ import mobSpider from '../assets/characters/mob-spider.webp';
 import itemSwordDiamond from '../assets/characters/item-sword-diamond.webp';
 import itemSwordNetherite from '../assets/characters/item-sword-netherite.webp';
 import itemPickaxe from '../assets/characters/item-pickaxe.webp';
+import itemPickaxePurple from '../assets/characters/item-pickaxe-purple.webp';
+import itemPickaxeGray from '../assets/characters/item-pickaxe-gray.webp';
 import itemAxe from '../assets/characters/item-axe.webp';
 import itemTnt from '../assets/characters/item-tnt.webp';
 import itemCreeperFace from '../assets/characters/item-creeper-face.webp';
@@ -80,7 +82,11 @@ const CHARACTERS = [
 
   { key: 'item-sword-diamond',   src: itemSwordDiamond,   glow: '45,212,191',  scale: 0.95, motion: 'hover', weight: 0.5 },
   { key: 'item-sword-netherite', src: itemSwordNetherite, glow: '167,139,250', scale: 0.95, motion: 'hover', weight: 0.5 },
-  { key: 'item-pickaxe',         src: itemPickaxe,        glow: '45,212,191',  scale: 0.95, motion: 'hover', weight: 0.5 },
+  // Pickaxes carry a longer handle now (extended to match the real Minecraft
+  // proportions Yosef referenced) — a touch smaller scale since they're taller.
+  { key: 'item-pickaxe',         src: itemPickaxe,        glow: '45,212,191',  scale: 0.85, motion: 'hover', weight: 0.4 },
+  { key: 'item-pickaxe-purple',  src: itemPickaxePurple,  glow: '167,139,250', scale: 0.85, motion: 'hover', weight: 0.4 },
+  { key: 'item-pickaxe-gray',    src: itemPickaxeGray,    glow: '203,213,225', scale: 0.85, motion: 'hover', weight: 0.4 },
   { key: 'item-axe',             src: itemAxe,            glow: '45,212,191',  scale: 0.95, motion: 'hover', weight: 0.5 },
   { key: 'item-tnt',             src: itemTnt,            glow: '248,113,113', scale: 0.90, motion: 'hover', weight: 0.5 },
   { key: 'item-creeper-face',    src: itemCreeperFace,    glow: '34,197,94',   scale: 0.90, motion: 'hover', weight: 0.5 },
