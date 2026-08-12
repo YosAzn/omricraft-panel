@@ -33,7 +33,12 @@ import horseWhite from '../assets/characters/horse-white.webp';
 import wolfHearts from '../assets/characters/wolf-hearts.webp';
 import sheepBlue from '../assets/characters/sheep-blue.webp';
 import pigPink from '../assets/characters/pig-pink.webp';
+import pigGold from '../assets/characters/pig-gold.webp';
+import pigGreen from '../assets/characters/pig-green.webp';
+import pigBlue from '../assets/characters/pig-blue.webp';
+import pigPurple from '../assets/characters/pig-purple.webp';
 import sheepRed from '../assets/characters/sheep-red.webp';
+import mobSpider from '../assets/characters/mob-spider.webp';
 import itemSwordDiamond from '../assets/characters/item-sword-diamond.webp';
 import itemSwordNetherite from '../assets/characters/item-sword-netherite.webp';
 import itemPickaxe from '../assets/characters/item-pickaxe.webp';
@@ -44,12 +49,10 @@ import itemCreeperFace from '../assets/characters/item-creeper-face.webp';
 // `glow`   — "r,g,b" triplet for the accent halo behind the art.
 // `scale`  — evens out apparent size: the source art has mixed aspect ratios, so a
 //            wide animal at gutter-width reads much smaller than a tall creeper.
-//            Items are deliberately small — they should read as dropped loot, not
-//            as another mob.
-// `motion` — 'hover' drifts in place with a slow sway; 'hold' only bobs.
-//            Nothing walks any more: the mobs used to stroll off-screen and back,
-//            but the right side is mirrored (scaleX(-1)), so they read as moving
-//            BACKWARDS. They now hover like the items instead.
+// `motion` — 'walk' strolls off-screen toward the edge and back (the animals, which
+//            Yosef missed once they were removed); 'hold' stays put (creepers carry
+//            TNT); 'hover' bobs in place (dropped items). No rotation — that was the
+//            only thing Yosef actually objected to, not the walking.
 // `weight` — relative odds of being picked. Items sit at 0.5 so they turn up now
 //            and then rather than half the time.
 const CHARACTERS = [
@@ -57,19 +60,28 @@ const CHARACTERS = [
   { key: 'creeper-tnt-tall', src: creeperTntTall, glow: '34,197,94',   scale: 1.00, motion: 'hold' },
   { key: 'creeper-teal-tnt', src: creeperTealTnt, glow: '45,212,191',  scale: 1.10, motion: 'hold' },
   { key: 'creeper-white',    src: creeperWhite,   glow: '203,213,225', scale: 1.00, motion: 'hold' },
-  { key: 'steve-pickaxe',    src: stevePickaxe,   glow: '56,189,248',  scale: 1.06, motion: 'hover' },
-  { key: 'horse-white',      src: horseWhite,     glow: '226,232,240', scale: 1.16, motion: 'hover' },
-  { key: 'wolf-hearts',      src: wolfHearts,     glow: '248,113,113', scale: 1.10, motion: 'hover' },
-  { key: 'sheep-blue',       src: sheepBlue,      glow: '96,165,250',  scale: 1.06, motion: 'hover' },
-  { key: 'pig-pink',         src: pigPink,        glow: '249,168,212', scale: 1.12, motion: 'hover' },
-  { key: 'sheep-red',        src: sheepRed,       glow: '248,113,113', scale: 1.08, motion: 'hover' },
 
-  { key: 'item-sword-diamond',   src: itemSwordDiamond,   glow: '45,212,191',  scale: 0.74, motion: 'hover', weight: 0.5 },
-  { key: 'item-sword-netherite', src: itemSwordNetherite, glow: '167,139,250', scale: 0.74, motion: 'hover', weight: 0.5 },
-  { key: 'item-pickaxe',         src: itemPickaxe,        glow: '45,212,191',  scale: 0.74, motion: 'hover', weight: 0.5 },
-  { key: 'item-axe',             src: itemAxe,            glow: '45,212,191',  scale: 0.74, motion: 'hover', weight: 0.5 },
-  { key: 'item-tnt',             src: itemTnt,            glow: '248,113,113', scale: 0.72, motion: 'hover', weight: 0.5 },
-  { key: 'item-creeper-face',    src: itemCreeperFace,    glow: '34,197,94',   scale: 0.72, motion: 'hover', weight: 0.5 },
+  { key: 'steve-pickaxe',    src: stevePickaxe,   glow: '56,189,248',  scale: 1.06, motion: 'walk' },
+  { key: 'horse-white',      src: horseWhite,     glow: '226,232,240', scale: 1.16, motion: 'walk' },
+  { key: 'wolf-hearts',      src: wolfHearts,     glow: '248,113,113', scale: 1.10, motion: 'walk' },
+  { key: 'sheep-blue',       src: sheepBlue,      glow: '96,165,250',  scale: 1.06, motion: 'walk' },
+  { key: 'sheep-red',        src: sheepRed,       glow: '248,113,113', scale: 1.08, motion: 'walk' },
+  { key: 'mob-spider',       src: mobSpider,      glow: '248,113,113', scale: 1.30, motion: 'walk' },
+
+  // Pigs in different colours — the same pig art, hue-recoloured (Yosef: "just
+  // colour what exists"). Weighted a touch under 1 so five pigs don't flood the mix.
+  { key: 'pig-pink',         src: pigPink,        glow: '249,168,212', scale: 1.12, motion: 'walk', weight: 0.7 },
+  { key: 'pig-gold',         src: pigGold,        glow: '234,179,8',   scale: 1.12, motion: 'walk', weight: 0.7 },
+  { key: 'pig-green',        src: pigGreen,       glow: '74,222,128',  scale: 1.12, motion: 'walk', weight: 0.7 },
+  { key: 'pig-blue',         src: pigBlue,        glow: '96,165,250',  scale: 1.12, motion: 'walk', weight: 0.7 },
+  { key: 'pig-purple',       src: pigPurple,      glow: '192,132,252', scale: 1.12, motion: 'walk', weight: 0.7 },
+
+  { key: 'item-sword-diamond',   src: itemSwordDiamond,   glow: '45,212,191',  scale: 0.95, motion: 'hover', weight: 0.5 },
+  { key: 'item-sword-netherite', src: itemSwordNetherite, glow: '167,139,250', scale: 0.95, motion: 'hover', weight: 0.5 },
+  { key: 'item-pickaxe',         src: itemPickaxe,        glow: '45,212,191',  scale: 0.95, motion: 'hover', weight: 0.5 },
+  { key: 'item-axe',             src: itemAxe,            glow: '45,212,191',  scale: 0.95, motion: 'hover', weight: 0.5 },
+  { key: 'item-tnt',             src: itemTnt,            glow: '248,113,113', scale: 0.90, motion: 'hover', weight: 0.5 },
+  { key: 'item-creeper-face',    src: itemCreeperFace,    glow: '34,197,94',   scale: 0.90, motion: 'hover', weight: 0.5 },
 ];
 
 // Cumulative weights, built once — a weighted draw is just a binary-free scan over
@@ -91,11 +103,11 @@ function pickIdx(prev) {
   return i === prev ? (i + 1) % CHARACTERS.length : i;
 }
 
-// Nothing rotates or walks any more (Yosef: "I didn't ask you to rotate at all").
-// The only movement is the gentle vertical .oc-float bob applied to every figure;
-// the gait wrapper keeps its layout role but drives no animation.
-function motionClass() {
-  return '';
+// Only the WALK gait is a class; 'hold'/'hover' get no gait animation (just the
+// vertical .oc-float bob). No rotation anywhere — Yosef objected to spinning, not
+// to walking, so the walk is back but the rotate swings are gone for good.
+function motionClass(ch) {
+  return ch.motion === 'walk' ? 'walk' : '';
 }
 
 // One rendered character. The entrance is gated on the image's own load event —
@@ -206,10 +218,21 @@ export default function SideCreepers() {
           50%     { transform: translateY(-12px); }
         }
 
-        /* NO rotation and NO walk. The mobs used to walk (which looked reversed on
-           the mirrored right side) and were then changed to a rotate-sway — but
-           Yosef asked for neither. The only movement left is the vertical .oc-float
-           bob above; the gait wrapper drives nothing. */
+        /* WALK: the animal strolls outward past the screen edge, pauses off-screen,
+           then walks back in — pure translateX, NO rotation. Both sides share the
+           same negative translate; the right side's parent scaleX(-1) mirrors it, so
+           each exits toward its own edge. Left & right run at different durations so
+           they never step in lockstep. */
+        .side-creepers .oc-side.left  .oc-gait.walk { animation: ocWalk 15s ease-in-out infinite; }
+        .side-creepers .oc-side.right .oc-gait.walk { animation: ocWalk 17.5s ease-in-out 1.6s infinite; }
+        @keyframes ocWalk {
+          0%   { transform: translateX(0); }
+          16%  { transform: translateX(0); }
+          40%  { transform: translateX(-640px); }
+          54%  { transform: translateX(-640px); }
+          80%  { transform: translateX(0); }
+          100% { transform: translateX(0); }
+        }
 
         /* RESPONSIVE: below 1536px the gutter is too narrow to hold a character
            without crowding the text, so hide the layer entirely. */
