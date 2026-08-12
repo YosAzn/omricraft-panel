@@ -84,9 +84,9 @@ export default function LandingPage({
         <header dir="ltr" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex items-center justify-between gap-4">
           {/* Brand lockup: face + wordmark IMAGE (consistent with the hero, nav and
               footer). Replaces the old gradient text. */}
-          <div className="flex items-center gap-2.5">
-            <img src={omricraftFace} alt="" aria-hidden="true" className="h-11 w-auto" />
-            <img src={omricraftWordmark} alt={t('appTitle')} className="h-7 w-auto drop-shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
+          <div className="flex items-center gap-1.5">
+            <img src={omricraftFace} alt="" aria-hidden="true" className="h-[60px] w-auto" />
+            <img src={omricraftWordmark} alt={t('appTitle')} className="h-[38px] w-auto drop-shadow-[0_0_10px_rgba(16,185,129,0.3)]" style={{ position: 'relative', top: '6px' }} />
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -131,13 +131,16 @@ export default function LandingPage({
             src={omricraftFace}
             alt=""
             aria-hidden="true"
-            className="oc-rise mx-auto mb-5 h-44 sm:h-56 lg:h-64 w-auto drop-shadow-[0_0_60px_rgba(16,185,129,0.4)]"
+            className="oc-rise mx-auto mb-5 h-52 sm:h-64 lg:h-[300px] w-auto drop-shadow-[0_0_60px_rgba(16,185,129,0.4)]"
           />
           {/* Wordmark image (Yosef's new "OmriCraft" logo) replaces the gradient text;
-              kept inside the h1 with alt text so the page still has its heading. */}
+              kept inside the h1 with alt text so the page still has its heading.
+              Nudged right (position:left) so the bottom diamond sits under the face's
+              centre — position, not transform, so it never fights the oc-rise anim. */}
           <h1 className="oc-rise mb-6" style={{ animationDelay: '60ms' }}>
             <img src={omricraftWordmark} alt={t('appTitle')}
-                 className="mx-auto h-20 sm:h-24 lg:h-28 w-auto drop-shadow-[0_0_40px_rgba(16,185,129,0.35)]" />
+                 className="mx-auto h-24 sm:h-28 lg:h-[134px] w-auto drop-shadow-[0_0_40px_rgba(16,185,129,0.35)]"
+                 style={{ position: 'relative', left: '12px' }} />
           </h1>
 
           <p className="oc-rise text-2xl sm:text-3xl font-bold text-zinc-100 max-w-2xl mx-auto mb-4"

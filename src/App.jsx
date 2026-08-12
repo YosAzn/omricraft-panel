@@ -942,10 +942,10 @@ export default function App() {
             {/* Brand lockup: face emblem + the wordmark IMAGE (same asset the hero
                 uses), replacing the old gradient text so nav/footer/hero all show
                 one consistent wordmark. Wordmark hidden on mobile like before. */}
-            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setCurrentView('landing')} title={t('appTitle')}>
-              <img src={omricraftFace} alt="" aria-hidden="true" className="h-11 w-auto drop-shadow-[0_0_10px_rgba(16,185,129,0.35)]" />
+            <div className="flex items-center gap-1.5 cursor-pointer" onClick={() => setCurrentView('landing')} title={t('appTitle')}>
+              <img src={omricraftFace} alt="" aria-hidden="true" className="h-[60px] w-auto drop-shadow-[0_0_10px_rgba(16,185,129,0.35)]" />
               <h1 className="hidden sm:block m-0">
-                <img src={omricraftWordmark} alt={t('appTitle')} className="h-7 w-auto drop-shadow-[0_0_10px_rgba(16,185,129,0.3)]" />
+                <img src={omricraftWordmark} alt={t('appTitle')} className="h-[38px] w-auto drop-shadow-[0_0_10px_rgba(16,185,129,0.3)]" style={{ position: 'relative', top: '6px' }} />
               </h1>
             </div>
             {/* The button GROUP follows the app direction (the surrounding nav row
