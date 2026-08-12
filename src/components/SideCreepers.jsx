@@ -62,7 +62,10 @@ import itemCreeperFace from '../assets/characters/item-creeper-face.webp';
 const CHARACTERS = [
   { key: 'creeper-green',    src: creeperGreen,   glow: '34,197,94',   scale: 1.00, motion: 'hold' },
   { key: 'creeper-tnt-tall', src: creeperTntTall, glow: '34,197,94',   scale: 1.00, motion: 'hold' },
-  { key: 'creeper-teal-tnt', src: creeperTealTnt, glow: '45,212,191',  scale: 1.10, motion: 'hold' },
+  // Enlarged so the teal creeper reads as big as the standalone white creeper —
+  // the composition is wide (creeper + TNT), so it needs a higher scale to match.
+  // The TNT grows with it. 1.5 matches white without crossing into the content column.
+  { key: 'creeper-teal-tnt', src: creeperTealTnt, glow: '45,212,191',  scale: 1.50, motion: 'hold' },
   { key: 'creeper-white',    src: creeperWhite,   glow: '203,213,225', scale: 1.00, motion: 'hold' },
 
   { key: 'steve-pickaxe',    src: stevePickaxe,   glow: '56,189,248',  scale: 1.06, motion: 'hover' },
